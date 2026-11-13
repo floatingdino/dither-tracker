@@ -32,8 +32,8 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         /** Redraw this dither rect. */
         fun invalidate(rect: IRect)
 
-        /** Releases, without applying, every touch on zones `[from, until)` (their meaning is about to change). */
-        fun cancelTouches(from: Int, until: Int)
+        /** Releases, without applying, every touch on [seat]'s drawer locals `[from, until)` ([DrawerZones]; their meaning is about to change). */
+        fun cancelTouches(seat: Int, from: Int, until: Int)
     }
 
     var layout: DrawerLayout? = null
@@ -83,32 +83,39 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         var any = false
         for (s in 0 until S) {
             if (!state.isOpen(s)) continue
-            host.cancelTouches(DrawerZones.seatFirst(s), DrawerZones.seatEnd(s))
-            state.setOpen(s, false)
-            if (l != null) host.invalidate(l.play.panels[s])
+            close(s, l)
             any = true
         }
         return any
     }
 
-    /** Whether holding [zone] (a drawer zone) repeats. */
-    fun repeats(zone: Int): Boolean {
-        if (!DrawerZones.isDrawer(zone)) return false
-        val local = DrawerZones.localOf(zone)
+    /** Closes [seat]'s drawer if open (cancels its touches, redraws the panel). Returns true if it was open. */
+    fun close(seat: Int): Boolean {
+        if (!state.isOpen(seat)) return false
+        close(seat, layout)
+        return true
+    }
+
+    private fun close(s: Int, l: DrawerLayout?) {
+        host.cancelTouches(s, 0, DrawerZones.CELL_END)
+        state.setOpen(s, false)
+        if (l != null) host.invalidate(l.play.panels[s])
+    }
+
+    /** Whether holding [seat]'s drawer [local] repeats (counter cells). */
+    fun repeats(seat: Int, local: Int): Boolean {
         if (!DrawerZones.isCell(local)) return false
-        val item = itemAt(DrawerZones.seatOf(zone), DrawerZones.slotOf(local))
+        val item = itemAt(seat, DrawerZones.slotOf(local))
         return item >= 0 && DrawerItems.repeats(item)
     }
 
-    /** A tap (release) on drawer [zone]. Returns true if anything happened. */
-    fun onTap(zone: Int): Boolean {
-        if (!DrawerZones.isDrawer(zone)) return false
+    /** A tap (release) on [seat]'s drawer [local] ([DrawerZones]; not [DrawerZones.BUTTON]). Returns true if anything happened. */
+    fun onTap(seat: Int, local: Int): Boolean {
         val l = layout ?: return false
-        val s = DrawerZones.seatOf(zone)
-        val local = DrawerZones.localOf(zone)
+        val s = seat
         when {
             local == DrawerZones.TAB -> {
-                host.cancelTouches(DrawerZones.seatFirst(s), DrawerZones.seatEnd(s))
+                host.cancelTouches(s, 0, DrawerZones.CELL_END)
                 state.toggle(s)
                 if (state.isOpen(s)) refresh(s)
                 host.invalidate(l.play.panels[s])
@@ -119,23 +126,27 @@ class DrawerController(val state: DrawerState, private val host: Host) {
                 if (!moved) return false
                 pageChanged(s)
             }
-            else -> {
+            DrawerZones.isCell(local) -> {
                 val item = itemAt(s, DrawerZones.slotOf(local))
                 if (item < 0) return false
                 return apply(s, item, DrawerItems.tapDelta(item, DrawerZones.halfOf(local)))
             }
+            else -> return false
         }
         return true
     }
 
-    /** One hold repeat on drawer [zone]. */
-    fun onRepeat(zone: Int): Boolean {
-        if (!repeats(zone)) return false
-        val s = DrawerZones.seatOf(zone)
-        val local = DrawerZones.localOf(zone)
-        val item = itemAt(s, DrawerZones.slotOf(local))
-        return apply(s, item, DrawerItems.holdDelta(DrawerZones.halfOf(local)))
+    /** One hold repeat on [seat]'s drawer [local]. */
+    fun onRepeat(seat: Int, local: Int): Boolean {
+        if (!repeats(seat, local)) return false
+        val item = itemAt(seat, DrawerZones.slotOf(local))
+        return apply(seat, item, DrawerItems.holdDelta(DrawerZones.halfOf(local)))
     }
+
+    // Global zone ids (the pre-T34 view; removed with it).
+    fun repeats(zone: Int): Boolean = DrawerZones.isDrawer(zone) && repeats(DrawerZones.seatOf(zone), DrawerZones.localOf(zone))
+    fun onTap(zone: Int): Boolean = DrawerZones.isDrawer(zone) && onTap(DrawerZones.seatOf(zone), DrawerZones.localOf(zone))
+    fun onRepeat(zone: Int): Boolean = DrawerZones.isDrawer(zone) && onRepeat(DrawerZones.seatOf(zone), DrawerZones.localOf(zone))
 
     private fun apply(seat: Int, item: Int, delta: Int): Boolean {
         val g = host.game
@@ -148,7 +159,7 @@ class DrawerController(val state: DrawerState, private val host: Host) {
     private fun pageChanged(s: Int) {
         val l = layout ?: return
         // Cells change meaning; the bar's chevrons may appear/disappear.
-        host.cancelTouches(DrawerZones.zone(s, DrawerZones.PREV), DrawerZones.seatEnd(s))
+        host.cancelTouches(s, DrawerZones.PREV, DrawerZones.CELL_END)
         host.invalidate(l.drawer[s])
     }
 
@@ -194,7 +205,7 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         }
     }
 
-    private fun cancelSeat(s: Int) = host.cancelTouches(DrawerZones.zone(s, DrawerZones.PREV), DrawerZones.seatEnd(s))
+    private fun cancelSeat(s: Int) = host.cancelTouches(s, DrawerZones.PREV, DrawerZones.CELL_END)
 
     private fun anyShapeChange(op: List<Player>, np: List<Player>): Boolean {
         for (i in np.indices) {

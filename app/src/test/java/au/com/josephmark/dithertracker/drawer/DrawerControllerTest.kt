@@ -19,7 +19,7 @@ class DrawerControllerTest {
     private val session = GameSession.newGame(4)
     private val dispatched = ArrayList<Pair<Int, Action>>()
     private val invalidated = ArrayList<IRect>()
-    private val cancelled = ArrayList<IntRange>()
+    private val cancelled = ArrayList<Pair<Int, IntRange>>()
     private var counters: List<Counter> = Counter.entries.toList()
 
     private val host = object : DrawerController.Host {
@@ -30,7 +30,7 @@ class DrawerControllerTest {
             session.dispatch(action, 0)
         }
         override fun invalidate(rect: IRect) { invalidated += IRect(rect.left, rect.top, rect.right, rect.bottom) }
-        override fun cancelTouches(from: Int, until: Int) { cancelled += from until until }
+        override fun cancelTouches(seat: Int, from: Int, until: Int) { cancelled += seat to (from until until) }
     }
 
     private val layout = DrawerLayout(PlayLayout.compute(DitherGrid(1872, 1404, 4)))
@@ -42,8 +42,9 @@ class DrawerControllerTest {
     }
 
     private fun id(seat: Int) = session.state.players[seat].id
-    private fun tap(seat: Int, local: Int) = c.onTap(DrawerZones.zone(seat, local))
-    private fun tapCell(seat: Int, slot: Int, half: Int) = c.onTap(DrawerZones.cellZone(seat, slot, half))
+    private fun tap(seat: Int, local: Int) = c.onTap(seat, local)
+    private fun tapCell(seat: Int, slot: Int, half: Int) = c.onTap(seat, cell(slot, half))
+    private fun cell(slot: Int, half: Int) = DrawerZones.CELL0 + slot * 2 + half
     private fun items(seat: Int) = (0 until state.itemsOnPage(seat)).map { c.itemAt(seat, it) }
 
     @Test fun tabTogglesAndRedrawsThePanel() {
@@ -51,7 +52,7 @@ class DrawerControllerTest {
         assertTrue(tap(3, DrawerZones.TAB))
         assertTrue(state.isOpen(3))
         assertEquals(listOf(layout.play.panels[3]), invalidated)
-        assertEquals(listOf(DrawerZones.seatFirst(3) until DrawerZones.seatEnd(3)), cancelled)
+        assertEquals(listOf(3 to (0 until DrawerZones.CELL_END)), cancelled)
         tap(3, DrawerZones.TAB)
         assertFalse(state.isOpen(3))
         assertEquals(2, invalidated.size)
@@ -145,21 +146,22 @@ class DrawerControllerTest {
         tapCell(0, 0, DrawerZones.PLUS)
         assertEquals(Action.ChangeCommanderTax(id(0), Commander.PRIMARY, 2), dispatched.single().second)
         assertEquals(2, session.state.players[0].commanderTax.primary)
-        assertFalse(c.repeats(DrawerZones.cellZone(0, 0, DrawerZones.PLUS)))
-        assertTrue(c.repeats(DrawerZones.cellZone(0, 1, DrawerZones.PLUS)))
-        assertFalse(c.repeats(DrawerZones.zone(0, DrawerZones.TAB)))
-        assertFalse(c.onRepeat(DrawerZones.cellZone(0, 0, DrawerZones.PLUS)))
+        assertFalse(c.repeats(0, cell(0, DrawerZones.PLUS)))
+        assertTrue(c.repeats(0, cell(1, DrawerZones.PLUS)))
+        assertFalse(c.repeats(0, DrawerZones.TAB))
+        assertFalse(c.repeats(0, DrawerZones.BUTTON))
+        assertFalse(c.onRepeat(0, cell(0, DrawerZones.PLUS)))
     }
 
     @Test fun holdRepeatsCountersByFive() {
         tap(0, DrawerZones.TAB)
-        assertTrue(c.onRepeat(DrawerZones.cellZone(0, 2, DrawerZones.PLUS))) // energy
+        assertTrue(c.onRepeat(0, cell(2, DrawerZones.PLUS))) // energy
         assertEquals(Action.ChangeCounter(id(0), Counter.ENERGY, 5), dispatched.single().second)
     }
 
     @Test fun poisonWarningAndValues() {
         tap(3, DrawerZones.TAB)
-        c.onRepeat(DrawerZones.cellZone(3, 1, DrawerZones.PLUS)) // poison 5
+        c.onRepeat(3, cell(1, DrawerZones.PLUS)) // poison 5
         repeat(3) { tapCell(3, 1, DrawerZones.PLUS) } // 8
         val item = c.itemAt(3, 1)
         val v = DrawerItems.value(item, session.state.players[3])
@@ -188,7 +190,31 @@ class DrawerControllerTest {
         session.dispatch(Action.SetPartner(id(3), true), 0)
         assertEquals(9, c.itemCount(3))
         assertTrue(invalidated.contains(layout.drawer[3]))
-        assertEquals(1, cancelled.size)
+        assertEquals(listOf(3 to (DrawerZones.PREV until DrawerZones.CELL_END)), cancelled)
+    }
+
+    @Test fun pageChangeCancelsTheSeatsPageAndCellPresses() {
+        session.dispatch(Action.SetPartner(id(3), true), 0)
+        tap(3, DrawerZones.TAB)
+        cancelled.clear()
+        tap(3, DrawerZones.NEXT)
+        assertEquals(listOf(3 to (DrawerZones.PREV until DrawerZones.CELL_END)), cancelled)
+    }
+
+    @Test fun closeClosesOneSeat() {
+        tap(1, DrawerZones.TAB); tap(2, DrawerZones.TAB)
+        cancelled.clear(); invalidated.clear()
+        assertTrue(c.close(1))
+        assertFalse(state.isOpen(1)); assertTrue(state.isOpen(2))
+        assertEquals(listOf(1 to (0 until DrawerZones.CELL_END)), cancelled)
+        assertEquals(listOf(layout.play.panels[1]), invalidated)
+        assertFalse(c.close(1))
+    }
+
+    @Test fun theButtonAndUnknownLocalsDoNothingHere() {
+        tap(0, DrawerZones.TAB)
+        assertFalse(tap(0, DrawerZones.BUTTON)) // the component turns it into an event
+        assertTrue(dispatched.isEmpty())
     }
 
     @Test fun drawerActionsUseTheirOwnCoalesceKeys() {

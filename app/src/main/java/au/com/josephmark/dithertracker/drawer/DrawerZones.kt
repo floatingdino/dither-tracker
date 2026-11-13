@@ -33,7 +33,11 @@ object DrawerZones {
     const val PREV = 1
     const val NEXT = 2
     const val CELL0 = 3
-    const val PER_SEAT = CELL0 + 2 * MAX_SLOTS
+    const val CELL_END = CELL0 + 2 * MAX_SLOTS
+
+    /** The commander button in the open bar's left segment (T30): sends `Events.COMMANDER_TARGET`. */
+    const val BUTTON = CELL_END
+    const val PER_SEAT = BUTTON + 1
 
     /** Total number of zone ids. */
     const val COUNT = LIFE + PLAYERS * PER_SEAT
@@ -53,11 +57,11 @@ object DrawerZones {
     /** Local id within the seat's drawer block (drawer zones only). */
     fun localOf(zone: Int): Int = (zone - LIFE) % PER_SEAT
 
-    fun isCell(local: Int): Boolean = local >= CELL0
+    fun isCell(local: Int): Boolean = local in CELL0 until CELL_END
     fun slotOf(local: Int): Int = (local - CELL0) / 2
     fun halfOf(local: Int): Int = (local - CELL0) % 2
 
-    /** First and one-past-last zone id of [seat]'s drawer block. */
+    /** First and one-past-last zone id of [seat]'s drawer block (tab, page, cells; not [BUTTON]). */
     fun seatFirst(seat: Int): Int = zone(seat, 0)
-    fun seatEnd(seat: Int): Int = zone(seat, PER_SEAT)
+    fun seatEnd(seat: Int): Int = zone(seat, CELL_END)
 }

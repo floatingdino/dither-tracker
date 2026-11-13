@@ -107,6 +107,7 @@ class Stage(
         c.stage = this
         c.index = list.size
         list += c
+        c.onAdded()
         return c
     }
 
@@ -522,13 +523,13 @@ class Stage(
             val cs = byLayer[layer]
             if (Layer.isTile(layer)) {
                 for (s in 0 until n) for (c in cs) {
-                    if (c.zonesPerSeat == 0 || !isVisible(c, s)) continue
+                    if (!isVisible(c, s)) continue
                     sink.c = c; sink.seat = s
                     c.zones(s, sink)
                 }
             } else {
                 for (c in cs) {
-                    if (c.zonesPerSeat == 0 || !isVisible(c, SCREEN)) continue
+                    if (!isVisible(c, SCREEN)) continue
                     sink.c = c; sink.seat = SCREEN
                     c.zones(SCREEN, sink)
                 }

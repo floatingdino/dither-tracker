@@ -89,7 +89,7 @@ class PlayView(
 
     private val drawers = DrawerState(PlayLayout.PLAYERS)
     private val drawer = DrawerController(drawers, this)
-    private val painter = DrawerPainter(r, text)
+    private val painter = DrawerPainter(r, text, au.com.josephmark.dithertracker.stage.IconPainter(r))
     private val settings = SettingsHolder.shared
     private val mode = CommanderMode(modeTimers, this, random).also { modeTimers.target = it }
 
@@ -323,7 +323,7 @@ class PlayView(
 
     override fun invalidate(rect: IRect) = invalidateDither(rect)
 
-    override fun cancelTouches(from: Int, until: Int) = input.cancelZones(from, until)
+    override fun cancelTouches(seat: Int, from: Int, until: Int) = input.cancelZones(DrawerZones.zone(seat, from), DrawerZones.zone(seat, until))
 
     // ---- pending-delta readout ------------------------------------------------------------
 

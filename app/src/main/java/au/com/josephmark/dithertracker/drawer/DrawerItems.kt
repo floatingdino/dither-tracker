@@ -5,6 +5,7 @@ import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.Counter
 import au.com.josephmark.dithertracker.core.Player
+import au.com.josephmark.dithertracker.dither.Icon
 
 /**
  * What a drawer cell shows, as one packed int (no allocation): `kind shl 16 or arg`.
@@ -80,4 +81,22 @@ object DrawerItems {
         TAX -> Action.ChangeCommanderTax(player.id, arg(item), delta)
         else -> null
     }
+
+    private val COUNTER_ICONS = arrayOf(
+        Icon.POISON, Icon.ENERGY, Icon.EXPERIENCE, Icon.RADS, Icon.STORM, Icon.TICKETS, Icon.GENERIC_COUNTER,
+    )
+
+    init {
+        check(COUNTER_ICONS.size == Counter.entries.size)
+    }
+
+    /** The icon of a tray item (drawer cell, counter peek). */
+    fun iconFor(item: Int): Icon = when (kind(item)) {
+        COUNTER -> COUNTER_ICONS[arg(item)]
+        TAX -> if (arg(item) == Commander.PARTNER) Icon.PARTNER else Icon.COMMANDER_TAX
+        else -> Icon.COMMANDER
+    }
+
+    /** Every icon a tray item can show. */
+    val TRAY_ICONS: Array<Icon> = COUNTER_ICONS + arrayOf(Icon.COMMANDER_TAX, Icon.PARTNER)
 }

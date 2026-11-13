@@ -55,6 +55,9 @@ abstract class Component(
 
     // ---- lifecycle -----------------------------------------------------------------------------
 
+    /** Just added to [stage] (before `seal`): create state that needs the stage, register services and covers. */
+    open fun onAdded() {}
+
     /** The view is attached (state may have changed while detached). */
     open fun onAttach() {}
 

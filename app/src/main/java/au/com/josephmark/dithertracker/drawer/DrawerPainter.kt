@@ -1,13 +1,11 @@
 package au.com.josephmark.dithertracker.drawer
 
-import au.com.josephmark.dithertracker.core.Commander
-import au.com.josephmark.dithertracker.core.Counter
 import au.com.josephmark.dithertracker.core.Player
 import au.com.josephmark.dithertracker.dither.DitherRenderer
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.Icon
-import au.com.josephmark.dithertracker.dither.MonoImage
 import au.com.josephmark.dithertracker.dither.Role
+import au.com.josephmark.dithertracker.stage.IconPainter
 import au.com.josephmark.dithertracker.type.TextRenderer
 
 /**
@@ -24,10 +22,7 @@ import au.com.josephmark.dithertracker.type.TextRenderer
  *   is frameless and the value hidden, so active counters stand out. Poison at 8+ is a solid ink
  *   card with paper content (nearly lethal).
  */
-class DrawerPainter(private val r: DitherRenderer, private val text: TextRenderer) {
-
-    private var iconK = 1
-    private val scaled = arrayOfNulls<MonoImage>(Icon.entries.size)
+class DrawerPainter(private val r: DitherRenderer, private val text: TextRenderer, private val icons: IconPainter) {
 
     /** Draws everything in [seat]'s open drawer that intersects [clip]. */
     fun draw(l: DrawerLayout, c: DrawerController, seat: Int, players: List<Player>, clip: IRect) {
@@ -76,56 +71,25 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
     }
 
     /** Paper behind [rect] grown by [h] all round. */
-    fun halo(rect: IRect, h: Int) {
-        r.rect(rect.left - h, rect.top - h, rect.width + 2 * h, rect.height + 2 * h, ink = false)
-    }
+    fun halo(rect: IRect, h: Int) = icons.halo(rect, h)
 
     /** Blits [icon] at glyph scale [k] with its footprint's top-left at [at]. */
-    fun icon(k: Int, icon: Icon, at: IRect, rot: Int, invert: Boolean, opaque: Boolean) {
-        r.blit(scaledIcon(icon, k), at.left, at.top, rot, invert, opaque)
-    }
+    fun icon(k: Int, icon: Icon, at: IRect, rot: Int, invert: Boolean, opaque: Boolean) = icons.icon(k, icon, at, rot, invert, opaque)
 
     /** Builds every icon mask and ui glyph the drawer can draw at [l]'s scale (call off the draw path). */
     fun prewarm(l: DrawerLayout) {
-        for (ic in WARM_ICONS) r.blit(scaledIcon(ic, l.tk), 0, 0)
+        icons.prewarm(WARM_ICONS, l.tk)
         for (rot in intArrayOf(0, 180)) text.draw(l.numFont, "0123456789+-", 0, 0, l.tk, rot)
-    }
-
-    fun scaledIcon(icon: Icon, k: Int): MonoImage {
-        if (k == 1) return icon
-        if (k != iconK) {
-            scaled.fill(null); iconK = k
-        }
-        return scaled[icon.ordinal] ?: Scaled(icon, k).also { scaled[icon.ordinal] = it }
     }
 
     private fun hit(a: IRect, clip: IRect): Boolean =
         a.left < clip.right && clip.left < a.right && a.top < clip.bottom && clip.top < a.bottom
 
-    /** An icon enlarged k× (nearest neighbour): a stable instance so the renderer's mask cache hits. */
-    private class Scaled(private val src: MonoImage, private val k: Int) : MonoImage {
-        override val width: Int = src.width * k
-        override val height: Int = src.height * k
-        override fun isInk(x: Int, y: Int): Boolean = src.isInk(x / k, y / k)
-    }
-
     companion object {
-        private val COUNTER_ICONS = arrayOf(
-            Icon.POISON, Icon.ENERGY, Icon.EXPERIENCE, Icon.RADS, Icon.STORM, Icon.TICKETS, Icon.GENERIC_COUNTER,
-        )
+        fun iconFor(item: Int): Icon = DrawerItems.iconFor(item)
 
-        init {
-            check(COUNTER_ICONS.size == Counter.entries.size)
-        }
-
-        fun iconFor(item: Int): Icon = when (DrawerItems.kind(item)) {
-            DrawerItems.COUNTER -> COUNTER_ICONS[DrawerItems.arg(item)]
-            DrawerItems.TAX -> if (DrawerItems.arg(item) == Commander.PARTNER) Icon.PARTNER else Icon.COMMANDER_TAX
-            else -> Icon.COMMANDER
-        }
-
-        private val WARM_ICONS = COUNTER_ICONS + arrayOf(
-            Icon.COMMANDER_TAX, Icon.PARTNER, Icon.COMMANDER, Icon.CHEVRON_LEFT, Icon.CHEVRON_RIGHT, Icon.LIFE, Icon.CLOSE,
+        private val WARM_ICONS = DrawerItems.TRAY_ICONS + arrayOf(
+            Icon.COMMANDER, Icon.CHEVRON_LEFT, Icon.CHEVRON_RIGHT, Icon.LIFE, Icon.CLOSE,
         )
     }
 }
