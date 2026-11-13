@@ -1,6 +1,6 @@
 # T36 — Centre menu concepts
 
-Sam liked that the Lotus radial menu (`design/reference/lotus-menu.webp`) isn't aimed at any one
+Sam liked that the Lotus radial menu (reference screenshot not kept in the repo) isn't aimed at any one
 player, but not its angled pills. These are four ways to get the same result in our language:
 everything axis-aligned on the dither grid, turned only in 90° steps, built from real icons
 (`design/icons/`), real faces (`ui`, `num-m`, sticker `num-l`) and real fills (`D6` = `Role.MENU`,
