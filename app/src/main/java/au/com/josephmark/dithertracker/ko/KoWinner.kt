@@ -19,7 +19,8 @@ import kotlin.random.Random
  * KO, a line from `Flavour.winner` in caps takes the hero position of that tile at the one quip size
  * ([KoLayout.arrange], the same layout as a dead tile's quip; T47), under a small crown emblem,
  * with the winner's final life as the small detail below (heart + `num-m`). The tile stays paper and
- * the counter peeks and tab stay; the caption is drawn on a paper cover over the live number.
+ * the counter peeks and tab stay; the caption is drawn on a paper cover over the live number (so its
+ * ground is that paper: the dead tile's continuous ground, with nothing round it to cut out of).
  *
  * **Input rule:** the tile stays live underneath — its ± halves, tab and drawer work as ever. Any
  * change to the winner's life (a tap, a hold, commander damage linked to life) dismisses the caption

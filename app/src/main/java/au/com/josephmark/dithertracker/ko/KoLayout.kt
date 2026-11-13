@@ -34,7 +34,9 @@ import au.com.josephmark.dithertracker.widgets.TextWrap
  *   only at spaces and balanced (the narrowest widest line for that count) ([arrange]). Only a line
  *   that cannot fit whole at [quipK] steps down (none of the shipped lines on the Nomad do). Lines are
  *   9k apart (the face's full height), the block's cap bands centred vertically, each line centred.
- *   On a dead tile every word sits on a paper box grown by [halo] (cut out of the field).
+ *   On a dead tile the block sits on one continuous paper ground cut out of the field ([Block.ground]):
+ *   per line a bar from its first glyph to its last grown by [halo], each bar reaching down to the
+ *   next, so the lines merge into one stepped shape with no dither between words or lines.
  * - **Detail**: an icon + `num-m` value on a paper chip, centred in the under-number row between the
  *   counter-peek corners ([detail]).
  * - **Revive** (armed): an ink plate reading [REVIVE] in paper at [Block.reviveK], with a solid
@@ -53,7 +55,7 @@ class KoLayout(val play: PlayLayout) {
     /** Paper between the dead field and the dividers / centre diamond. */
     val gutter: Int = Chrome.size(GUTTER, s)
 
-    /** Paper round the emblem's silhouette, each word of the quip and the detail chip. */
+    /** Paper round the emblem's silhouette, the quip's ground and the detail chip. */
     val halo: Int = Chrome.size(HALO, s)
 
     /** Revive plate: border-free ink; padding round its text; shadow offset and the paper keyline. */
@@ -93,7 +95,7 @@ class KoLayout(val play: PlayLayout) {
 
     val emblemTop: Int = PlayLayout.V_MIN + gutter
 
-    /** Hero text box (cap bands and descenders; word boxes grow [halo] beyond it). */
+    /** Hero text box (cap bands and descenders; the ground grows [halo] beyond it). */
     val textLeft: Int = PlayLayout.EDGE_MIN
     val textRight: Int = W - PlayLayout.EDGE_MIN
     val textW: Int get() = textRight - textLeft
@@ -197,8 +199,8 @@ class KoLayout(val play: PlayLayout) {
     /**
      * Lays out the hero [quip] (already in caps) on [seat] into [out]: at [quipK], in the fewest lines
      * (≤ [MAX_LINES]) that hold it whole without breaking a word and fit [textH], balanced; only when
-     * that fails, one step smaller at a time (k = 1 shows what fits). Also places the armed revive
-     * plate. Pure; allocation-free.
+     * that fails, one step smaller at a time (k = 1 shows what fits). Also places the ground and the
+     * armed revive plate. Pure; allocation-free.
      */
     fun arrange(seat: Int, quip: CharSequence, out: Block) {
         var k = quipK
@@ -221,9 +223,16 @@ class KoLayout(val play: PlayLayout) {
             val y = y0 + i * lh
             out.lx[i] = x; out.ly[i] = y
             play.mapRect(seat, x, y, tw, lh, out.line[i])
-            u = minOf(u, x); v = minOf(v, y); r = maxOf(r, x + tw); b = maxOf(b, y + lh)
+            // Ground: the cap band (and descender rows when the line has any) grown by [halo]; every
+            // bar but the last reaches the next one's top, so the lines join into one stepped shape.
+            val gTop = y + ui.capTop * k - halo
+            val own = y + (if (descends(quip, wrap.start[i], wrap.end[i])) ui.glyphHeight else ui.baseline) * k + halo
+            val gBottom = if (i < n - 1) maxOf(own, y + lh + ui.capTop * k - halo) else own
+            out.gx[i] = x - halo; out.gy[i] = gTop; out.gw[i] = tw + 2 * halo; out.gh[i] = gBottom - gTop
+            play.mapRect(seat, x - halo, gTop, tw + 2 * halo, gBottom - gTop, out.ground[i])
+            u = minOf(u, x - halo); v = minOf(v, gTop); r = maxOf(r, x + tw + halo); b = maxOf(b, gBottom)
         }
-        if (n > 0) play.mapRect(seat, u - halo, v - halo, r - u + 2 * halo, b - v + 2 * halo, out.bounds)
+        if (n > 0) play.mapRect(seat, u, v, r - u, b - v, out.bounds)
         else out.bounds.set(0, 0, 0, 0)
         arrangeRevive(seat, out)
     }
@@ -246,6 +255,15 @@ class KoLayout(val play: PlayLayout) {
         }
         wrap.wrap(text, ui, k, ui.widthOf(c, k))
         return true
+    }
+
+    /** True when a glyph of `text[from, until)` has ink below the baseline (`,` `;` and the like). */
+    private fun descends(text: CharSequence, from: Int, until: Int): Boolean {
+        for (j in from until until) {
+            val g = ui.glyph(text[j])
+            for (y in ui.baseline until ui.glyphHeight) for (x in 0 until ui.glyphWidth) if (g.isInk(x, y)) return true
+        }
+        return false
     }
 
     /** True when the last wrap kept every non-space char and broke lines only at spaces. */
@@ -279,19 +297,6 @@ class KoLayout(val play: PlayLayout) {
         play.mapRect(seat, px + padH, py + padV - ui.capTop * k, tw, ui.height(k), out.reviveText)
     }
 
-    /**
-     * The paper box of the word `[from, until)` of line [i] in [b] on [seat] (screen): the glyphs'
-     * cap band (and descender rows when [descends]) grown by [halo].
-     */
-    fun wordBox(seat: Int, b: Block, i: Int, from: Int, until: Int, descends: Boolean, out: IRect) {
-        val k = b.k
-        val step = ui.advance * k
-        val x = b.lx[i] + (from - b.start[i]) * step
-        val w = ui.widthOf(until - from, k)
-        val h = (if (descends) ui.glyphHeight else ui.capTop + ui.capHeight) * k - ui.capTop * k
-        play.mapRect(seat, x - halo, b.ly[i] + ui.capTop * k - halo, w + 2 * halo, h + 2 * halo, out)
-    }
-
     // ---- winner ---------------------------------------------------------------------------------------
 
     /** Paper over the live tile above the peek corners on [seat] (screen): number, ±, readout. */
@@ -304,14 +309,26 @@ class KoLayout(val play: PlayLayout) {
         val start = IntArray(MAX_LINES)
         val end = IntArray(MAX_LINES)
 
-        /** Player-frame top-left of each line's glyph box (for word boxes). */
+        /** Player-frame top-left of each line's glyph box. */
         val lx = IntArray(MAX_LINES)
         val ly = IntArray(MAX_LINES)
 
         /** Each line's glyph box (full face height). */
         val line = Array(MAX_LINES) { IRect() }
 
-        /** The block's words with their [halo]: what a press inverts. */
+        /**
+         * Each line's paper ground (screen): its glyphs' cap band (+ descenders on the last line) grown
+         * by [halo]; line i's reaches line i + 1's, so together they are one stepped shape.
+         */
+        val ground = Array(MAX_LINES) { IRect() }
+
+        /** The grounds in the player frame (x, y, w, h), for tests and the shape check. */
+        val gx = IntArray(MAX_LINES)
+        val gy = IntArray(MAX_LINES)
+        val gw = IntArray(MAX_LINES)
+        val gh = IntArray(MAX_LINES)
+
+        /** The ground's bounding rect: what a press inverts. */
         val bounds = IRect()
 
         /** Armed: the ink plate, its paper keyline, its shadow, and [REVIVE] at [reviveK]. */

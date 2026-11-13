@@ -28,9 +28,9 @@ import kotlin.random.Random
  *
  * - **Look** ([KoLayout], T42): the panel in `Role.DEAD` (a light dither) inset by a paper gutter
  *   and kept off the centre diamond; the tombstone as a small emblem at the top; **the quip replaces
- *   the life total** as the hero — caps, `ui` face at one size for every line (T47), each word a
- *   paper box cut out of the field; the cause as one quiet chip below (heart + life, poison + count,
- *   imp + damage). The quip is picked once when the KO happens (`Flavour.ko(reason, …)`, never the
+ *   the life total** as the hero — caps, `ui` face at one size for every line (T47), on one
+ *   continuous paper ground cut out of the field (a bar per line, joined into a stepped shape); the
+ *   cause as one quiet chip below (heart + life, poison + count, imp + damage). The quip is picked once when the KO happens (`Flavour.ko(reason, …)`, never the
  *   previous line), not on redraw; re-picked when the player dies again or the cause changes.
  * - **Cover**: while a seat shows dead, [cover] hides its life, peeks, drawer, tab, readout and
  *   commander-mode content (`CONTENT | CHROME | READOUT | MODE`) — so they neither draw nor take
@@ -39,7 +39,7 @@ import kotlin.random.Random
  * - **Revive** is deliberate: the whole tile is one zone; the first tap arms it (the plate turns ink
  *   and reads `REVIVE?` for [ARM_MS]); a second tap while armed dispatches [Action.Revive]; the
  *   timeout disarms. The armed plate is ink with a paper keyline between it and its shadow. A press
- *   inverts the quip's words (or the armed plate).
+ *   inverts the quip's ground (or the armed plate).
  * - **Effects hook** ([Events.KO_HOLD] / [Events.KO_RELEASE]): an effect can hold the dead treatment
  *   off a seat while it plays; released by the effect, by any touch-down on the seat, or after
  *   [HOLD_MAX_MS]. Nobody holding = immediate.
@@ -328,7 +328,7 @@ class KoComponent(
             f.text.drawInt(k.causeFont, value, cn.left, cn.top, k.causeK, rot)
         }
 
-        // Hero: the armed revive plate, or the quip as ink words on paper cut out of the field.
+        // Hero: the armed revive plate, or the quip in ink on one continuous paper ground cut out of the field.
         if ((armed ushr seat) and 1 != 0) {
             if (!f.hit(b.keyline) && !f.hit(b.shadow)) return
             f.r.rect(b.shadow, ink = true)
@@ -339,19 +339,7 @@ class KoComponent(
         }
         if (!f.hit(b.bounds)) return
         val q = quips[seat]
-        for (i in 0 until b.lines) {
-            var j = b.start[i]
-            val e = b.end[i]
-            while (j < e) {
-                if (q[j] == ' ') { j++; continue }
-                var w = j
-                var desc = false
-                while (w < e && q[w] != ' ') { if (q[w] == ',' || q[w] == ';') desc = true; w++ }
-                k.wordBox(seat, b, i, j, w, desc, scratch)
-                f.r.rect(scratch, ink = false)
-                j = w
-            }
-        }
+        for (i in 0 until b.lines) f.r.rect(b.ground[i], ink = false)
         for (i in 0 until b.lines) {
             val r = b.line[i]
             f.text.draw(k.ui, slice.set(q, b.start[i], b.end[i]), r.left, r.top, b.k, rot)

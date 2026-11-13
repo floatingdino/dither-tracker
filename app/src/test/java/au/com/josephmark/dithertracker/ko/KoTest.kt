@@ -111,6 +111,7 @@ class KoTest {
                         if (peek.enabled) for (col in 0..1) assertFalse("$base chip/peek $col", overlaps(chip, IRect().also { peek.corner(s, col, it) }))
                     }
                 }
+                val corners = if (peek.enabled) (0..1).map { col -> IRect().also { peek.corner(s, col, it) } } else emptyList()
                 for (q in all) {
                     val tag = "$base '$q'"
                     k.arrange(s, q.uppercase(), b)
@@ -123,8 +124,21 @@ class KoTest {
                         val r = b.line[i]
                         assertTrue("$tag line $i $r in hero area $area", inside(r, area))
                         if (i > 0) assertFalse("$tag lines overlap", overlaps(r, b.line[i - 1]))
+                        assertGround(k, q.uppercase(), b, i, tag)
+                        val g = b.ground[i]
+                        assertTrue("$tag ground $i in hero area", inside(g, area))
+                        assertTrue("$tag ground $i in bounds", inside(g, b.bounds))
+                        if (!l.comfortable) continue
+                        assertFalse("$tag ground/emblem", overlaps(g, emblemHalo))
+                        assertFalse("$tag ground/diamond ring", overlaps(g, diamond))
+                        assertFalse("$tag ground/tab", overlaps(g, l.tabHit[s]))
+                        for (c in corners) assertFalse("$tag ground/peek corner", overlaps(g, c))
+                        for (v in intArrayOf(0, -999, 999)) {
+                            k.detail(s, v, icon, num, chip)
+                            assertFalse("$tag ground/chip", overlaps(g, chip))
+                        }
                     }
-                    assertTrue("$tag word boxes in hero area", inside(b.bounds, area))
+                    assertMerged(b, tag)
                     for (r in listOf(b.plate, b.keyline, b.shadow)) assertTrue("$tag revive $r in hero area", inside(r, area))
                     val rt = b.reviveText
                     // The text box's cap band (it is the face's full height; the descender rows face away on a turned seat) sits on the plate.
@@ -138,6 +152,43 @@ class KoTest {
     /** Screens at least the Nomad's size: every shipped line fits at the one quip size there. */
     private fun roomy(w: Int, h: Int) = w >= 1872 && h >= 1404
 
+    /**
+     * Line [i]'s ground (player frame) runs from its first glyph to its last grown by the halo, and
+     * from the cap band's top − halo to at least its baseline (descenders when it has any) + halo.
+     */
+    private fun assertGround(k: KoLayout, q: String, b: KoLayout.Block, i: Int, tag: String) {
+        val ui = k.ui
+        val kk = b.k
+        val tw = ui.widthOf(b.end[i] - b.start[i], kk)
+        assertEquals("$tag ground $i left", b.lx[i] - k.halo, b.gx[i])
+        assertEquals("$tag ground $i width", tw + 2 * k.halo, b.gw[i])
+        assertEquals("$tag ground $i top", b.ly[i] + ui.capTop * kk - k.halo, b.gy[i])
+        var desc = false
+        for (j in b.start[i] until b.end[i]) for (y in ui.baseline until ui.glyphHeight) for (x in 0 until ui.glyphWidth) if (ui.glyph(q[j]).isInk(x, y)) desc = true
+        val need = b.ly[i] + (if (desc) ui.glyphHeight else ui.baseline) * kk + k.halo
+        assertTrue("$tag ground $i bottom", b.gy[i] + b.gh[i] >= need)
+        // The screen rect is the player-frame box turned (same size on every seat).
+        assertEquals("$tag ground $i w", b.gw[i], b.ground[i].right - b.ground[i].left)
+        assertEquals("$tag ground $i h", b.gh[i], b.ground[i].bottom - b.ground[i].top)
+    }
+
+    /**
+     * The grounds join into one stepped shape: each reaches the next line's ground (no dither row
+     * between lines) and overlaps it horizontally, so every row of the block is one paper run; the
+     * bounding rect (the press feedback) is exactly their union's bounds.
+     */
+    private fun assertMerged(b: KoLayout.Block, tag: String) {
+        var u = Int.MAX_VALUE; var v = Int.MAX_VALUE; var r = Int.MIN_VALUE; var d = Int.MIN_VALUE
+        for (i in 0 until b.lines) {
+            val g = b.ground[i]
+            u = minOf(u, g.left); v = minOf(v, g.top); r = maxOf(r, g.right); d = maxOf(d, g.bottom)
+            if (i == 0) continue
+            assertTrue("$tag grounds $i touch", b.gy[i - 1] + b.gh[i - 1] >= b.gy[i])
+            assertTrue("$tag grounds $i overlap across", b.gx[i - 1] < b.gx[i] + b.gw[i] && b.gx[i] < b.gx[i - 1] + b.gw[i - 1])
+        }
+        assertEquals("$tag bounds = grounds", IRect(u, v, r, d), b.bounds)
+    }
+
     @Test fun oneQuipSizeAtEachScale() {
         // ui at k = 2 on the Nomad at S = 4 (the size the long lines had in T42), the same physical size elsewhere.
         val want = mapOf(2 to 4, 3 to 3, 4 to 2, 5 to 2, 6 to 1)
@@ -148,7 +199,7 @@ class KoTest {
         }
     }
 
-    @Test fun heroAtS4OneSizeBalancedLines() {
+    @Test fun heroAtS4OneSizeBalancedLinesStepGround() {
         val k = KoLayout(PlayLayout.compute(DitherGrid(1872, 1404, 4)))
         val b = KoLayout.Block()
         fun lines(q: String): List<String> {
@@ -165,9 +216,13 @@ class KoTest {
         assertEquals(listOf("SOMEBODY SET UP", "US THE BOMB."), lines("SOMEBODY SET UP US THE BOMB."))
         assertEquals(listOf("TRUSTED A", "HANDSHAKE DEAL"), lines("TRUSTED A HANDSHAKE DEAL"))
         assertEquals(listOf("YOU HAVE COMPLETED", "A GREAT GAME."), lines("YOU HAVE COMPLETED A GREAT GAME."))
+        // Two lines: one stepped paper shape 2 px proud of the glyphs, the lines 18 px apart.
         lines("STAY A WHILE... STAY FOREVER!")
         assertEquals(2, b.lines)
         assertEquals(18, b.ly[1] - b.ly[0])
+        assertEquals(b.gy[0] + b.gh[0], b.gy[1])
+        assertEquals(listOf(25, 60, 182, 18), listOf(b.gx[0], b.gy[0], b.gw[0], b.gh[0]))
+        assertEquals(listOf(37, 78, 158, 18), listOf(b.gx[1], b.gy[1], b.gw[1], b.gh[1]))
         // Layout numbers at S = 4.
         assertEquals(2, k.quipK)
         assertEquals(2, k.iconK)
