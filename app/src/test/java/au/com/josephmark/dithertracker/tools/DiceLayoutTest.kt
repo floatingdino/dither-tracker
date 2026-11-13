@@ -31,20 +31,20 @@ class DiceLayoutTest {
         assertEquals(1, l.k)
         assertFalse(l.stacked)
         assertEquals(149, l.panel.width)
-        assertEquals(101, l.panel.height)
-        assertEquals(IRect(156, 122, 311, 229), l.panelOuter) // 155×107 (was 163×153 with num-l)
+        assertEquals(105, l.panel.height)
+        assertEquals(IRect(156, 120, 311, 231), l.panelOuter) // 155×111 (was 163×153 with num-l)
         assertEquals(27, l.fold.height)
-        assertEquals(35, l.faces[0].height)
-        assertEquals(IRect(164, 193, 208, 221), l.resultBox[0]) // 44×28: two num-m digits at 2×
+        assertEquals(37, l.faces[0].height)
+        assertEquals(IRect(164, 194, 208, 222), l.resultBox[0]) // 44×28: two num-m digits at 2×
     }
 
     @Test fun nomadMetrics1x() {
         val l = layout(4, 1)
         assertTrue(l.stacked) // the label sits under the small result
         assertEquals(141, l.panel.width) // the fold row's minimum
-        assertEquals(95, l.panel.height)
-        assertEquals(IRect(160, 125, 307, 226), l.panelOuter) // 147×101
-        assertEquals(32, l.faces[0].height)
+        assertEquals(99, l.panel.height)
+        assertEquals(IRect(160, 123, 307, 228), l.panelOuter) // 147×105
+        assertEquals(34, l.faces[0].height)
         assertEquals(35, l.resultBox[0].width) // as wide as "nat 20"
         assertEquals(14, l.resultBox[0].height)
     }

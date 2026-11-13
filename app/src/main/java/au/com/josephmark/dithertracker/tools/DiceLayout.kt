@@ -26,8 +26,9 @@ import au.com.josephmark.dithertracker.type.Fonts
  * at [k]; spacing designed at S = 4 and converted per S like `PlayLayout.Chrome` (constant physical
  * size). Each face is exactly as tall as the taller of the result and the text block (label,
  * underline, two caption lines) + [PAD_V], and as wide as the result + a [TEXT_CHARS]-glyph column,
- * or the fold row if that is wider. At S = 4 that is 147×101 (153×107 with the rim): clear of every
- * life total up to four glyphs, the readouts and every ± glyph (see `DiceLayoutTest`).
+ * or the fold row if that is wider. At S = 4 that is 149×105 (155×111 with the rim) at 2×, 141×99
+ * (147×105) at 1× (stacked, see [stacked]): clear of every life total up to four glyphs, the
+ * readouts and every ± glyph (see `DiceLayoutTest`).
  *
  * The faces are point-symmetric about the crossing (each long side reads its own face upright), so
  * the panel is centred on [cx], [cy] with odd width and height and every upper-face rect is
@@ -107,8 +108,8 @@ class DiceLayout(val play: PlayLayout, resultScale: Int = RESULT_K) {
         val resW = if (stacked) maxOf(result.widthOf(2, resultK), ui.widthOf(LABEL_CHARS, k)) else result.widthOf(2, resultK)
         val textH = if (stacked) maxOf(stackH, captionHeight(MAX_LINES)) else maxOf(resH, textBlockHeight(MAX_LINES))
         val b = 1
-        // The pad also keeps the last caption line's descenders inside the face (S ≥ 5).
-        val padY = maxOf(padV, (ui.height(1) - ui.capTop - ui.capHeight) * k)
+        // The pad also keeps the last caption line's descenders a pixel clear of the face's border.
+        val padY = maxOf(padV, (ui.height(1) - ui.capTop - ui.capHeight) * k + 1)
         val faceH = textH + 2 * padY
         val foldH = odd(maxOf(Chrome.size(FOLD_H, scale), play.target))
         val gap = Chrome.size(BTN_GAP, scale)
