@@ -14,8 +14,11 @@ line breaks the rules below. (Not a coder? Edit this file and ask for the Kotlin
 - Sentence case, no full stop at the end, no exclamation marks. No duplicates anywhere.
 - Original lines only: no card names, card text or other apps' quips. Kid-safe.
 
-**Voice:** a dry, affectionate friend at the Commander table. The humour of shared experience
-(screw, flood, salt, politics, durdling, "I'm not the threat") — deadpan, never mean, no punchlines.
+**Voice:** the friend across the Commander table who enjoys your misfortune a little. A smidge
+combative — "uh oh", "whoops", "beefed it" — short, blunt interjections mixed with the dry,
+shared-experience lines (politics, durdling, "I'm not the threat"). Knock-outs react to the moment,
+winners get gloated for, dice and coins needle. Teasing, never mean, crude or personal; kid-safe.
+Reset prompts and buttons stay plain about what they do.
 
 Captions marked *(under name)* are drawn beneath the player's name, which the UI shows separately.
 Lines are picked at random, never the same line twice in a row. With quips off, the **Plain**
@@ -24,71 +27,71 @@ strings at the bottom are used instead.
 ## Lines
 
 ### Knocked out: life (0 or less)
+- Beefed it
 - Kept a one-lander
-- Should have mulliganed
-- Stuck on three lands
-- Drew nothing but lands
-- Turned out to be the threat
-- Left mana up for nothing
-- Held the wrong answer
 - Had an answer. In the deck
+- Oof
 - Board wipe was one turn late
-- Tapped out at the worst time
-- Was still setting up
+- Folded like a lawn chair
+- Should have mulliganed
+- Big talk, small life total
 - Durdled too long
-- Attacked the wrong player
+- Got got
 - Trusted a handshake deal
-- Gave everyone a reason
-- Public enemy by turn 3
+- Poked the wrong bear
 - Deck was 'about a 7'
+- Spectator mode unlocked
 - Asked what it does. Too late
-- Should have read the card
+- Kind of had that coming
 - Was one turn from winning
-- Ramped into nothing
-- Paid life for everything
-- Life total was a resource
+- Thoroughly cooked
 - Monarch for one whole turn
-- Played around nothing
-- The deck had other plans
+- Down you go
+- Turned out to be the threat
+- That plan aged badly
+- Tapped out at the worst time
+- Lost the table vote
+- Paid life for everything
+- Oops. Anyway
 
 ### Knocked out: poison (10 counters)
 - Thought 9 was a safe number
-- Ten is a very low number
+- Poisoned. Gross
 - It was only a 1/1
-- Didn't count the counters
-- One proliferate too many
-- Turns out poison is real
+- Nibbled to death
 - Laughed at the infect deck
-- Lethal in tiny instalments
-- Died of ten papercuts
+- Full health, still dead
+- One proliferate too many
+- Wasn't counting, clearly
+- Ten is a very low number
+- Death by tally marks
 - Doesn't feel so good
-- Life total: fine. Poison: no
-- Healthy, apart from that
+- Died of ten papercuts
 
 ### Knocked out: commander damage (21 from one commander)
 - One creature. Lots of hats
+- Bonk. Twenty-one
 - Counted to 21 the hard way
-- Same commander, every turn
 - Should have chump blocked
+- Ugh, that commander again
 - Was saving the removal
+- Bullied by one commander
 - Killed it. It came back
-- Ignored the commander
+- Ignored it for too long
 - Commander tax was too low
+- Couldn't stop it. Didn't try
 - Unblockable, as it turns out
-- 21 from the command zone
-- Took it personally
-- Thankfully someone was counting
 
 ### Knocked out: marked out by hand (conceded)
 - Scooped with dignity
+- Rage quit, politely
 - Declined to watch the combo
-- Saw how this ends
-- Strategic retreat
 - Chose peace
 - Has a train to catch
+- Read the room. Left it
 - Went to get snacks
-- Shuffling up already
-- Will be back next game
+- Bailed. Fair enough
+- Sure, 'had to go'
 
 ### Starting player *(under name)*
 - Goes first. No pressure
