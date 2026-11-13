@@ -72,7 +72,7 @@ in dither-px coordinates. Rules that follow from the engine:
 
 16×16 1-bit bitmaps, authored as ASCII (`#` = black, `.` = white) in `design/icons/<name>.txt`,
 one file per icon, exactly 16 lines × 16 chars. Outline style, ~1px strokes, 1px empty margin on
-all sides, matching the three Figma icons (`poison`, `storm`, `rads` — already transcribed).
+all sides. See "Tone" for the style direction (friendlier, slightly heavier than the first pass).
 Icons must read clearly at S=2..6 and when inverted.
 
 ## Features (inspired by Lotus and similar trackers; adapt to e-ink)
@@ -98,6 +98,19 @@ Icons must read clearly at S=2..6 and when inverted.
 
 **Persistence**
 - Game state + settings survive process death (single small file, written off the main thread).
+
+## Tone (direction from Sam, 2026-11-13)
+
+Friendly, lighthearted, doesn't take itself too seriously — never overt or cringey. Personality
+lives in small spaces, not in the main play surface:
+- **Icons** lean slightly cutesy/wacky: rounder, a bit more character (faces, tilt, small details),
+  and a bit more weight — partly filled shapes (like the arrowheads on `refresh`/`reset`) read well.
+  The three original Figma icons are *not* sacred: `poison` and `rads` get redesigned, `storm` refined.
+- **Copy**: short deadpan one-liners in a few spots — a random quip when a player is knocked out
+  (in the spirit of Lotus's "didn't pay the 1"), dice/coin results, the reset confirm, empty history,
+  first-launch names. Original lines only (MTG table humour, no card text or copied quotes), always
+  short enough for the `ui` face, and a setting to turn quips off.
+- Never at the cost of the hard rules: no animation, no extra redraws, nothing that slows a tap.
 
 ## Non-goals (for now)
 Networking, accounts, card lookup, colour themes, animations, sound.

@@ -72,12 +72,13 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T20 | todo | T11 T12 | Performance pass: zero allocations in draw, startup time, APK size, StrictMode clean; measure on emulator throttled. | whole app |
 | T21 | todo | T04 T02 | App icon (1-bit, adaptive + legacy) and launcher label from the icon set / dither patterns. | `app/src/main/res/` |
 | T22 | todo | all | Full pixel-purity regression suite: render every screen at S=2..6, both orientations, inverted and not; fail on any non-#000/#FFF pixel or any off-grid edge. | `app/src/test/` |
-| T24 | todo | T08 | Icon polish pass after seeing them in the drawer on device and after Sam's feedback: weakest are `commander-tax`, `initiative`, `energy`, `generic-counter`, `players`, `coin`. | `design/icons/` |
+| T24 | wip | — | Icon redesign per Sam's feedback: redo `poison` (ugly), `rads` (too large in the set), refine `storm`; rework `experience`, `life`, `energy`, `commander` (too simplistic/off); add weight and a slightly cutesy/wacky character across the set, keeping the filled-arrow feel of `refresh`/`reset`. | `design/icons/` |
+| T25 | todo | T15 T16 | Personality copy: `core` quip tables (KO lines by reason, dice/coin lines, reset confirm, empty history) picked via injected `Random`; shown as static `ui`-face text; "quips" setting. Original lines only. | `core/src/**/flavour/`, call sites |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
 
 ## Task notes
 
-**T02 icons** — keep `poison`, `storm`, `rads` as-is (from Figma). Add: `energy`, `experience`,
+**T02 icons** — (superseded by T24: the Figma three are no longer fixed.) Original list: `energy`, `experience`,
 `commander` (damage), `commander-tax`, `tickets`, `generic-counter`, `life` (heart), `monarch`
 (crown), `initiative`, `citys-blessing`, `ring`, `day`, `night`, `dead` (skull is taken by poison
 — use a tombstone/X), `dice`, `coin`, `timer`, `turn`, `undo`, `redo`, `reset`, `new-game`,
@@ -115,3 +116,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   Only T05 running; T06 is next once it lands.
 - 2026-11-13 — Tick 7: T05 still running (font files in progress). Split T19 into research (T19a,
   dispatched) and implementation (T19b).
+- 2026-11-13 — Sam's direction: icons need more weight + friendlier/wackier character, Figma three to
+  be redesigned; app-wide lighthearted tone with small personality moments. Added SPEC "Tone",
+  repurposed T24 (dispatched), added T25.
