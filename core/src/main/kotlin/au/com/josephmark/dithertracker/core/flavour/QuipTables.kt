@@ -175,6 +175,29 @@ internal object QuipTables {
         "Picks the snacks next time",
     )
 
+    // --- Commander damage: the targeted player ------------------------------------------------
+
+    /**
+     * Drawn large on the targeted player's tile while the others count their commander damage
+     * (T30). Voice: the friend across the table heckling a little — blunt, playful, never mean. Budget: <= 16 chars ([TARGET_MAX]) so it can be drawn at a big `ui` scale.
+     */
+    val commanderTarget = listOf(
+        "Uh oh",
+        "Whoops",
+        "Beefed it",
+        "It's you",
+        "Big mistake",
+        "Here it comes",
+        "This'll sting",
+        "Not your day",
+        "Should've ducked",
+        "Hold still",
+        "Called it",
+        "Brace yourself",
+    )
+
+    const val TARGET_MAX = 16
+
     // --- Default player names ------------------------------------------------------------------
 
     /** The first set is the default (and the only set when quips are off). */
@@ -203,6 +226,7 @@ internal object QuipTables {
         val resetButtons = listOf(ConfirmButtons("Yes", "No"))
         val emptyHistory = listOf("No history yet")
         val winner = listOf("Wins")
+        val commanderTarget = listOf("Target")
         val nameSets = listOf(QuipTables.nameSets.first())
     }
 }

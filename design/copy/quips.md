@@ -162,6 +162,20 @@ Any pair can follow any prompt, so the confirm label must read as "reset" on its
 - Wins. Salt levels rising
 - Picks the snacks next time
 
+### Commander damage: the targeted player *(drawn large on their tile, at most 16 characters; heckling a little)*
+- Uh oh
+- Whoops
+- Beefed it
+- It's you
+- Big mistake
+- Here it comes
+- This'll sting
+- Not your day
+- Should've ducked
+- Hold still
+- Called it
+- Brace yourself
+
 ### Default player names (by seat; the first set is the default)
 - Players: Player 1, Player 2, Player 3, Player 4, Player 5, Player 6
 - Colours: White, Blue, Black, Red, Green, Colourless
@@ -212,6 +226,9 @@ Any pair can follow any prompt, so the confirm label must read as "reset" on its
 
 ### Winner
 - Wins
+
+### Commander damage: the targeted player
+- Target
 
 ### Default player names
 - Players: Player 1, Player 2, Player 3, Player 4, Player 5, Player 6

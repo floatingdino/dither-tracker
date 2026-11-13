@@ -18,7 +18,10 @@ enum class QuipKind {
     COIN_TAILS,
     RESET_PROMPT,
     EMPTY_HISTORY,
-    WINNER;
+    WINNER,
+
+    /** Drawn large in place of the life total of the player targeted in commander-damage mode (T30). */
+    COMMANDER_TARGET;
 
     companion object {
         /** Exhaustive on purpose: a new [KoReason] must get its own lines before this compiles. */
@@ -123,6 +126,10 @@ class Flavour private constructor(
     fun winner(random: Random): String = line(QuipKind.WINNER, random)
     fun winner(random: Random, recent: RecentPicks) = line(QuipKind.WINNER, random, recent)
 
+    /** The line shown on the targeted player's tile in commander-damage mode (pick once per entry). */
+    fun commanderTarget(random: Random): String = line(QuipKind.COMMANDER_TARGET, random)
+    fun commanderTarget(random: Random, recent: RecentPicks) = line(QuipKind.COMMANDER_TARGET, random, recent)
+
     /** A prompt and an independently picked button pair (any pair reads correctly after any prompt). */
     fun resetConfirm(random: Random): ResetConfirm =
         ResetConfirm(line(QuipKind.RESET_PROMPT, random), resetButtons[pickIndex(resetButtons.size, random)])
@@ -158,6 +165,7 @@ class Flavour private constructor(
                     QuipKind.RESET_PROMPT -> QuipTables.resetPrompt
                     QuipKind.EMPTY_HISTORY -> QuipTables.emptyHistory
                     QuipKind.WINNER -> QuipTables.winner
+                    QuipKind.COMMANDER_TARGET -> QuipTables.commanderTarget
                 }
             },
             resetButtons = QuipTables.resetButtons,
@@ -181,6 +189,7 @@ class Flavour private constructor(
                     QuipKind.RESET_PROMPT -> QuipTables.Plain.resetPrompt
                     QuipKind.EMPTY_HISTORY -> QuipTables.Plain.emptyHistory
                     QuipKind.WINNER -> QuipTables.Plain.winner
+                    QuipKind.COMMANDER_TARGET -> QuipTables.Plain.commanderTarget
                 }
             },
             resetButtons = QuipTables.Plain.resetButtons,

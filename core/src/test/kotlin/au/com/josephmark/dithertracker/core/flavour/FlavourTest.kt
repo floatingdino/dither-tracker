@@ -60,7 +60,7 @@ class FlavourTest {
             QuipKind.KO_MANUAL to 6, QuipKind.STARTING_PLAYER to 6, QuipKind.D20_NATURAL_1 to 4,
             QuipKind.D20_NATURAL_20 to 4, QuipKind.DICE_ROLL to 4, QuipKind.COIN_HEADS to 2,
             QuipKind.COIN_TAILS to 2, QuipKind.RESET_PROMPT to 4, QuipKind.EMPTY_HISTORY to 3,
-            QuipKind.WINNER to 6,
+            QuipKind.WINNER to 6, QuipKind.COMMANDER_TARGET to 10,
         )
         for (kind in QuipKind.entries) {
             val n = Flavour.quippy.lines(kind).size
@@ -92,6 +92,22 @@ class FlavourTest {
         assertEquals(List(6) { "Player ${it + 1}" }, p.defaultNames.names)
         assertEquals(Flavour.plain, Flavour.of(false))
         assertEquals(Flavour.quippy, Flavour.of(true))
+    }
+
+    @Test fun commanderTargetLinesAreShortEnoughToDrawLarge() {
+        for (f in both) for (line in f.lines(QuipKind.COMMANDER_TARGET)) {
+            assertTrue(line.length <= QuipTables.TARGET_MAX, "target line too long: '$line'")
+        }
+        assertEquals("Target", Flavour.plain.commanderTarget(Random(0)))
+        var recent = RecentPicks.EMPTY
+        var last: String? = null
+        val r = Random(3)
+        repeat(50) {
+            val p = Flavour.quippy.commanderTarget(r, recent)
+            assertNotEquals(last, p.value)
+            assertTrue(p.value in Flavour.quippy.lines(QuipKind.COMMANDER_TARGET))
+            last = p.value; recent = p.recent
+        }
     }
 
     @Test fun defaultNamesArePlayerNumbersInBothSets() {
