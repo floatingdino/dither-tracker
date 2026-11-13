@@ -220,3 +220,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   interface "target" mode (T30) and make the commander icon an enemy imp/demon (T31). Dispatched one
   agent for T27 then T30 (device), and T31 (design-only). T28d still running.
 - 2026-11-13 — Sam: add counter peeks when the drawer is closed -> T32, forwarded to the T27/T30 agent.
+- 2026-11-13 — Sam: `poison` icon now uses the Phyrexian symbol (common shorthand) — drawn by the
+  coordinator (circle bisected by a vertical bar, 2 px strokes). Note: it is a Wizards of the Coast
+  mark; fine for a personal sideloaded app, revisit if the app is ever distributed. README row and
+  contact sheets to be refreshed when T31 lands.
