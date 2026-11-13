@@ -88,6 +88,25 @@ class FontTest {
         }
     }
 
+    @Test fun numMIsTheBoldMiniSticker() {
+        // T37: the small numerals are the designer's `bold` pick, 10×14 with 3-px stems, no shadow.
+        val m = Fonts.NUM_M
+        assertEquals(10, m.glyphWidth); assertEquals(14, m.glyphHeight); assertEquals(2, m.tracking)
+        assertEquals(0, m.capTop); assertEquals(14, m.capHeight)
+        assertEquals(10 * 3 + 2 * 2, m.measureInt(999)); assertEquals(10 * 3 + 2, m.measureInt(999, tracking = 1))
+        assertEquals(m.measure("-10998"), m.measureInt(-10998))
+        // Built from exactly the candidate's bits (the adopted copy may only differ in its header).
+        val dir = File(System.getProperty("dither.fontDir")!!)
+        val built = parse(File(dir, "num-m/glyphs.txt"))
+        val candidate = parse(File(dir, "candidates/mini2/bold/glyphs.txt"))
+        assertEquals(candidate, built)
+        // 3-px verticals: every digit has a row with a run of at least 3 ink px.
+        for (c in "0123456789") {
+            val g = m.glyph(c)
+            assertTrue("'$c'", (0 until g.height).any { y -> (0..g.width - 3).any { x -> g.isInk(x, y) && g.isInk(x + 1, y) && g.isInk(x + 2, y) } })
+        }
+    }
+
     @Test fun scaledGlyphsReplicatePixelsAndAreCached() {
         val g = Fonts.NUM_M.glyph('4')
         assertSame(g, g.scaled(1))
