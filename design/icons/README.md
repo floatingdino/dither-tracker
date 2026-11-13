@@ -77,9 +77,9 @@ On the contact sheet, each icon is drawn at 8× nearest-neighbour inside a grey 
 | `monarch` | Solid crown with three ball-tipped points and a jewelled band | Monarch toggle (panel badge) |
 | `initiative` | Torch: solid flame with a white inner flame, cup and handle, one spark | Initiative toggle (dungeon), panel badge |
 | `citys-blessing` | Solid castle: flagged keep between two towers, with an arched gate | City's blessing toggle (panel badge) |
-| `ring` | 2px ring with a solid gem and a sparkle | Ring-bearer toggle (panel badge) |
-| `day` | Solid sun with a glint and eight block rays | Day state (global day/night) |
-| `night` | Solid crescent moon with a twinkle | Night state (global day/night) |
+| `ring` | Heavy 3-px band with a solid round gem and a sparkle (T14 option B; was a 2-px ring) | Ring-bearer toggle (panel badge, drawer cell) |
+| `day` | Solid sun with a glint and eight block rays | Day state (global day/night: drawer cell, centre diamond) |
+| `night` | Solid crescent moon with a twinkle | Night state (global day/night: drawer cell, centre diamond) |
 | `dead` | Tombstone outline with a solid cross, on grassy ground | Auto-KO marker and toggle |
 | `dice` | Die face showing five, with 3D depth on the right and bottom | Dice tool (d6/d20/custom) |
 | `coin` | Coin at an angle: face with an embossed dot, solid edge | Coin-flip tool |
@@ -124,3 +124,10 @@ On the contact sheet, each icon is drawn at 8× nearest-neighbour inside a grey 
 Promoted from `candidates/heavy/`: `close` (chunky X), the four chevrons, `monarch` and `night`
 (filled, same silhouettes). `check` was redrawn separately as a 3-px bold tick. The other heavy
 candidates were not adopted — the designer preferred the existing versions.
+
+## T14 toggle icons (2026-11-14)
+
+Options for `initiative`, `citys-blessing`, `ring` and `day` are in [`candidates/t14/`](candidates/t14/)
+(`<name>-a` is the icon as it was); the sheet is `design/captures/t14-icons.png` (each option as a
+tile badge, an ON drawer cell and an OFF drawer cell, at device size). Picks: `ring` B (the 2-px ring
+was the last thin outline among the badges); `initiative`, `citys-blessing` and `day` keep A.
