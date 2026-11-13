@@ -73,8 +73,10 @@ mapped to tiles — never to raw tiles directly.
 in dither-px coordinates. Rules that follow from the engine:
 - **Never `Canvas.rotate/scale`.** The renderer assumes root-view coordinates; rotated seats rotate
   content through `blit(..., rotation)` and layout maths, so global pattern phase is preserved.
-- **Glyphs/icons on a dithered fill are drawn `opaque = true`** (or on a paper backing) — transparent
-  ink on a mid dither is unreadable.
+- **Glyphs/icons on a dithered fill get a contour cut-out** (T41): a 1 px paper halo that follows the
+  glyph's outline, drawn with `icon(..., halo = true)` / `TextRenderer.draw(..., halo = true)` /
+  `HaloGlyph` — never transparent ink on a mid dither, and no square paper boxes. Exceptions: title
+  text on a title bar keeps a paper strip; glyphs on solid ink need nothing.
 - In-place `invertRect` needs API 29+; on older devices redraw the region inside `withInverted {}`.
 - Check any capture with `python3 tools/check_1bit.py <png> --scale S` (purity + grid alignment).
 
