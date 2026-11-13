@@ -244,7 +244,29 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
         return PlayLayout.NONE
     }
 
-    /** The rect a pressed commander [zone] inverts. False for none. */
+    /**
+     * The rect a press on [seat]'s [local] ([CommanderZones]) inverts: the target's whole tile, a
+     * source's half (or quarter when partnered). False for none.
+     */
+    fun feedbackRect(seat: Int, local: Int, players: List<Player>, out: IRect): Boolean {
+        val s = seat
+        when {
+            local == CommanderZones.TARGET -> copy(play.panels[s], out)
+            CommanderZones.isSlot(local) -> {
+                val partner = s < players.size && players[s].partner
+                if (partner) {
+                    copy(quarter[s * 4 + (local - CommanderZones.A_MINUS)], out)
+                } else {
+                    if (local >= CommanderZones.B_MINUS) return false
+                    copy(play.zones[PlayLayout.zone(s, CommanderZones.sideOf(local))], out)
+                }
+            }
+            else -> return false
+        }
+        return true
+    }
+
+    /** The rect a pressed commander [zone] (global id, pre-T34 view) inverts. False for none. */
     fun feedbackRect(zone: Int, players: List<Player>, out: IRect): Boolean {
         if (!CommanderZones.isCommander(zone)) return false
         if (zone == CommanderZones.DIAMOND) { copy(closeIcon, out); return true }

@@ -99,39 +99,47 @@ class CommanderMode(
 
     override fun onTimer(id: Int) = exit()
 
-    // ---- zones --------------------------------------------------------------------------------
+    // ---- zones (locals in [CommanderZones], per seat) --------------------------------------------
 
-    /** Whether holding commander [zone] repeats (the damage slot zones, while active). */
-    fun repeats(zone: Int): Boolean =
-        active && CommanderZones.isCommander(zone) && zone != CommanderZones.DIAMOND &&
-            CommanderZones.isSlot(CommanderZones.localOf(zone))
+    /** Whether holding [seat]'s [local] repeats (the damage slot zones, while active). */
+    fun repeats(seat: Int, local: Int): Boolean = active && CommanderZones.isSlot(local)
 
-    /** A tap (release) on commander [zone]. Returns true if anything happened. */
-    fun onTap(zone: Int): Boolean {
-        if (!CommanderZones.isCommander(zone)) return false
-        if (zone == CommanderZones.DIAMOND) {
-            if (!active) return false
-            exit(); return true
-        }
-        val s = CommanderZones.seatOf(zone)
-        val local = CommanderZones.localOf(zone)
-        return when {
-            local == CommanderZones.BUTTON -> { press(s); true }
-            !active -> false
-            local == CommanderZones.TARGET -> { if (s == target) { exit(); true } else false }
-            CommanderZones.isSlot(local) -> apply(s, local, if (CommanderZones.sideOf(local) == PlayLayout.PLUS) 1 else -1)
-            else -> false
-        }
+    /** A tap (release) on [seat]'s [local]. Returns true if anything happened. */
+    fun onTap(seat: Int, local: Int): Boolean = when {
+        local == CommanderZones.BUTTON -> { press(seat); true }
+        !active -> false
+        local == CommanderZones.TARGET -> if (seat == target) { exit(); true } else false
+        CommanderZones.isSlot(local) -> apply(seat, local, if (CommanderZones.sideOf(local) == PlayLayout.PLUS) 1 else -1)
+        else -> false
     }
 
-    /** One hold repeat on commander [zone]. */
-    fun onRepeat(zone: Int): Boolean {
-        if (!repeats(zone)) return false
-        val local = CommanderZones.localOf(zone)
+    /** One hold repeat on [seat]'s [local]. */
+    fun onRepeat(seat: Int, local: Int): Boolean {
+        if (!repeats(seat, local)) return false
         if (holdStep <= 0) return false
         val step = if (CommanderZones.sideOf(local) == PlayLayout.PLUS) holdStep else -holdStep
-        return apply(CommanderZones.seatOf(zone), local, step)
+        return apply(seat, local, step)
     }
+
+    /** The centre close X: leaves the mode. False when inactive (the diamond is the menu's then). */
+    fun close(): Boolean {
+        if (!active) return false
+        exit()
+        return true
+    }
+
+    // Global zone ids (the pre-T34 view; removed with it).
+    fun repeats(zone: Int): Boolean =
+        CommanderZones.isCommander(zone) && zone != CommanderZones.DIAMOND && repeats(CommanderZones.seatOf(zone), CommanderZones.localOf(zone))
+
+    fun onTap(zone: Int): Boolean = when {
+        !CommanderZones.isCommander(zone) -> false
+        zone == CommanderZones.DIAMOND -> close()
+        else -> onTap(CommanderZones.seatOf(zone), CommanderZones.localOf(zone))
+    }
+
+    fun onRepeat(zone: Int): Boolean =
+        CommanderZones.isCommander(zone) && zone != CommanderZones.DIAMOND && onRepeat(CommanderZones.seatOf(zone), CommanderZones.localOf(zone))
 
     private fun apply(sourceSeat: Int, local: Int, delta: Int): Boolean {
         val g = host.game
