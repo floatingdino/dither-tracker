@@ -44,7 +44,12 @@ class KoLayout(val play: PlayLayout) {
     /** Ink ring round the cut-out number (dither px). */
     val outline: Int = Chrome.size(OUTLINE, s)
 
-    val pad: Int = Chrome.size(PAD, s)
+    /** Plate padding inside the border: across and down. */
+    val padH: Int = Chrome.size(PAD_H, s)
+    val padV: Int = Chrome.size(PAD_V, s)
+
+    /** Paper round the tombstone's silhouette and the cause chip (cut out of the hatch). */
+    val halo: Int = Chrome.size(HALO, s)
     val lineGap: Int = Chrome.size(LINE_GAP, s)
     val iconGap: Int = Chrome.size(ICON_GAP, s)
     val causeGap: Int = Chrome.size(CAUSE_GAP, s)
@@ -72,7 +77,7 @@ class KoLayout(val play: PlayLayout) {
     val maxPlateW: Int = W - 2 * PlayLayout.EDGE_MIN - shadow
 
     /** Widest quip line. */
-    val maxTextW: Int = maxPlateW - 2 * (border + pad)
+    val maxTextW: Int = maxPlateW - 2 * (border + padH)
 
     /** Tallest plate: the bottom band less the shadow. */
     val maxPlateH: Int = bottomBandBottom - bottomBandTop - shadow
@@ -84,7 +89,7 @@ class KoLayout(val play: PlayLayout) {
 
     init {
         var ik = Chrome.size(ICON_K, s)
-        while (ik > 1 && PlayLayout.ICON * ik > topBandBottom - topBandTop) ik--
+        while (ik > 1 && PlayLayout.ICON * ik + 2 * halo > topBandBottom - topBandTop) ik--
         iconK = ik
         iconSize = PlayLayout.ICON * ik
     }
@@ -112,7 +117,7 @@ class KoLayout(val play: PlayLayout) {
             out.end[i] = wrap.end[i]
         }
         val textW = maxOf(wrap.widestWidth, ui.widthOf(REVIVE.length, k))
-        val pw = minOf(maxPlateW, textW + 2 * (border + pad))
+        val pw = minOf(maxPlateW, textW + 2 * (border + padH))
         val ph = plateH(k, wrap.lines)
         val px = (CW - pw) / 2
         // Centred in the bottom band; on a cramped (not `comfortable`) layout, kept inside the panel.
@@ -120,7 +125,7 @@ class KoLayout(val play: PlayLayout) {
         play.mapRect(seat, px, py, pw, ph, out.plate)
         play.mapRect(seat, px + shadow, py + shadow, pw, ph, out.shadow)
         val lh = ui.capHeight * k
-        var y = py + border + pad
+        var y = py + border + padV
         for (i in 0 until wrap.lines) {
             val tw = ui.widthOf(wrap.end[i] - wrap.start[i], k)
             play.mapRect(seat, (CW - tw) / 2, y - ui.capTop * k, tw, ui.height(k), out.line[i])
@@ -131,7 +136,7 @@ class KoLayout(val play: PlayLayout) {
     }
 
     /** Plate height for quip scale [k] and [lines] lines. */
-    fun plateH(k: Int, lines: Int): Int = 2 * (border + pad) + lines * ui.capHeight * k + (lines - 1) * lineGap
+    fun plateH(k: Int, lines: Int): Int = 2 * (border + padV) + lines * ui.capHeight * k + (lines - 1) * lineGap
 
     // ---- top band --------------------------------------------------------------------------------
 
@@ -142,7 +147,7 @@ class KoLayout(val play: PlayLayout) {
      */
     fun topRow(seat: Int, withCause: Boolean, value: Int, tomb: IRect, icon: IRect, number: IRect): Int {
         val nw = if (withCause) causeFont.measureInt(value, causeK) else 0
-        val unit = iconSize + if (withCause) causeGap + causeIconSize + iconGap + nw else 0
+        val unit = iconSize + if (withCause) causeGap + halo + causeIconSize + iconGap + nw + halo else 0
         val x = (W - unit) / 2
         val bandH = topBandBottom - topBandTop
         val cy = topBandTop + bandH / 2
@@ -151,7 +156,7 @@ class KoLayout(val play: PlayLayout) {
             icon.set(0, 0, 0, 0); number.set(0, 0, 0, 0)
             return causeK
         }
-        val ix = x + iconSize + causeGap
+        val ix = x + iconSize + causeGap + halo
         play.mapRect(seat, ix, cy - causeIconSize / 2, causeIconSize, causeIconSize, icon)
         val capH = causeFont.capHeight * causeK
         play.mapRect(seat, ix + causeIconSize + iconGap, cy - capH / 2 - causeFont.capTop * causeK, nw, causeFont.height(causeK), number)
@@ -217,7 +222,9 @@ class KoLayout(val play: PlayLayout) {
         const val BORDER = 1
         const val SHADOW = 2
         const val OUTLINE = 2
-        const val PAD = 4
+        const val PAD_H = 6
+        const val PAD_V = 4
+        const val HALO = 2
         const val LINE_GAP = 5
         const val ICON_GAP = 3
         const val CAUSE_GAP = 10

@@ -130,6 +130,17 @@ class KoTest {
         assertEquals(2, b.lines)
     }
 
+    @Test fun haloFillsTheTombstoneAndGrowsIt() {
+        val icon = au.com.josephmark.dithertracker.dither.Icon.DEAD
+        val h = Halo(icon, 2)
+        val r = Halo(icon, 2, rotate180 = true)
+        assertEquals(20, h.width); assertEquals(20, h.height)
+        for (y in 0 until 16) for (x in 0 until 16) if (icon.isInk(x, y)) assertTrue(h.isInk(x + 2, y + 2))
+        assertTrue(h.isInk(4 + 2, 9 + 2)) // enclosed paper inside the outline
+        assertFalse(h.isInk(0, 0)) // far corner stays outside
+        for (y in 0 until 20) for (x in 0 until 20) assertEquals(h.isInk(x, y), r.isInk(19 - x, 19 - y))
+    }
+
     // ---- KO flip, cover, zones ---------------------------------------------------------------------
 
     @Test fun koFlipInvalidatesOnlyThatTile() {

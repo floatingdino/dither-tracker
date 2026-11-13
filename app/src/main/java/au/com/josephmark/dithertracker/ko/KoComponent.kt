@@ -85,6 +85,8 @@ class KoComponent(
     private val fp = IRect()
     private val scratch = IRect()
     private var tomb: MonoImage = Icon.DEAD
+    private var tombHalo: Array<MonoImage> = emptyArray() // [upright, rotated 180]
+    private val chip = IRect()
 
     /** The quip shown on [seat] ("" when alive), in caps. */
     fun quip(seat: Int): String = quips[seat]
@@ -101,6 +103,7 @@ class KoComponent(
         val k = KoLayout(play)
         layout = k
         tomb = if (k.iconK == 1) Icon.DEAD else Zoomed(Icon.DEAD, k.iconK)
+        tombHalo = arrayOf(Halo(tomb, k.halo), Halo(tomb, k.halo, rotate180 = true))
         stage.log?.invoke("$k")
         for (s in 0 until P) {
             disarm(s)
@@ -124,6 +127,7 @@ class KoComponent(
     override fun prewarm(f: Frame) {
         val k = layout ?: return
         f.r.blit(tomb, 0, 0)
+        for (h in tombHalo) f.r.fillMask(h, 0, 0, Role.SURFACE)
         f.icons.prewarm(CAUSE_ICONS, k.causeK)
         for (rot in ROTATIONS) {
             for (q in 1..k.quipKMax) f.text.draw(k.ui, WARM_UI, 0, 0, q, rot)
@@ -290,8 +294,16 @@ class KoComponent(
         val withCause = reason == KoReason.POISON || reason == KoReason.COMMANDER_DAMAGE
         val value = if (reason == KoReason.POISON) p.counters.poison else p.maxCommanderDamage
         val nk = k.topRow(seat, withCause, value, tr, ci, cn)
-        if (f.hit(tr)) f.r.blit(tomb, tr.left, tr.top, rot)
+        if (f.hit(tr)) {
+            // Cut out of the hatch in the tombstone's own shape, then the outline on top.
+            val g = k.halo
+            f.r.fillMask(tombHalo[if (rot == 180) 1 else 0], tr.left - g, tr.top - g, Role.SURFACE)
+            f.r.blit(tomb, tr.left, tr.top, rot)
+        }
         if (withCause && (f.hit(ci) || f.hit(cn))) {
+            val g = k.halo
+            chip.set(minOf(ci.left, cn.left) - g, minOf(ci.top, cn.top) - g, maxOf(ci.right, cn.right) + g, maxOf(ci.bottom, cn.bottom) + g)
+            f.r.rect(chip, ink = false)
             f.icons.icon(k.causeK, if (reason == KoReason.POISON) Icon.POISON else Icon.COMMANDER, ci, rot, invert = false, opaque = false)
             f.text.drawInt(k.causeFont, value, cn.left, cn.top, nk, rot)
         }
