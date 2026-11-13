@@ -1,0 +1,22 @@
+"""Sheet order and labels for render2.py. 'r1-<name>' rows are the round-one frames, unchanged,
+drawn over the sticker numerals for the before/after comparison."""
+ROWS = [
+    ('r1-pow', 'before|round one'),
+    ('pow2', 'damage|refit'),
+    ('r1-crack', 'before|round one'),
+    ('crack2', 'damage|refit'),
+    ('r1-twinkle', 'before|round one'),
+    ('twinkle2', 'heal|refit'),
+    ('r1-claw', 'before|round one'),
+    ('claw-cut', 'damage|claw a: straight'),
+    ('claw-paper', 'damage|claw b: no cut op'),
+    ('claw-swipe', 'damage|claw c: tile'),
+    ('quake', 'damage|tile'),
+    ('fault', 'damage|tile'),
+    ('focus', 'big hit|tile'),
+    ('vines', 'heal|tile'),
+    ('rise', 'heal|tile'),
+    ('sunrise', 'heal|tile'),
+    ('ko-shatter', 'ko|tile'),
+    ('winner', 'last standing|tile'),
+]
