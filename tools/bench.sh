@@ -67,7 +67,13 @@ restore_save() {
     fi
   done
   $A shell run-as $P rm -f files/save.dtsv.tmp
+  for f in save.dtsv save.dtsv.bak; do # read it back: a restore that silently failed would leave the bench's game
+    [ -f "$SAVE_BAK/$f" ] || continue
+    $A exec-out run-as $P cat files/$f | cmp -s - "$SAVE_BAK/$f" || echo "WARNING: $f NOT restored (backup in $SAVE_BAK)" >&2
+  done
   $A shell am start -n $ACT >/dev/null
+  sleep 5 # then check nothing rewrote it on launch
+  $A exec-out run-as $P cat files/save.dtsv | cmp -s - "$SAVE_BAK/save.dtsv" || echo "WARNING: save.dtsv changed after relaunch (backup in $SAVE_BAK)" >&2
   echo "save restored, app relaunched"
 }
 trap restore_save EXIT
