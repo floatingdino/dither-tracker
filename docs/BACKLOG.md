@@ -42,7 +42,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T07 | todo | T06 | Hold-to-repeat (±10 steps) and pending-delta readout with idle commit. | `play/`, `core/` reducer hooks |
 | T08 | todo | T06 T02 | Player drawer: bottom tab, opens (no animation) to tracker tray; counters with icon + value + −/+; `COMMANDER DAMAGE` button → per-opponent damage view (partner aware, optional life link). | `app/src/main/**/drawer/` |
 | T09 | todo | T06 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
-| T10a | wip | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
+| T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
 | T10b | todo | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
 
 ### Phase 2 — Layouts & settings
@@ -107,3 +107,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   Dispatched T05. T02, T10a still running.
 - 2026-11-13 — Tick 5: T02 verified (validator: 43 icons, 0 problems; contact sheet reviewed;
   Figma icons untouched) and committed. Added T24 (icon polish). T05, T10a still running.
+- 2026-11-13 — Tick 6: T10a verified (96 core tests pass on rerun) and committed. Save format:
+  binary `DTSV` v1 + CRC32, ~2.2 KB for 4 players + 200 log entries; `SaveCodec.encode/decode`,
+  `AppSettings` in `core.serial`; undo history not persisted (T10b: `History(save.game)`).
+  Defaults to tune on device: `fullRefreshEvery = 20`, `keepScreenAwake = true`, `orientation = LANDSCAPE`.
+  Only T05 running; T06 is next once it lands.
