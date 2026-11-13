@@ -12,8 +12,8 @@ import au.com.josephmark.dithertracker.stage.Layer
 import au.com.josephmark.dithertracker.stage.ZoneSink
 
 /**
- * The centre diamond while commander-damage mode is on: the diamond fill with a close X (opaque, on
- * its paper square) where the menu bars were. One zone (local 0, the diamond's shape); a tap leaves
+ * The centre diamond while commander-damage mode is on: the diamond fill with a close X (on its 1-px
+ * paper cut-out, T41) where the menu bars were. One zone (local 0, the diamond's shape); a tap leaves
  * the mode. Part of the commander feature: shares [tile]'s [CommanderMode]. The mode's cover hides
  * the menu diamond ([Kind.CHROME]) meanwhile; this is [Kind.MODE].
  */
@@ -33,7 +33,7 @@ class CommanderClose(private val tile: CommanderTile) : Component(Layer.SCREEN, 
         val c = tile.layout ?: return
         if (!f.hit(l.diamond)) return
         Diamond.fill(f.r, l)
-        f.icons.icon(c.tk, Icon.CLOSE, c.closeIcon, 0, invert = false, opaque = true)
+        f.icons.icon(c.tk, Icon.CLOSE, c.closeIcon, 0, invert = false, opaque = false, halo = true)
     }
 
     override fun bounds(out: IRect): Boolean {
