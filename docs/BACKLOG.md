@@ -101,8 +101,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T28e | done | T28b | Engine support for round-two effects: `x` (invert under mask), tile-filled layers at global phase, `anchor tile`; promote chosen options from `design/fx/options/` to `design/fx/`. JVM-only. | `app/**/fx/`, `design/fx/` |
 | T28f | todo | T28c | More effects in the round-two style (Sam: "continue building out more animations in this style after all the current set"): dither shading in overlays and numeral interactions, cut-outs, tile-wide reach; new damage/heal variety, counter-specific hits (poison, commander damage), monarch/initiative gained, turn pass, dice/coin reveals. Design then promote. | `design/fx/` |
 | T33 | done | T30 (owns flavour) | Quip tone pass: make the whole table a smidge more combative ("uh oh", "whoops", "beefed it") per SPEC Tone; keep length/charset rules and the doc mirror. | `core/**/flavour/`, `design/copy/quips.md` |
-| T37 | review | T27 | Mini sticker numeral face (Sam, 2026-11-13): a small numeral set in the sticker style **without the shadow**, for the target's life total in commander mode (replacing `num-m` there, no black strip behind it) so it keeps its connection to the main life total; consider it for the readout and peeks too. Design candidates as mocks, then build. | `design/font/`, `type/` |
-| T38 | todo | T34 T37 | Counter peeks move into a tile corner (Sam, 2026-11-13) instead of centred under the life total; layout per the T37 round-two mocks; uses the small sticker face. | `peeks/` |
+| T37 | todo | T34 | **Small numerals = `bold`** (Sam's pick, `design/font/candidates/mini2/bold`, 10x14, sticker treatment, no shadow). Build: adopt it as the small numeral face replacing `num-m` everywhere (k=2 for the commander-target life and the pending-delta readout, k=1 for drawer values and peeks); fix the 3-digit drawer value that is 2 px wider than its cell; re-derive affected layouts and tests; verify on device at arm's length. | `design/font/`, `type/`, consumers |
+| T38 | todo | T34 T37 | **Counter peeks = `split`** (Sam's pick, `design/font/candidates/mini2/peeks-split.png` + README): chips in both bottom corners of the tile beside the tab, alternating left/right, three per corner, six slots; `+N` takes the sixth slot on overflow; poison >= 8 inverts; display-only; hidden while the drawer is open and in commander mode. | `peeks/` |
 | T28d | done | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
 | T27 | done | T08 | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
@@ -140,11 +140,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - Quips (T25a) are in `design/copy/quips.md` for Sam to mark up. Least sure: "All quiet on the
   battlefield", "Took it personally", "Tails never fails, they say", "Drew nothing but lands" (close in
   spirit to Lotus's "flooded").
-
-- **Pick small numerals and peek corners** (T37 round two): `design/font/candidates/mini2/`
-  (`comparison.png`, `peeks-*.png`, `in-context*.png`, README). Agent recommends `bold` 10x14 as the
-  single small face (k=2 target life and readout, k=1 peeks and drawer values; could replace `num-m`)
-  and `split` peeks in both bottom corners beside the tab.
 
 ## Tick log
 
@@ -329,3 +324,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   on GitHub still contain the serial, the Lotus screenshot and the Figma link (history not rewritten).
 - 2026-11-14 — Tick 31: T37 round two reviewed (comparison and in-context mocks eyeballed; 2 agent
   commits). Awaiting Sam's pick. Running: T34 (device).
+- 2026-11-14 — Sam picked `bold` + `split`. T37 (build) and T38 are specified and wait for T34,
+  which is refactoring the files they touch.
