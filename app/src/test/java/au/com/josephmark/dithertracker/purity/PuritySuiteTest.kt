@@ -29,7 +29,7 @@ import java.io.File
  * play, presses, drawers, peeks, commander mode, KO and winner, the gem, settings, history, dice and
  * coin, first player, every effect keyframe — drawn by the real components onto a [RasterRenderer]
  * at S = 2..6 on a landscape and a portrait screen, each in both colour modes, and checked with
- * [PurityChecks]. The device half is `tools/check_purity.sh` (see `tools/README.md`).
+ * [PurityChecks]. The device half is `tools/check_purity.sh` (see `docs/architecture.md`, "Verification harness").
  *
  * One test per (screen, S) × script; a script calls [Shots.shot] at each state it wants checked and
  * every failure is collected, so one run lists them all. Failing renders are written to

@@ -159,3 +159,33 @@ and hold the KO tile off with `Events.KO_HOLD` / `KO_RELEASE` while a KO flouris
 
 `tools/capture_scenarios.sh <outdir>` (device) captures 19 scripted states; compare two builds with
 `cmp`, check each with `tools/check_1bit.py f --scale 4`. T34's after-set is in `design/captures/t34/`.
+
+### Pixel-purity suite (T22)
+
+Two halves; run both before calling a screen change done.
+
+**JVM** — `./gradlew :app:testDebugUnitTest --tests 'au.com.josephmark.dithertracker.purity.*'`
+(~2 s). `DitherRenderer` is an abstract base: the app draws with `CanvasDitherRenderer`, the tests with
+`purity/RasterRenderer` (one byte per dither px, API 29+ semantics). `purity/ScreenRig` runs the real
+`PlayScreen` component list on a fake clock; `PuritySuiteTest` scripts play (readouts, presses, 3–4
+digit totals), drawers (zero and non-zero cells, page 2, presses), peeks, commander mode (partner
+quarters, presses), KO and winner, the gem (every facet held, NEW confirm, CLEAN), settings (pages,
+rotations), history, dice/coin, first player and every effect keyframe, at S = 2..6 on 1872×1404 and
+1404×1872, each shot in both colour modes. Per shot it fails on: a draw outside the dither grid
+(would land in the margin; enforced on `comfortable` layouts — the others are never offered),
+an unbalanced `clipTo`, any 8×8 area that is a dither tile off the global phase (rule 3), a dark-mode
+render that is not the exact complement of the normal one, and an effect frame that changes pixels
+outside the seat panels. Failing shots are written to `app/build/purity/<screen>-S<s>/`;
+`PURITY_DUMP=<dir>` (with `--no-daemon`) writes every shot. `PurityChecksTest` plants each violation.
+Purity and the S-grid hold by construction here (two values, integer dither coordinates); what the
+JVM cannot see is Skia: blending, filtering, the in-place DIFFERENCE invert, shader phase. Known
+exception, reported not fixed: `fizzle`'s dissolve is baked at frame-local phase (`KNOWN_OFF_PHASE`).
+
+**Device** — `ANDROID_SERIAL=emulator-<port> tools/check_purity.sh <outdir>` (~6 min on the
+emulator): installs the debug APK, runs `capture_scenarios.sh` (T34's 19 states, then the gem, NEW
+confirm, dice/coin, first player, settings, history, KO and winner, dark mode, and every effect
+keyframe via `--es fx <name> --ef fxHold 10`), checks every PNG with `check_1bit.py --scale 4`, prints a
+table and exits non-zero on any failure. `NO_CAPTURE=1` re-checks an existing folder; `BASE_ONLY=1`,
+`NO_FX=1` shorten the run. Only S = 4 landscape is captured (the script's coordinates are for it);
+other scales and portrait are the JVM half's job. Effect captures are timed, so a name can be a frame
+off; every capture is checked either way.
