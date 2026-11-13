@@ -22,6 +22,8 @@ class WidgetPainter(val c: WidgetCanvas) {
     private val s = IRect()
     private val tmp = IRect()
     private val slice = TextSlice()
+    private val local = IRect()
+    private val numBuf = CharBuf(16)
 
     private var iconK = 1
     private val scaledIcons = arrayOfNulls<MonoImage>(Icon.entries.size)
@@ -31,6 +33,10 @@ class WidgetPainter(val c: WidgetCanvas) {
         when (w) {
             is Button -> button(f, w)
             is ButtonRow -> buttonRow(f, w)
+            is ListRow -> listRow(f, w)
+            is Toggle -> toggle(f, w)
+            is Stepper -> stepper(f, w)
+            is Segmented -> segmented(f, w)
             else -> throw IllegalArgumentException("no painter for ${w::class.simpleName}")
         }
     }
@@ -86,6 +92,71 @@ class WidgetPainter(val c: WidgetCanvas) {
     private fun buttonRow(f: WidgetFrame, r: ButtonRow) {
         paper(f, r.bounds)
         for (b in r.buttons) button(f, b)
+    }
+
+    /** Paper under a row; disabled rows get the hatch. Returns true when content sits on a dither. */
+    private fun rowBackground(f: WidgetFrame, w: Widget): Boolean {
+        paper(f, w.bounds)
+        if (w.enabled) return false
+        fill(f, Role.DISABLED, w.bounds)
+        return true
+    }
+
+    private fun listRow(f: WidgetFrame, r: ListRow) {
+        val m = r.metrics
+        val d = rowBackground(f, r)
+        r.icon?.let { icon(f, m, it, r.iconRect, invert = false, opaque = d) }
+        text(f, m, m.ui, r.label, 0, r.labelChars, r.labelRect, TextLayout.START, invert = false, opaque = d)
+        r.value?.let { text(f, m, m.ui, it, 0, r.valueChars, r.valueRect, TextLayout.END, invert = false, opaque = d) }
+        if (r.chevron) icon(f, m, Icon.CHEVRON_RIGHT, r.chevronRect, invert = false, opaque = d)
+    }
+
+    private fun toggle(f: WidgetFrame, t: Toggle) {
+        val m = t.metrics
+        val d = rowBackground(f, t)
+        text(f, m, m.ui, t.label, 0, t.labelChars, t.labelRect, TextLayout.START, invert = false, opaque = d)
+        if (t.checked) {
+            ink(f, t.box)
+            icon(f, m, Icon.CHECK, t.checkRect, invert = true, opaque = false)
+        } else {
+            paper(f, t.box)
+            outline(f, t.box, m.stroke)
+        }
+    }
+
+    private fun stepper(f: WidgetFrame, st: Stepper) {
+        val m = st.metrics
+        val d = rowBackground(f, st)
+        text(f, m, m.ui, st.label, 0, st.labelChars, st.labelRect, TextLayout.START, invert = false, opaque = d)
+        stepButton(f, m, st.minusBtn, st.minusIcon, Icon.MINUS, st.enabled && st.canDecrease)
+        stepButton(f, m, st.plusBtn, st.plusIcon, Icon.PLUS, st.enabled && st.canIncrease)
+        numBuf.clear().append(st.value)
+        text(f, m, m.num, numBuf, 0, numBuf.length, st.valueRect, TextLayout.CENTRE, invert = false, opaque = d)
+    }
+
+    private fun stepButton(f: WidgetFrame, m: WidgetMetrics, btn: IRect, at: IRect, ic: Icon, live: Boolean) {
+        if (live) {
+            paper(f, btn); outline(f, btn, m.stroke)
+        } else {
+            paper(f, btn); hatchedOutline(f, btn, m.stroke)
+        }
+        icon(f, m, ic, at, invert = false, opaque = !live)
+    }
+
+    private fun segmented(f: WidgetFrame, sg: Segmented) {
+        val m = sg.metrics
+        val d = rowBackground(f, sg)
+        text(f, m, m.ui, sg.label, 0, sg.labelChars, sg.labelRect, TextLayout.START, invert = false, opaque = d)
+        paper(f, sg.bar)
+        outline(f, sg.bar, m.stroke)
+        for (i in 1 until sg.options.size) {
+            ink(f, local.setXywh(sg.segVis[i].left, sg.bar.top, m.stroke, sg.bar.height))
+        }
+        val sel = sg.selected
+        if (sel in sg.options.indices) ink(f, sg.segVis[sel])
+        for (i in sg.options.indices) {
+            text(f, m, m.ui, sg.options[i], 0, sg.segChars[i], sg.segVis[i], TextLayout.CENTRE, invert = i == sel, opaque = false)
+        }
     }
 
     // ---- primitives (local rects through the frame) -----------------------------------------------
