@@ -67,7 +67,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
-| T19 | todo | T06 | E-ink refresh strategy: audit invalidations, periodic full-refresh to clear ghosting, investigate Supernote/Ratta refresh-mode APIs (research → `docs/eink.md`, then implement what's safely available). | `app/src/main/**/eink/`, `docs/eink.md` |
+| T19a | wip | — | E-ink refresh research: Supernote/Ratta refresh-mode APIs, what stock Android offers, ghosting strategy → `docs/eink.md` with a concrete recommendation. Read-only device inspection. | `docs/eink.md` |
+| T19b | todo | T19a T06 | Implement the refresh strategy from `docs/eink.md`: invalidation audit, periodic full refresh, any safely available device refresh-mode hook. | `app/src/main/**/eink/` |
 | T20 | todo | T11 T12 | Performance pass: zero allocations in draw, startup time, APK size, StrictMode clean; measure on emulator throttled. | whole app |
 | T21 | todo | T04 T02 | App icon (1-bit, adaptive + legacy) and launcher label from the icon set / dither patterns. | `app/src/main/res/` |
 | T22 | todo | all | Full pixel-purity regression suite: render every screen at S=2..6, both orientations, inverted and not; fail on any non-#000/#FFF pixel or any off-grid edge. | `app/src/test/` |
@@ -112,3 +113,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   `AppSettings` in `core.serial`; undo history not persisted (T10b: `History(save.game)`).
   Defaults to tune on device: `fullRefreshEvery = 20`, `keepScreenAwake = true`, `orientation = LANDSCAPE`.
   Only T05 running; T06 is next once it lands.
+- 2026-11-13 — Tick 7: T05 still running (font files in progress). Split T19 into research (T19a,
+  dispatched) and implementation (T19b).
