@@ -1,0 +1,14 @@
+# quake: Shockwave. Beat 1: the numeral is jolted, sliced by three paper cuts, with impact ticks at its four corners. Beat 2: a shockwave has run out to the tile edges as two broken dotted arcs. Beat 3: a few dots at the rim. Clean.
+size 233 175
+frames 4
+anchor tile 0 0
+hold_ms 300 300 250 0
+ink_px 280 252 20 0
+knockout_px 341 0 0 0
+flips 372 624 272 20   # total 1288 dither px = 20608 device px, over sticker "37" in a full tile
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords
+#   (y down). ref "tile" = the seat tile centre; otherwise a point of the life
+#   total's layout box (centre|tl|tr|bl|br|top|bottom|left|right).
+# symbols: # ink, o paper, x cut (invert), digits = tile layers above (global phase)
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.
+# flips: changed dither px base->f1, ..., last drawn frame->clean.
