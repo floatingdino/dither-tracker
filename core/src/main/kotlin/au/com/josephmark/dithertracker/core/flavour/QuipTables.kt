@@ -184,7 +184,6 @@ internal object QuipTables {
     val commanderTarget = listOf(
         "Uh oh",
         "Whoops",
-        "Beefed it",
         "It's you",
         "Big mistake",
         "Here it comes",

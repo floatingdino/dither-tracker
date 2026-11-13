@@ -165,7 +165,6 @@ Any pair can follow any prompt, so the confirm label must read as "reset" on its
 ### Commander damage: the targeted player *(drawn large on their tile, at most 16 characters; heckling a little)*
 - Uh oh
 - Whoops
-- Beefed it
 - It's you
 - Big mistake
 - Here it comes
