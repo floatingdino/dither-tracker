@@ -67,7 +67,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T34 | done | T27 T30 T32 | **Component refactor** (Sam approved, 2026-11-13: play-screen edits were blocking compartmentalised features). No behaviour change. A `Component` contract (layout on the grid, draw, claim touch zones, tap/hold, invalidation on state change); a host view that owns no feature logic and loops over an ordered component list; zone ids allocated by the host; a per-seat tile layer (life, readout, drawer, peeks, commander mode, effects slot, KO slot) and a screen layer for overlays (menu, settings, history, tools). Existing tests pass; before/after device captures pixel-identical. Write `docs/architecture.md`. | `app/` |
 | T35 | done | T05 | Shared 1-bit widgets (JVM-only, new package): button, icon button, list row, toggle, stepper, segmented choice, confirm prompt, paged list — pure layout + painter + hit-testing over `DitherRenderer`/`TextRenderer`, press inversion, fingertip-size rule. | `app/**/widgets/` |
 | T36 | done | — | Centre menu design options (Sam, 2026-11-13: likes that the Lotus radial menu isn't pointed at any one player (reference screenshot kept out of the repo) but no angled buttons; achieve it in our pixel-perfect language). 3–4 concepts as true-pixel mocks, incl. how second-level panels (settings, history, players) orient. Design-only. | `design/menu/` |
-| T09 | wip | T34 T35 | **Centre menu = the gem** (Sam's pick, `design/menu/concept-1-gem-*`, README): the diamond grows into a stepped diamond of 3x3 facets; items NEW, UNDO, REDO, DICE, FIRST, LOG, SETUP, CLEAN; centre becomes a close X; labelled facets face their nearest seated edge (upside-down labels on the far half are fine). **Fix:** the icon-only doubled undo/redo tips on the divider are inscrutable — give undo and redo labelled facets like the rest, and put rotation-symmetric items (e.g. DICE, CLEAN) on the two divider tips, or otherwise make undo/redo unmistakable. Second level per the mocks: two-faced restart confirm and dice result, settings card with a rotate control. Built as a screen-layer component with `widgets/`. | `app/**/menu/` |
+| T09 | review | T34 T35 | **Centre menu = the gem** (Sam's pick, `design/menu/concept-1-gem-*`, README): the diamond grows into a stepped diamond of 3x3 facets; items NEW, UNDO, REDO, DICE, FIRST, LOG, SETUP, CLEAN; centre becomes a close X; labelled facets face their nearest seated edge (upside-down labels on the far half are fine). **Fix:** the icon-only doubled undo/redo tips on the divider are inscrutable — give undo and redo labelled facets like the rest, and put rotation-symmetric items (e.g. DICE, CLEAN) on the two divider tips, or otherwise make undo/redo unmistakable. Second level per the mocks: two-faced restart confirm and dice result, settings card with a rotate control. Built as a screen-layer component with `widgets/`. | `app/**/menu/` |
 | T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
 | T10b | done | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
 
@@ -76,7 +76,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
 | T11 | todo | T06 | Layout engine for 2–6 players, portrait + landscape, per-seat rotation (0/90/180/270), all on the dither grid with leftover px as margin. Render tests per layout. | `app/src/main/**/layout/` |
-| T12 | todo | T34 T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life as a segmented [40] [30] [20] choice (not a stepper), counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
+| T12 | wip | T34 T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life as a segmented [40] [30] [20] choice (not a stepper), counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
 | T13 | todo | T08 T12 | Player customisation: name entry (in-app 1-bit keyboard — no system IME, see SPEC rule 7), per-player background pattern picker. | `app/src/main/**/player/` |
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | wip | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
@@ -85,9 +85,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
-| T16 | todo | T34 T09 | Random starting player, dice (d6/d20/custom), coin flip — static result reveal, 1-bit dice faces. | `app/src/main/**/tools/` |
+| T16 | wip | T34 T09 | Random starting player, dice (d6/d20/custom), coin flip — static result reveal, 1-bit dice faces. | `app/src/main/**/tools/` |
 | T17 | todo | T34 T09 T03 | Turn tracker + optional turn/game timer (redraw at most once a minute; partial refresh). | `tools/`, `core/` |
-| T18 | todo | T34 T09 T03 | Game history log view (scrolling by page, not smooth scroll). | `app/src/main/**/history/` |
+| T18 | wip | T34 T09 T03 | Game history log view (scrolling by page, not smooth scroll). | `app/src/main/**/history/` |
 
 ### Phase 4 — E-ink polish & release
 
@@ -381,3 +381,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   siblings mid-flight (two of their tests red), so the coordinator's full test run and the Nomad
   legibility check wait until they land. Cross-agent notes sent: KO winner caption must not paint
   over the peek corners; menu layout tests must use the new readout slot.
+- 2026-11-14 — Tick 37: T09 reported with 4 commits; emulator captures eyeballed
+  (`design/captures/t09-gem-*.png`): gem with labelled UNDO/REDO facets, DICE and CLEAN icon-only on
+  the divider tips, chunky close X, two-faced reset confirm, `eink/ScreenCleaner`. Left in `review`
+  until the tree settles (one sibling test red) and the Nomad check. Destinations plug in via
+  `menu.destinations.register(MenuItem.X, overlay)` — dispatched T12 settings (emulator 5562), T16
+  dice/coin/first player (5566), T18 history (5570). Still running: T15, T28c.
