@@ -46,7 +46,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T07 | done | T06 | Hold-to-repeat (±10 steps) and pending-delta readout with idle commit. | `play/`, `core/` reducer hooks |
 | T08 | done | T06 T02 | Player drawer: bottom tab, opens (no animation) to tracker tray; counters with icon + value + −/+; `COMMANDER DAMAGE` button → per-opponent damage view (partner aware, optional life link). | `app/src/main/**/drawer/` |
 | T30 | wip | T08 T27 | **Commander damage mode on the main interface** (Sam, 2026-11-13): an icon button on each player's tile; pressing it makes that player the *target* — every other tile swaps its life total for the commander damage that tile's player has dealt to the target (−/+ adjust it; partner slots supported), and the target's own tile swaps its life total for a quip (e.g. "Target"). Press again (or the target tile) to leave. Remove the drawer's COMMANDER DAMAGE button/view. Add a target quip category to core flavour. Same agent as T27, after it. | `play/`, `drawer/`, `core/**/flavour/` |
-| T31 | wip | — | Icon: redraw `commander` (and `partner` to match) to read as an *enemy* — demon/imp — in the current solid style. Design-only. | `design/icons/` |
+| T31 | done | — | Icon: redraw `commander` (and `partner` to match) to read as an *enemy* — demon/imp — in the current solid style. Design-only. | `design/icons/` |
 | T32 | wip | T30 | Counter peeks (Sam, 2026-11-13): with the drawer closed, show each non-zero counter as a small icon + value chip on the tile, display-only, overflow as "+N". Same agent as T27/T30. | `play/`, `drawer/` |
 | T09 | todo | T06 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
 | T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
@@ -224,3 +224,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   coordinator (circle bisected by a vertical bar, 2 px strokes). Note: it is a Wizards of the Coast
   mark; fine for a personal sideloaded app, revisit if the app is ever distributed. README row and
   contact sheets to be refreshed when T31 lands.
+- 2026-11-13 — Tick 20: T31 reviewed (validator passes; sheet eyeballed) and committed: `commander`
+  is a grinning imp head, `partner` an imp with a small sidekick. Poison README row fixed.
+  Running: T27 -> T30 -> T32 (one agent, device), T28d.

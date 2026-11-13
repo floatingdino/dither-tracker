@@ -32,7 +32,7 @@ build never sees them.
   arrowhead, a bolt, pips, a cross, the wedge on `timer`, the edge on `coin`, the thickness on `dice`.
 - **Arrows have solid triangular heads** (the `refresh`/`reset` language). `undo`, `redo`, `rotate`,
   `scale` and `turn` all use it.
-- **Character in small doses.** A detail goes in only where the object already has one: a skull's
+- **Character in small doses.** A detail goes in only where the object already has one: an imp's
   face, a helmet's plume, a sparkle on `experience`, `ring` and `night`, a glint on `life` and `day`,
   grass at the foot of `dead`, a flag on `citys-blessing`. Utility glyphs get no character.
   Never give a face to an object that doesn't have one.
@@ -64,12 +64,12 @@ On the contact sheet, each icon is drawn at 8× nearest-neighbour inside a grey 
 
 | Icon | Depicts | Used for |
 |------|---------|----------|
-| `poison` | Round solid skull: big eye sockets, nose, little teeth | Poison counter (drawer) |
+| `poison` | Phyrexian symbol: an oval bisected by a vertical bar, 2 px strokes (common poison shorthand; a Wizards of the Coast mark — revisit if the app is distributed) | Poison counter (drawer, peeks) |
 | `storm` | Lumpy cloud with a heavier base and a solid bolt beneath | Storm counter (drawer) |
 | `rads` | Compact solid trefoil with a square centre | Rad counter (drawer) |
 | `energy` | Chunky solid lightning bolt | Energy counter (drawer) |
 | `experience` | Solid five-point star with a sparkle | Experience counter (drawer) |
-| `commander` | Solid helmet with a T-shaped visor and a curly plume | Commander damage (drawer button, damage view) |
+| `commander` | Cheeky imp head: little horns, slanted eyes and a fanged grin knocked out, pointed chin | Commander damage (main play button, damage view) |
 | `commander-tax` | Money sack, tied at the top, with a coin knocked out | Commander tax counter, one per commander |
 | `tickets` | Ticket: solid stub, dashed perforation, star on the face | Tickets counter (drawer) |
 | `generic-counter` | Round token marked "+1" | Generic/custom counter (drawer) |
@@ -105,16 +105,16 @@ On the contact sheet, each icon is drawn at 8× nearest-neighbour inside a grey 
 | `invert` | Half-filled circle | Invert (dark mode) setting |
 | `scale` | Diagonal double-headed arrow, solid heads | Integer scale S setting |
 | `rotate` | Phone (with a chin and home button) and a curved arrow | Seat/screen orientation |
-| `partner` | Two commander helmets, one in front of the other | Partner commanders (two damage sources) |
+| `partner` | The `commander` imp (smaller) with a tiny fanged sidekick imp at its shoulder | Partner commanders (two damage sources) |
 | `refresh` | Two clockwise circular arrows, solid heads | Full e-ink refresh (ghosting cleanup) |
 
 ## Telling similar icons apart
 
 - `undo` and `redo` are open hooks, while `reset` and `refresh` are closed circles. `reset` has one anticlockwise arrow and `refresh` has two clockwise arrows. `rotate` is the only one with a device in it.
 - `day` has block rays that stand apart from a solid disc. `settings` has teeth joined to the body and a big hole in the middle.
-- `monarch` (crown) and `commander` (helmet) share no outline. `partner` is two `commander` helmets on purpose, so the two read as related. `players` uses the same front/back overlap with people.
+- `monarch` (crown) and `commander` (imp) share no outline: the imp's horns are single curved points, the crown has a straight band. `partner` reuses the `commander` imp face on purpose, so the two read as related, and adds a tiny sidekick so it never reads as a single imp. `players` uses the same front/back overlap with people.
 - `coin` is a single angled coin with a solid edge. `commander-tax` is a money sack. `generic-counter` is a flat round token marked "+1". `invert` is a perfect circle split down the middle with no emblem.
 - `storm` is a cloud with a small bolt. `energy` is a big bolt on its own.
-- `dead` (tombstone) is the only arched slab, and its grassy ground extends past the stone. `poison` (skull) is the only face.
+- `dead` (tombstone) is the only arched slab, and its grassy ground extends past the stone. `commander` and `partner` (imps) are the only faces.
 - `new-game` (card with a plus) has a second card behind it. `dice` has pips and a thick edge.
 - `experience` (star), `ring` and `night` all carry a small sparkle. The sparkle is decoration, not the thing the icon means.
