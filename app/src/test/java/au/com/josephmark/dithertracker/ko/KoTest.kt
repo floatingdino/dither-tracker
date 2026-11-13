@@ -139,6 +139,7 @@ class KoTest {
                         }
                     }
                     assertMerged(b, tag)
+                    if (roomy(w, h)) assertEquals("$tag revive plate at the quip size", k.quipK, b.reviveK)
                     for (r in listOf(b.plate, b.keyline, b.shadow)) assertTrue("$tag revive $r in hero area", inside(r, area))
                     val rt = b.reviveText
                     // The text box's cap band (it is the face's full height; the descender rows face away on a turned seat) sits on the plate.
@@ -223,6 +224,7 @@ class KoTest {
         assertEquals(b.gy[0] + b.gh[0], b.gy[1])
         assertEquals(listOf(25, 60, 182, 18), listOf(b.gx[0], b.gy[0], b.gw[0], b.gh[0]))
         assertEquals(listOf(37, 78, 158, 18), listOf(b.gx[1], b.gy[1], b.gw[1], b.gh[1]))
+        assertEquals(2, b.reviveK) // the armed plate matches (T47; it was k = 4)
         // Layout numbers at S = 4.
         assertEquals(2, k.quipK)
         assertEquals(2, k.iconK)

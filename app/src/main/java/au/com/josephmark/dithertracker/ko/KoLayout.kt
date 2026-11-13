@@ -39,7 +39,8 @@ import au.com.josephmark.dithertracker.widgets.TextWrap
  *   next, so the lines merge into one stepped shape with no dither between words or lines.
  * - **Detail**: an icon + `num-m` value on a paper chip, centred in the under-number row between the
  *   counter-peek corners ([detail]).
- * - **Revive** (armed): an ink plate reading [REVIVE] in paper at [Block.reviveK], with a solid
+ * - **Revive** (armed): an ink plate reading [REVIVE] in paper at [Block.reviveK] (T47: the quip's
+ *   size, down from k = 4, which shouted next to the one-size quips), with a solid
  *   shadow down-right separated from it by a paper [keyline], centred in the hero area.
  * - **Winner cover** ([winnerCover]): paper over everything above the peek corners (the number, ±
  *   and readout of the live tile underneath).
@@ -355,7 +356,7 @@ class KoLayout(val play: PlayLayout) {
         /** Design values at S = 4 (converted per S like [PlayLayout.Chrome]). */
         const val ICON_K = 2
         const val QUIP_K = 2
-        const val REVIVE_K = 4
+        const val REVIVE_K = 2
         const val GUTTER = 2
         const val HALO = 2
         const val PAD_H = 6
