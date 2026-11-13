@@ -8,11 +8,16 @@ package au.com.josephmark.dithertracker.core
  * - Players that did not change keep their identical [Player] instance.
  * - A [KoOverride.ALIVE] override is cleared when the player's auto-KO condition flips
  *   (they recover, so the override is no longer needed, or they die again from a fresh change).
+ * - A KO'd player holds no exclusive toggle (T14). In the rules the monarchy passes to whoever dealt
+ *   the blow (or the next player in turn order) and the initiative to the active player, but the app
+ *   cannot know who that is: a player going KO drops monarch / initiative and it is **nobody's**
+ *   until someone claims it. Reviving does not give it back (undo does, with the KO). Giving an
+ *   exclusive toggle to a KO'd player is a no-op.
  */
 fun reduce(state: GameState, action: Action): GameState {
     val next = reduceRaw(state, action)
     if (next === state) return state
-    return settleOverrides(state, next)
+    return releaseExclusives(state, settleOverrides(state, next))
 }
 
 private fun reduceRaw(s: GameState, a: Action): GameState = when (a) {
@@ -117,6 +122,7 @@ private fun commanderDamage(s: GameState, a: Action.ChangeCommanderDamage): Game
 private fun setToggle(s: GameState, a: Action.SetToggle): GameState {
     val p = s.player(a.player) ?: return s
     if (p.toggles[a.toggle] == a.on) return s
+    if (a.on && a.toggle.exclusive && s.isKo(p)) return s // a KO'd player can't hold it (see [reduce])
     val clearOthers = a.on && a.toggle.exclusive
     return s.copy(players = s.players.map {
         when {
@@ -207,6 +213,23 @@ private fun setPlayerCount(s: GameState, count: Int): GameState {
         startingPlayer = t.startingPlayer?.let { if (it in removed) firstId else it },
     )
     return s.copy(players = players, turn = turn)
+}
+
+/** Players that went KO in this step drop their exclusive toggles (monarch, initiative): nobody's now. */
+private fun releaseExclusives(old: GameState, new: GameState): GameState {
+    var players: MutableList<Player>? = null
+    for (i in new.players.indices) {
+        val p = new.players[i]
+        if (!p.toggles.monarch && !p.toggles.initiative) continue
+        if (!new.isKo(p)) continue
+        val before = old.player(p.id)
+        if (before != null && old.isKo(before)) continue // already dead before this step: leave as it was
+        var t = p.toggles
+        for (toggle in Toggle.entries) if (toggle.exclusive) t = t.with(toggle, false)
+        val list = players ?: new.players.toMutableList().also { players = it }
+        list[i] = p.copy(toggles = t)
+    }
+    return players?.let { new.copy(players = it) } ?: new
 }
 
 private fun settleOverrides(old: GameState, new: GameState): GameState {

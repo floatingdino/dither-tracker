@@ -18,7 +18,13 @@ Read the sources for signatures; this file records the behaviour a UI author mus
 - **Seats:** `players[i].seat == i` always. Ids are stable; unknown ids / invalid slots are no-ops.
 - **Commander damage** is stored on the receiving player, keyed by source id.
 - **Turns:** active player lives in `state.turn` — diff it separately for the highlight.
-- **Monarch / initiative** are exclusive: granting one changes two `Player` objects.
+- **Monarch / initiative** are exclusive: granting one changes two `Player` objects. Either can be
+  nobody's. A player going KO drops both (T14: in the rules they pass on, but the app can't know to
+  whom, so they are left unset; the log gets a `ToggleChanged(…, false)` before the `KnockedOut`).
+  Revive does not restore them (undo of the KO does); a KO'd player can't claim one (no-op).
+  City's blessing and ring-bearer are independent per player and survive a KO. Day/night is global
+  (`UNSET`/`DAY`/`NIGHT`), cleared by NewGame/Reset. All of it has been in the save since v1 (player
+  flag bits, `dayNight`), so T14 needed no format bump.
 - **Life linking:** adding damage takes life when `linkLife ?: settings.commanderDamageAffectsLife`.
   Removing damage refunds exactly the life it took (LIFO), unless `linkLife = false` is passed.
 - **Partners:** partner slot only works when the source has `partner = true`; turning it off zeroes

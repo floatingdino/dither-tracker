@@ -14,6 +14,7 @@ import au.com.josephmark.dithertracker.core.LogEntry
 import au.com.josephmark.dithertracker.core.LogEvent
 import au.com.josephmark.dithertracker.core.LogEvent.*
 import au.com.josephmark.dithertracker.core.Toggle
+import au.com.josephmark.dithertracker.core.reduce
 import java.util.zip.CRC32
 import kotlin.random.Random
 import kotlin.test.Test
@@ -51,7 +52,7 @@ class SaveCodecTest {
         d(ChangeCommanderTax(1, Commander.PARTNER, 2))
         Counter.entries.forEachIndexed { i, c -> d(ChangeCounter(3, c, i + 1)) }
         d(SetCounter(4, Counter.POISON, 999))
-        Toggle.entries.forEach { d(SetToggle(2, it, true)) }
+        Toggle.entries.forEach { d(SetToggle(1, it, true)) } // T14: alive (a KO'd player can't hold a crown)
         d(SetToggle(5, Toggle.RING_BEARER, true))
         d(ChangeLife(5, -45)) // KO by life
         d(Revive(5)) // ALIVE override while still at <= 0
@@ -135,7 +136,7 @@ class SaveCodecTest {
         assertTrue(s.players[0].commanderDamage.getValue(1).partner.lifeLinked == 7)
         assertTrue(s.players[0].commanderDamage.getValue(1).primary.let { it.damage == 5 && it.lifeLinked == 0 })
         assertTrue(Counter.entries.all { s.players[3].counters[it] > 0 })
-        assertTrue(Toggle.entries.all { s.players[2].toggles[it] })
+        assertTrue(Toggle.entries.all { s.players[1].toggles[it] })
         assertTrue(s.turn.started)
         assertTrue(game.log.size > 20)
 
@@ -461,5 +462,66 @@ class SaveCodecTest {
         val withCrc = bytes + ByteArray(4)
         fixCrc(withCrc)
         assertEquals(FailureReason.CORRUPT, (SaveCodec.decode(withCrc) as DecodeResult.Failure).reason)
+    }
+
+    // ---- T14: state toggles and day/night (stored since v1: player flag bits, the game's dayNight) ------
+
+    /** Every toggle combination across the seats, each day/night state. */
+    private fun toggledGames(): List<Game> = DayNight.entries.flatMap { dn ->
+        (2..6).map { seats ->
+            var h = History(GameState.create(seats))
+            var t = 0L
+            for (seat in 0 until seats) for (tg in Toggle.entries) {
+                if ((seat + tg.ordinal + dn.ordinal) % 2 == 0) h = h.dispatch(SetToggle(seat, tg, true), t++)
+            }
+            h = h.dispatch(SetDayNight(dn), t++)
+            Game(h.state, h.log)
+        }
+    }
+
+    @Test fun togglesAndDayNightRoundTripInTheCurrentVersion() {
+        for (g in toggledGames()) {
+            val save = SaveFile(g, richSettings())
+            assertEquals(save, roundTrip(save))
+        }
+    }
+
+    @Test fun version1And2SavesKeepTheirTogglesAndDayNight() {
+        for (g in toggledGames()) {
+            val settings = richSettings().copy(playerCount = g.state.players.size)
+            val v2 = SaveCodec.encode(SaveFile(g, settings))
+            assertEquals(2, ((v2[4].toInt() and 0xFF) shl 8) or (v2[5].toInt() and 0xFF), "T14 needs no new layout: still v2")
+            val r2 = SaveCodec.decode(v2)
+            assertIs<DecodeResult.Success>(r2)
+            assertEquals(g, r2.save.game)
+            val cut = 6 + settingsSize(settings)
+            val v1 = v2.copyOfRange(0, cut) + v2.copyOfRange(cut + 1, v2.size)
+            v1[5] = 1
+            fixCrc(v1)
+            val r1 = SaveCodec.decode(v1)
+            assertIs<DecodeResult.Success>(r1, "v1 decode failed: $r1")
+            assertEquals(1, r1.version)
+            assertEquals(g.state.dayNight, r1.save.game.state.dayNight)
+            assertEquals(g.state.players.map { it.toggles }, r1.save.game.state.players.map { it.toggles })
+            assertEquals(g.log, r1.save.game.log)
+        }
+    }
+
+    /** Golden bytes: a v1-era player record with partner + all four toggles, so the flag bits never move. */
+    @Test fun toggleFlagBitsArePinned() {
+        var s = GameState.create(2)
+        s = reduce(s, SetPartner(1, true))
+        for (t in Toggle.entries) s = reduce(s, SetToggle(1, t, true))
+        s = reduce(s, SetDayNight(DayNight.NIGHT))
+        val bytes = SaveCodec.encode(SaveFile(Game(s), AppSettings()), maxLogEntries = 0)
+        val name = "Player 2".encodeToByteArray()
+        val at = (0..bytes.size - name.size).first { i -> name.indices.all { bytes[i + it] == name[it] } }
+        // [name][life][pattern ""][flags] — partner 1, monarch 2, initiative 4, blessing 8, ring 16.
+        val flags = bytes[at + name.size + 2].toInt() and 0xFF
+        assertEquals(1 or 2 or 4 or 8 or 16, flags)
+        // dayNight sits right after the game settings: code 2 = NIGHT.
+        val decoded = SaveCodec.decodeOrNull(bytes) ?: fail("did not decode")
+        assertEquals(DayNight.NIGHT, decoded.game.state.dayNight)
+        assertEquals(s.players[1].toggles, decoded.game.state.players[1].toggles)
     }
 }
