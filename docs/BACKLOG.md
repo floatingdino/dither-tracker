@@ -252,3 +252,14 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   (device), T28e, T35.
 - 2026-11-13 — Sam shared the Lotus radial menu as reference for the centre menu: player-neutral, but
   no angled buttons. Dispatched T36 (menu concepts as mocks, design-only); T09 waits on the pick.
+- 2026-11-13 — Tick 23: play-screen agent reported T27 done (device-checked by it), T30/T32 written
+  but unfinished; its `git commit` was blocked by the permission system so everything is uncommitted,
+  and its shared-file edits (`app/build.gradle.kts`, `dither/DitherRenderer.kt`) deadlocked T28e, whose
+  half-applied fx changes in turn broke the main tree's compile. Coordinator copied the play agent's
+  files into a clean worktree (scratchpad `wt`, detached HEAD): core 131 pass; app 185 tests, 4 failing
+  in `CommanderLayoutTest`. Agent sent back to fix there (JVM-only). Lesson: never run two agents with
+  uncommitted edits to the same file — T34 exists to remove the need.
+- 2026-11-13 — Sam on commander mode (device): hold = +/-10; drop "Beefed it" from target quips; the
+  tile button is ugly -> move the entry point into the drawer; target quip one size smaller, ALL CAPS;
+  remove the imp + "TO PLAYER X" label on opponent tiles; hide tabs/peeks/centre menu in the mode and
+  turn the diamond into an X close. Forwarded to the agent.
