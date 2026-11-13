@@ -205,6 +205,7 @@ class PlayView(
         val grid = DitherGrid(w, h, s)
         r.setGrid(grid)
         r.prewarm()
+        val ta = SystemClock.elapsedRealtimeNanos()
         val l = PlayLayout.compute(grid, players, app.layout)
         stage.layout(l)
         val t1 = SystemClock.elapsedRealtimeNanos()
@@ -212,7 +213,7 @@ class PlayView(
         if (trace) {
             val t2 = SystemClock.elapsedRealtimeNanos()
             Log.d(TAG, "layout $l")
-            Log.d(TAG, "layout took ${(t1 - t0) / 1000}us, prewarm ${(t2 - t1) / 1000}us; masks=${r.maskCount} bytes=${r.maskBytes()}")
+            Log.d(TAG, "layout took ${(t1 - t0) / 1000}us (tile shaders ${(ta - t0) / 1000}us), prewarm ${(t2 - t1) / 1000}us; masks=${r.maskCount} bytes=${r.maskBytes()}")
         }
     }
 

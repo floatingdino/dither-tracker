@@ -139,7 +139,12 @@ def main():
         if m:
             print(f"\n### Memory after {name} (PSS, KB)\n\n| total | Java heap | native heap | graphics | code |\n|---:|---:|---:|---:|---:|")
             print(f"| {m['total']} | {m['java']} | {m['native']} | {m['graphics']} | {m['code']} |")
-    for f in ("start-phases.txt", "masks.txt", "idle.txt", "save-log.txt"):
+    for f in ("strictmode-start.txt", "strictmode-play.txt"):
+        p = os.path.join(d, f)
+        if os.path.exists(p):
+            n = sum(1 for line in open(p, errors="replace") if "StrictMode policy violation" in line)
+            print(f"\n{f}: {n} StrictMode violations")
+    for f in ("start-phases.txt", "masks.txt", "idle.txt", "save-bg.txt", "save-log.txt"):
         p = os.path.join(d, f)
         if os.path.exists(p):
             print(f"\n### {f}\n\n```\n{open(p).read().strip()}\n```")

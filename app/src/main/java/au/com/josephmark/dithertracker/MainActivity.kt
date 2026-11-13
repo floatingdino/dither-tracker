@@ -5,6 +5,7 @@ import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
+import android.os.StrictMode
 import android.os.SystemClock
 import android.util.Log
 import android.view.View
@@ -35,10 +36,18 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val trace = intent?.getBooleanExtra("trace", false) == true
+        if (BuildConfig.DEBUG) strictMode()
         val t0 = SystemClock.elapsedRealtimeNanos()
         // Once per process: load the save synchronously (a few ms) so the first frame is the restored
-        // game, then save changes in the background. No-op on activity recreation.
-        Persistence.start(applicationContext)
+        // game, then save changes in the background. No-op on activity recreation. The one deliberate
+        // main-thread disk read (a ~200-byte file; docs/performance.md has its cost), so StrictMode is
+        // told to allow it and reports anything else.
+        val policy = StrictMode.allowThreadDiskReads()
+        try {
+            Persistence.start(applicationContext)
+        } finally {
+            StrictMode.setThreadPolicy(policy)
+        }
         val t1 = SystemClock.elapsedRealtimeNanos()
         // Debug/QA hooks (not reachable from the UI). "Debuggable builds only" ones are gated on the
         // compile-time BuildConfig.DEBUG, so R8 drops them (and DitherDemoView) from release; `inverted`
@@ -92,6 +101,19 @@ class MainActivity : Activity() {
                     "${SystemClock.uptimeMillis() - Process.getStartUptimeMillis()}ms after process start",
             )
         }
+    }
+
+    /**
+     * Debug builds (T20): StrictMode logs (tag `StrictMode`) any disk or network access on the main
+     * thread and leaked closeables; release builds never install it.
+     */
+    private fun strictMode() {
+        StrictMode.setThreadPolicy(
+            StrictMode.ThreadPolicy.Builder().detectDiskReads().detectDiskWrites().detectNetwork().penaltyLog().build(),
+        )
+        StrictMode.setVmPolicy(
+            StrictMode.VmPolicy.Builder().detectLeakedClosableObjects().detectActivityLeaks().penaltyLog().build(),
+        )
     }
 
     /** Debug-only capture hook: `--el seed N` makes the commander-mode quip picks reproducible. */

@@ -241,13 +241,23 @@ class Stage(
             layout = l
             val t = TileSlots(l)
             tiles = t
-            for (c in comps) c.onLayout(l, t)
+            val lg = log
+            for (c in comps) {
+                val t0 = if (lg != null) System.nanoTime() else 0L
+                c.onLayout(l, t)
+                if (lg != null) lg("layout ${c.javaClass.simpleName} ${(System.nanoTime() - t0) / 1000}us")
+            }
             input.zones = this // (re)binding cancels every touch
         } finally { exit() }
     }
 
     fun prewarm(f: Frame) {
-        for (c in comps) c.prewarm(f)
+        val lg = log
+        for (c in comps) {
+            val t0 = if (lg != null) System.nanoTime() else 0L
+            c.prewarm(f)
+            if (lg != null) lg("prewarm ${c.javaClass.simpleName} ${(System.nanoTime() - t0) / 1000}us")
+        }
     }
 
     // ---- services for components -------------------------------------------------------------

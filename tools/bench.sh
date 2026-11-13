@@ -6,6 +6,8 @@
 #   PARTS="start play fx mem idle bg" (default: all)                # pick sections
 #   IDLE_SECS=120     length of each idle / background CPU window
 #   NO_INSTALL=1      don't install app/build/outputs/apk/debug/app-debug.apk (APK=... to pick another)
+#   PKG=<appId>       measure a build installed under another applicationId (KEEP_SAVE=0 for a release
+#                     build: run-as needs a debuggable app)
 #   KEEP_SAVE=1       (default) back the app's save up first and put it back at the end (run-as, so a
 #                     debuggable build): the scripted taps change the game. Never clears app data, so
 #                     it is safe on a device whose save matters (the Nomad).
@@ -19,7 +21,8 @@ set -euo pipefail
 
 OUT=${1:?usage: bench.sh <outdir>}
 A=${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}
-P=au.com.josephmark.dithertracker
+P=${PKG:-au.com.josephmark.dithertracker} # PKG: another applicationId (e.g. a release build installed beside the debug one)
+ACT=$P/au.com.josephmark.dithertracker.MainActivity
 APK=${APK:-app/build/outputs/apk/debug/app-debug.apk}
 PARTS=${PARTS:-start play fx mem idle bg}
 IDLE_SECS=${IDLE_SECS:-120}
@@ -64,7 +67,7 @@ restore_save() {
     fi
   done
   $A shell run-as $P rm -f files/save.dtsv.tmp
-  $A shell am start -n $P/.MainActivity >/dev/null
+  $A shell am start -n $ACT >/dev/null
   echo "save restored, app relaunched"
 }
 trap restore_save EXIT
@@ -73,7 +76,7 @@ launch() { # extras...
   $A shell input keyevent KEYCODE_HOME
   sleep 1
   $A shell am force-stop $P
-  $A shell am start -S -n $P/.MainActivity "$@" >/dev/null
+  $A shell am start -S -n $ACT "$@" >/dev/null
 }
 
 # ---- start time ---------------------------------------------------------------------------------
@@ -81,24 +84,25 @@ if has start; then
   : > "$OUT/start.txt"
   for i in 1 2 3 4 5; do # cold: process killed
     $A shell am force-stop $P; sleep 2
-    t=$($A shell am start -W -n $P/.MainActivity | awk '/TotalTime/ { print $2 }' | tr -d '\r')
+    t=$($A shell am start -W -n $ACT | awk '/TotalTime/ { print $2 }' | tr -d '\r')
     echo "cold $t" >> "$OUT/start.txt"; sleep 3
   done
   for i in 1 2 3 4 5; do # warm: process alive, activity finished (BACK) and created again
     $A shell input keyevent KEYCODE_BACK; sleep 2
-    t=$($A shell am start -W -n $P/.MainActivity | awk '/TotalTime/ { print $2 }' | tr -d '\r')
+    t=$($A shell am start -W -n $ACT | awk '/TotalTime/ { print $2 }' | tr -d '\r')
     echo "warm $t" >> "$OUT/start.txt"; sleep 3
   done
   for i in 1 2 3 4 5; do # hot: activity stopped (HOME) and brought back. am reports a stale TotalTime
     $A shell input keyevent KEYCODE_HOME; sleep 2 # for a hot start ("brought to the front"): use WaitTime
-    t=$($A shell am start -W -n $P/.MainActivity | awk '/WaitTime/ { print $2 }' | tr -d '\r')
+    t=$($A shell am start -W -n $ACT | awk '/WaitTime/ { print $2 }' | tr -d '\r')
     echo "hot $t" >> "$OUT/start.txt"; sleep 3
   done
   $A logcat -d -s DitherSave:I | grep -E "restore:|flush:" | tail -20 > "$OUT/save-log.txt" || true
   # Phases of one cold start (trace: onCreate, layout + prewarm, first onDraw)
   $A shell am force-stop $P; sleep 2; $A logcat -c
-  $A shell am start -W -n $P/.MainActivity --ez trace true >/dev/null; sleep 3
+  $A shell am start -W -n $ACT --ez trace true >/dev/null; sleep 3
   $A logcat -d -s PlayView:D DitherSave:I | grep -E "onCreate|layout took|first onDraw|restore" > "$OUT/start-phases.txt" || true
+  $A logcat -d -s StrictMode:D > "$OUT/strictmode-start.txt" || true # debug builds: main-thread disk I/O etc.
   cat "$OUT/start.txt"
 fi
 
@@ -123,13 +127,15 @@ if has play; then
   mark dice;           tap 934 702; sleep 1; tap 702 702; sleep 1.5; tap 810 702; sleep 1.5; tap 1058 702; sleep 1.5; endmark
   mark dice_close;     tap 1182 702; sleep 1.5; endmark
   mark settings_open;  tap 934 702; sleep 1; tap 1050 818; sleep 1.5; endmark
-  mark settings_page;  tap 934 1038; sleep 1.5; endmark
-  mark settings_close; tap 2 2; sleep 2; endmark
+  mark dark_mode;      tap 934 646; sleep 1.5; tap 934 646; sleep 1.5; endmark   # "Invert" row on, then off
+  mark settings_page;  tap 934 1094; sleep 1.5; endmark                       # Counters page
+  mark settings_close; tap 414 182; sleep 1.5; tap 1458 1220; sleep 2; endmark # rotate, then its close X
   mark history;        tap 934 702; sleep 1; tap 818 586; sleep 1.5; tap 2 2; sleep 1.5; endmark
   mark ko;             hold 1100 1050 5000; sleep 7; endmark  # seat 2 -> <= 0: readout, KO flourish, dead tile
   mark revive;         tap 1400 1050; sleep 0.6; tap 1400 1050; sleep 1.5; endmark
   mark idle_tail;      sleep 5; endmark
   $A logcat -d -s PlayView:D > "$OUT/logcat-play.txt"
+  $A logcat -d -s StrictMode:D > "$OUT/strictmode-play.txt" || true
 fi
 
 # ---- effects: every shipped effect through the debug gallery (debug builds) --------------------------
@@ -178,9 +184,10 @@ if has bg; then
   sleep "$IDLE_SECS"
   c1=$(cputicks "$p"); t1=$(date +%s)
   draws=$($A logcat -d -s PlayView:D | grep -c onDraw || true)
-  timers=$($A logcat -d -s PlayView:D | grep -c "repeat\|tap zone" || true)
-  echo "idle_bg secs=$((t1 - t0)) cpu_ticks=$((c1 - c0)) draws=$draws" | tee -a "$OUT/idle.txt"
+  timers=$($A logcat -d -s PlayView:D | grep -c "timer" || true)
+  echo "idle_bg secs=$((t1 - t0)) cpu_ticks=$((c1 - c0)) draws=$draws timers=$timers" | tee -a "$OUT/idle.txt"
   $A logcat -d -s PlayView:D > "$OUT/logcat-bg.txt"
+  $A logcat -d -s DitherSave:I | grep -E "flush|saved" > "$OUT/save-bg.txt" || true # onPause flush: main-thread wait
 fi
 
 python3 "$HERE/bench_summary.py" "$OUT" | tee "$OUT/summary.md"
