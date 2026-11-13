@@ -86,6 +86,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | done | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
 | T42 | done | T15 | **KO / winner tile: the quip replaces the life total** (Sam, 2026-11-14) — on a dead tile and on the winner's tile the quip takes the hero position at a large size instead of the (ringed, hollow) number; cause/final life becomes the small detail. Plus a copy exploration: death and victory lines in a classic 8/16-bit game-text voice (**verbatim** famous one-liners, per Sam — exact wording only, short lines). Dead tiles use a **light ordered dither, not crosshatch** (Sam: crosshatch is not part of the dither language) — change `Role.DEAD`. Also fix: the centre diamond and dividers must keep their outline against dead tiles' crosshatch. Emulator 5564. | `ko/`, `core/**/flavour/`, `design/copy/quips.md` |
+| T47 | wip | T42 | **Death/winner copy tweaks** (Sam, 2026-11-14): draw every quip at the one smaller size (the size the long lines use today) instead of scaling short lines up; and make the paper ground behind the text continuous across each line — it should run through the spaces between words, not be a separate box per word. Emulator 5564. | `ko/` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -503,3 +504,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   with a flat white background; 1-bit PNGs; +8 KB release APK). Alternatives kept under
   `design/app-icon/` (diamond, heart). In `review`: not yet seen in the Nomad's own launcher, where
   the launcher's rescaling decides whether it stays pixel-exact. Running: T41, T19b.
+- 2026-11-14 — Sam on the death copy: use the smaller size for all quips; the paper ground should
+  continue between words. -> T47 dispatched.
