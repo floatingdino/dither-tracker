@@ -95,44 +95,49 @@ strings at the bottom are used instead.
 
 ### Starting player *(under name)*
 - Goes first. No pressure
-- Goes first. Everyone noticed
-- Gets the first land drop
+- Don't blow it
 - Opens. Make it a good land
-- Kicks things off
-- Sets the pace
-- Has the floor
+- First in, first targeted
+- Off you go then
+- Goes first. Everyone noticed
+- Clock's ticking
 - Chosen at random. Honestly
 
 ### d20: natural 1
-- Not ideal
+- Yikes
 - Blame the die
-- Retire this die
+- Nailed it
 - Somebody breathed on it
-- At least it's memorable
+- Ooh, unlucky
+- Retire this die
 
 ### d20: natural 20
+- Show-off
 - Keep this die
-- That's the good die
+- Okay, calm down
 - Don't touch it again
+- Peaked early
 - Nobody saw that coming
-- Remember this moment
 
 ### Any other roll
 - Fair and square
+- Thrilling stuff
 - No take-backs
-- Rolled in plain sight
 - Could have been worse
+- Sure, that'll do
 - Make of that what you will
 
 ### Coin: heads
 - Heads you win, probably
-- Landed face up
+- Heads, obviously
 - The coin smiles on you
+- Heads. Don't gloat
 
 ### Coin: tails
+- Tails. Sorry, not sorry
 - Tails, as foretold
-- Tails never fails, they say
 - The coin is unmoved
+- Tails, sadly
 
 ### Reset / new game: prompt
 - Start over? Everyone back to full life
