@@ -177,8 +177,8 @@ class PlayView(
 
     override fun onDraw(canvas: Canvas) {
         val l = stage.layout ?: return
+        val a0 = if (trace) allocs() else 0 // outside the timed window
         val t0 = if (trace) SystemClock.elapsedRealtimeNanos() else 0L
-        val a0 = if (trace) allocs() else 0
         r.begin(canvas)
         if (!canvas.getClipBounds(clipDev)) return
         clipDevI.set(clipDev.left, clipDev.top, clipDev.right, clipDev.bottom)
