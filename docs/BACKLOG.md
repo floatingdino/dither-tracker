@@ -89,7 +89,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T47 | review | T42 | **Death/winner copy tweaks** (Sam, 2026-11-14): draw every quip at the one smaller size (the size the long lines use today) instead of scaling short lines up; and make the paper ground behind the text continuous across each line — it should run through the spaces between words, not be a separate box per word. Emulator 5564. | `ko/` |
 | T48 | review | T22 | `fizzle` effect breaks rule 3: its D4/D8/D12 dissolve is baked into the frame art at the frame's own phase, one px off the global pattern. Re-author so the dissolve samples the global pattern; then delete the `KNOWN_OFF_PHASE` entry in `PuritySuiteTest`. | `design/fx`, `fx/` |
 | T49 | done | T22 | Re-script T34's 19 base states in `tools/capture_scenarios.sh`: captures 12–19 no longer reach commander mode (taps land on the gem menu). Names must match what is shown. | `tools/` |
-| T50 | wip | T20 T41 T22 | Cleanup: swap `ko/Halo.kt` to the shared contour-halo mechanism; retire the unused `CROSSHATCH` pattern; `purity/ScreenRig` pointer ids wrap below 32; regenerate `design/captures/t34/` + README from the re-scripted scenarios; cut layout-before-first-frame cost in `KoComponent.onLayout` (46 ms debug) and `SettingsOverlay` (35 ms). Pixels unchanged. | `ko/`, `settings/`, `dither/`, tests |
+| T50 | done | T20 T41 T22 | Cleanup: swap `ko/Halo.kt` to the shared contour-halo mechanism; retire the unused `CROSSHATCH` pattern; `purity/ScreenRig` pointer ids wrap below 32; regenerate `design/captures/t34/` + README from the re-scripted scenarios; cut layout-before-first-frame cost in `KoComponent.onLayout` (46 ms debug) and `SettingsOverlay` (35 ms). Pixels unchanged. | `ko/`, `settings/`, `dither/`, tests |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -624,3 +624,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   only our package installed) — worth a glance at the game state. Still needs slow-mo video: tap-to-ink
   latency, flicker of other seats during a seat clean. Dispatched T17 (turn tracker + timer, emulator
   5564) and T50 (cleanup, emulator 5562). Running: T17, T50.
+- 2026-11-14 — Tick 61: T50 done (`44a1494`, `32c2eb6`, `083c1bc`, `5959e45`, `7d71683`), HEAD
+  (incl. T17's commits so far) builds clean: 166 core + 1282 app. `ko/Halo.kt` deleted (shared
+  `HaloMask.of` + `blitHaloed`, pixel-identical S=2..6, 2–6 players); the unused crosshatch tile
+  retired; `ScreenRig` reuses pointer ids; `design/captures/t34/` regenerated with a per-capture
+  README; settings card measured on first need. Emulator debug: layout before first frame
+  44.8→14.2 ms (the KO cost was the old halo built four times, not quips). Agent's pixel check:
+  1280 JVM shots and 47 non-effect device captures byte-identical. Not re-measured on the Nomad.
+  Running: T17.
