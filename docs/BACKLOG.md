@@ -32,13 +32,13 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T02 | done | — | Icon set: 16×16 ASCII icons for every tracker/toggle/tool in SPEC (see T02 notes), plus `design/icons/README.md` contact sheet and a validator script. | `design/icons/` |
 | T03 | done | T01 | Core game model: immutable `GameState`, players, counters, commander damage (partners), toggles, auto-KO rules, reducer of `Action`s, undo/redo stack, history log. Full unit tests. | `core/src/` |
 | T04 | done | T01 | Dither engine: pattern set (SPEC), global-phase tiled fill, integer-scale grid maths (`DitherGrid`: device px ↔ dither px, margins), 1-bit paint helpers, icon loader/blitter (build step converts `design/icons/*.txt` → Kotlin/asset). JVM tests for grid maths; pixel-purity test. | `app/src/main/**/dither/`, `design/patterns/` |
-| T05 | wip | T04 | Bitmap type: integer-scaled 1-bit mono font. Large numerals (life totals) + small caps UI face (A–Z, 0–9, punctuation). Hand-authored ASCII glyphs or an OFL pixel font converted at build time; no AA. Text measure/draw API on the dither grid. | `app/src/main/**/type/`, `design/font/` |
+| T05 | done | T04 | Bitmap type: integer-scaled 1-bit mono font. Large numerals (life totals) + small caps UI face (A–Z, 0–9, punctuation). Hand-authored ASCII glyphs or an OFL pixel font converted at build time; no AA. Text measure/draw API on the dither grid. | `app/src/main/**/type/`, `design/font/` |
 
 ### Phase 1 — Play screen (matches Figma)
 
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
-| T06 | todo | T03 T04 T05 | Play screen for 4 players landscape: 2×2 panels, top row rotated 180°, dotted dividers, life total, −/+ hit zones (whole left/right half), inversion press feedback, dirty-rect redraws. | `app/src/main/**/play/` |
+| T06 | wip | T03 T04 T05 | Play screen for 4 players landscape: 2×2 panels, top row rotated 180°, dotted dividers, life total, −/+ hit zones (whole left/right half), inversion press feedback, dirty-rect redraws. | `app/src/main/**/play/` |
 | T07 | todo | T06 | Hold-to-repeat (±10 steps) and pending-delta readout with idle commit. | `play/`, `core/` reducer hooks |
 | T08 | todo | T06 T02 | Player drawer: bottom tab, opens (no animation) to tracker tray; counters with icon + value + −/+; `COMMANDER DAMAGE` button → per-opponent damage view (partner aware, optional life link). | `app/src/main/**/drawer/` |
 | T09 | todo | T06 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
@@ -119,3 +119,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-13 — Sam's direction: icons need more weight + friendlier/wackier character, Figma three to
   be redesigned; app-wide lighthearted tone with small personality moments. Added SPEC "Tone",
   repurposed T24 (dispatched), added T25.
+- 2026-11-13 — Tick 8: T05 verified (34 app tests pass; fresh Nomad capture of the type specimen
+  passes the checker; eyeballed) and committed. Faces: `ui` 5x9, `num-m` 8x14, `num-l` 16x28, any
+  integer multiple k; API in `app/.../type/` (`TextRenderer.drawIn/drawIntIn`). Known nits: `1` flag
+  heavy, `5` bowl corner, `8` snowman, strokes slightly lighter than mock. Dispatched T06.
+  T19a, T24 still running.
