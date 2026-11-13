@@ -117,6 +117,7 @@ class WidgetPainter(val c: WidgetCanvas) {
     private fun toggle(f: WidgetFrame, t: Toggle) {
         val m = t.metrics
         val d = rowBackground(f, t)
+        t.icon?.let { icon(f, m, it, t.iconRect, invert = false, opaque = d) }
         text(f, m, m.ui, t.label, 0, t.labelChars, t.labelRect, TextLayout.START, invert = false, opaque = d)
         if (t.checked) {
             ink(f, t.box)
@@ -158,7 +159,7 @@ class WidgetPainter(val c: WidgetCanvas) {
         val sel = sg.selected
         if (sel in sg.options.indices) ink(f, sg.segVis[sel])
         for (i in sg.options.indices) {
-            text(f, m, m.ui, sg.options[i], 0, sg.segChars[i], sg.segVis[i], TextLayout.CENTRE, invert = i == sel, opaque = false)
+            text(f, m, sg.optionFont(m, i), sg.options[i], 0, sg.segChars[i], sg.segVis[i], TextLayout.CENTRE, invert = i == sel, opaque = false)
         }
     }
 

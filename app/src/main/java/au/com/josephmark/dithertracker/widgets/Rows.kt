@@ -82,10 +82,17 @@ class ListRow(
  * space, no "which side is the knob" puzzle), and the 1-px outline keeps "off" from looking absent.
  * The whole row is the hit and feedback rect; the host flips [checked] on tap ([toggled]).
  */
-class Toggle(id: Int, var label: CharSequence, var checked: Boolean = false) : Widget(id) {
+class Toggle(
+    id: Int,
+    var label: CharSequence,
+    var checked: Boolean = false,
+    /** Optional leading icon (e.g. a counter's, T12's drawer-counter choice), like [ListRow.icon]. */
+    var icon: Icon? = null,
+) : Widget(id) {
 
     val box = IRect()
     val checkRect = IRect()
+    val iconRect = IRect()
     val labelRect = IRect()
     var labelChars = 0
         private set
@@ -95,14 +102,16 @@ class Toggle(id: Int, var label: CharSequence, var checked: Boolean = false) : W
 
     fun boxSize(m: WidgetMetrics): Int = m.icon + 2 * m.stroke
 
-    override fun naturalWidth(m: WidgetMetrics): Int = 2 * m.padX + m.textW(label.length) + m.gap + boxSize(m)
+    override fun naturalWidth(m: WidgetMetrics): Int =
+        2 * m.padX + (if (icon != null) m.icon + m.gap else 0) + m.textW(label.length) + m.gap + boxSize(m)
 
     override fun onLayout(m: WidgetMetrics) {
         val b = bounds
         val bs = boxSize(m)
         box.setXywh(b.right - m.padX - bs, b.top + TextLayout.centre(b.height, bs), bs, bs)
         checkRect.setXywh(box.left + m.stroke, box.top + m.stroke, m.icon, m.icon)
-        val x = b.left + m.padX
+        var x = b.left + m.padX
+        if (icon != null) { iconAt(m, b, x, iconRect); x += m.icon + m.gap } else iconRect.set(0, 0, 0, 0)
         val avail = maxOf(0, box.left - m.gap - x)
         labelChars = TextFit.fit(label, m.ui, m.k, avail)
         labelRect.setXywh(x, b.top, avail, b.height)
@@ -232,6 +241,24 @@ class Segmented(
 
     override val idCount: Int get() = options.size
 
+    /**
+     * When set, options made only of digits and signs are drawn in the heavy small numerals
+     * ([WidgetMetrics.num], `num-m`) instead of `ui` (T12: "[40] [30] [20]"); word options stay `ui`.
+     */
+    var numerals: Boolean = false
+
+    /** The face option [i] is drawn in. */
+    fun optionFont(m: WidgetMetrics, i: Int): Font = if (numerals && isNumeric(options[i])) m.num else m.ui
+
+    private fun isNumeric(s: CharSequence): Boolean {
+        if (s.isEmpty()) return false
+        for (j in 0 until s.length) {
+            val c = s[j]
+            if (c !in '0'..'9' && c != '+' && c != '-') return false
+        }
+        return true
+    }
+
     val bar = IRect()
     val segVis: Array<IRect> = Array(options.size) { IRect() }
     val segHit: Array<IRect> = Array(options.size) { IRect() }
@@ -248,9 +275,9 @@ class Segmented(
     }
 
     fun segmentNatural(m: WidgetMetrics): Int {
-        var longest = 0
-        for (o in options) longest = maxOf(longest, o.length)
-        return maxOf(m.target, m.textW(longest) + 2 * m.gap + m.stroke)
+        var widest = 0
+        for (i in options.indices) widest = maxOf(widest, optionFont(m, i).widthOf(options[i].length, m.k))
+        return maxOf(m.target, widest + 2 * m.gap + m.stroke)
     }
 
     override fun naturalWidth(m: WidgetMetrics): Int {
@@ -279,7 +306,7 @@ class Segmented(
             val x1 = bar.left + barW * (i + 1) / n
             segVis[i].set(x0, bar.top, x1, bar.bottom)
             segHit[i].set(x0, b.top, x1, b.bottom)
-            segChars[i] = TextFit.fit(options[i], m.ui, m.k, maxOf(0, x1 - x0 - 2 * m.gap - m.stroke))
+            segChars[i] = TextFit.fit(options[i], optionFont(m, i), m.k, maxOf(0, x1 - x0 - 2 * m.gap - m.stroke))
         }
     }
 

@@ -214,4 +214,37 @@ class RowsTest {
             }
         }
     }
+
+    @Test fun toggleIconSitsBeforeTheLabel() {
+        for (s in WidgetTesting.scales) {
+            val m = WidgetMetrics(s)
+            val plain = lay(Toggle(0, "Poison"), m)
+            val t = lay(Toggle(0, "Poison", icon = Icon.POISON), m)
+            assertEquals(m.icon, t.iconRect.width)
+            assertEquals(t.bounds.left + m.padX, t.iconRect.left)
+            assertEquals(t.iconRect.right + m.gap, t.labelRect.left)
+            assertTrue(t.iconRect.top >= t.bounds.top && t.iconRect.bottom <= t.bounds.bottom)
+            assertTrue(plain.iconRect.isEmpty)
+            assertEquals(plain.naturalWidth(m) + m.icon + m.gap, t.naturalWidth(m))
+            // The icon is drawn (ink inside its rect), and it turns with the row.
+            val c = RasterCanvas(t.bounds.right, t.bounds.bottom)
+            WidgetPainter(c).draw(WidgetFrame().set(0, 0, c.width, c.height, 0), t)
+            assertTrue(c.inkIn(t.iconRect) > 0)
+            WidgetTesting.assertRotationExact(t.bounds.width, t.bounds.height) { p, f -> p.draw(f, t) }
+        }
+    }
+
+    @Test fun segmentedNumeralsUseTheHeavyFaceForNumbersOnly() {
+        val m = m4
+        val seg = Segmented(0, "Scale", arrayOf("AUTO", "2", "100"))
+        assertEquals(m.ui, seg.optionFont(m, 1))
+        seg.numerals = true
+        assertEquals(m.ui, seg.optionFont(m, 0))
+        assertEquals(m.num, seg.optionFont(m, 1))
+        assertEquals(m.num, seg.optionFont(m, 2))
+        // Segments are sized for the widest option in its own face.
+        assertEquals(maxOf(m.target, m.num.widthOf(3, m.k) + 2 * m.gap + m.stroke), seg.segmentNatural(m))
+        lay(seg, m)
+        assertEquals(3, seg.segChars[2])
+    }
 }
