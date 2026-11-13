@@ -141,7 +141,7 @@ strings at the bottom are used instead.
 
 ### Reset / new game: prompt
 - Start over? Everyone back to full life
-- Reset the table? No hard feelings
+- Reset the game? Sore losers welcome
 - Clear the board and start fresh?
 - Reset everything? Grudges not included
 - Start a new game? This one gets wiped
@@ -156,18 +156,19 @@ Any pair can follow any prompt, so the confirm label must read as "reset" on its
 
 ### Empty history
 - Nothing yet. Suspiciously quiet
+- Go on, do something
 - Nothing has happened. Yet
-- Nobody has done anything yet
-- All quiet on the battlefield
+- Waiting on you lot
 
 ### Winner *(under name)*
 - Last one standing
-- Outlasted the table
+- Never in doubt
 - Survived the politics
-- Was the threat all along
-- Gracious in victory, hopefully
-- Wins. Rematch?
 - Wins. Salt levels rising
+- Told you so
+- Was the threat all along
+- Wins. Rematch?
+- Too easy
 - Picks the snacks next time
 
 ### Commander damage: the targeted player *(drawn large on their tile, at most 16 characters; heckling a little)*

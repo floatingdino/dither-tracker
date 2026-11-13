@@ -144,7 +144,7 @@ internal object QuipTables {
     /** Every prompt must plainly ask "start the game over?"; any button pair can follow any prompt. */
     val resetPrompt = listOf(
         "Start over? Everyone back to full life",
-        "Reset the table? No hard feelings",
+        "Reset the game? Sore losers welcome",
         "Clear the board and start fresh?",
         "Reset everything? Grudges not included",
         "Start a new game? This one gets wiped",
@@ -163,20 +163,21 @@ internal object QuipTables {
 
     val emptyHistory = listOf(
         "Nothing yet. Suspiciously quiet",
+        "Go on, do something",
         "Nothing has happened. Yet",
-        "Nobody has done anything yet",
-        "All quiet on the battlefield",
+        "Waiting on you lot",
     )
 
     /** Caption under the winner's name (the name is drawn separately). */
     val winner = listOf(
         "Last one standing",
-        "Outlasted the table",
+        "Never in doubt",
         "Survived the politics",
-        "Was the threat all along",
-        "Gracious in victory, hopefully",
-        "Wins. Rematch?",
         "Wins. Salt levels rising",
+        "Told you so",
+        "Was the threat all along",
+        "Wins. Rematch?",
+        "Too easy",
         "Picks the snacks next time",
     )
 
