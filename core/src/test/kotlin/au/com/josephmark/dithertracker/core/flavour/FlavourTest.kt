@@ -45,6 +45,18 @@ class FlavourTest {
         }
     }
 
+    @Test fun verbatimQuotesAreAllInTheTablesAndOnlyWhereTheyFit() {
+        val hero = listOf(QuipKind.KO_LIFE, QuipKind.KO_POISON, QuipKind.KO_COMMANDER_DAMAGE, QuipKind.KO_MANUAL, QuipKind.WINNER)
+        val lines = hero.flatMap { Flavour.quippy.lines(it) }
+        for (q in QuipTables.verbatim) assertTrue(q in lines, "verbatim line not in a KO/winner table: '$q'")
+        // Each table lists its own lines first, then its verbatim quotes (the doc mirrors that split).
+        for (kind in hero) {
+            val l = Flavour.quippy.lines(kind)
+            val first = l.indexOfFirst { it in QuipTables.verbatim }
+            if (first >= 0) assertTrue(l.drop(first).all { it in QuipTables.verbatim }, "$kind mixes verbatim and own lines")
+        }
+    }
+
     @Test fun noDuplicatesWithinOrAcrossCategories() {
         val all = QuipKind.entries.flatMap { Flavour.quippy.lines(it) } +
             Flavour.quippy.resetButtons.flatMap { listOf(it.confirm, it.cancel) }
@@ -210,6 +222,8 @@ class FlavourTest {
         for (c in s) if (c !in CHARSET) fail("$what '$s' has a character the ui face can't draw: '$c'")
         assertEquals(s.trim(), s, "$what has outer whitespace: '$s'")
         assertFalse("  " in s, "$what has a double space: '$s'")
+        // Verbatim game quotes (T42) keep their own punctuation.
+        if (s in QuipTables.verbatim) return
         assertFalse('!' in s, "$what has an exclamation mark: '$s'")
         assertFalse(s.endsWith(".") && !s.endsWith("..."), "$what ends with a full stop: '$s'")
         assertTrue(s.first().isUpperCase() || s.first().isDigit(), "$what is not sentence case: '$s'")

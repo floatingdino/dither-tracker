@@ -12,41 +12,41 @@ internal object QuipTables {
 
     // --- Knocked out ---------------------------------------------------------------------------
 
+    // Since T42 a KO or winner line replaces the life total, drawn large: short lines draw biggest
+    // (<= 9 chars per line at k = 4 on the Nomad, <= 12 at k = 3). Each list ends with its verbatim
+    // game lines ([verbatim]; sources in `design/copy/quips.md`).
+
     val koLife = listOf(
         "Beefed it",
         "Kept a one-lander",
-        "Had an answer. In the deck",
         "Oof",
-        "Board wipe was one turn late",
         "Folded like a lawn chair",
         "Should have mulliganed",
-        "Big talk, small life total",
         "Durdled too long",
         "Got got",
         "Trusted a handshake deal",
         "Poked the wrong bear",
         "Deck was 'about a 7'",
         "Spectator mode unlocked",
-        "Asked what it does. Too late",
-        "Kind of had that coming",
-        "Was one turn from winning",
         "Thoroughly cooked",
-        "Monarch for one whole turn",
-        "Down you go",
-        "Turned out to be the threat",
-        "That plan aged badly",
-        "Tapped out at the worst time",
         "Lost the table vote",
-        "Paid life for everything",
         "Oops. Anyway",
+        "Game over",
+        "Press start to cry",
+        // verbatim
+        "Somebody set up us the bomb.",
+        "Critical hit!",
+        "But nothing happened!",
+        "You fight like a dairy farmer.",
+        "Rise from your grave!",
+        "Toasty!",
+        "Barf!",
     )
 
     val koPoison = listOf(
-        "Thought 9 was a safe number",
         "Poisoned. Gross",
         "It was only a 1/1",
         "Nibbled to death",
-        "Laughed at the infect deck",
         "Full health, still dead",
         "One proliferate too many",
         "Wasn't counting, clearly",
@@ -54,33 +54,40 @@ internal object QuipTables {
         "Death by tally marks",
         "Doesn't feel so good",
         "Died of ten papercuts",
+        "Forgot the antidote",
+        // verbatim
+        "It's not very effective...",
     )
 
     val koCommanderDamage = listOf(
         "One creature. Lots of hats",
         "Bonk. Twenty-one",
-        "Counted to 21 the hard way",
         "Should have chump blocked",
         "Ugh, that commander again",
         "Was saving the removal",
         "Bullied by one commander",
         "Killed it. It came back",
         "Ignored it for too long",
-        "Commander tax was too low",
-        "Couldn't stop it. Didn't try",
-        "Unblockable, as it turns out",
+        "Lost to the final boss",
+        // verbatim
+        "It's super effective!",
+        "Welcome to your doom!",
+        "Fatality",
+        "Can't escape!",
+        "What you say !!",
     )
 
     val koManual = listOf(
         "Scooped with dignity",
         "Rage quit, politely",
-        "Declined to watch the combo",
         "Chose peace",
         "Has a train to catch",
-        "Read the room. Left it",
         "Went to get snacks",
         "Bailed. Fair enough",
-        "Sure, 'had to go'",
+        "Insert coin to rejoin",
+        // verbatim
+        "Got away safely!",
+        "It's a secret to everybody.",
     )
 
     // --- Table tools ---------------------------------------------------------------------------
@@ -173,12 +180,36 @@ internal object QuipTables {
         "Last one standing",
         "Never in doubt",
         "Survived the politics",
-        "Wins. Salt levels rising",
         "Told you so",
-        "Was the threat all along",
         "Wins. Rematch?",
         "Too easy",
-        "Picks the snacks next time",
+        "High score. Enter name",
+        "Level up",
+        // verbatim
+        "All your base are belong to us.",
+        "For great justice.",
+        "How are you gentlemen !!",
+        "A winner is you",
+        "Conglaturation !!!",
+        "You have completed a great game.",
+        "Flawless victory",
+        "Course clear!",
+    )
+
+    /**
+     * Lines quoted verbatim from 8- and 16-bit era games (T42; Sam: "game quotes should be
+     * verbatim"). Their own punctuation is part of the quote, so the house style's "no exclamation
+     * marks, no closing full stop" rules don't apply to them (`FlavourTest`). Sources: the "Sources"
+     * table in `design/copy/quips.md`.
+     */
+    val verbatim: Set<String> = setOf(
+        "Somebody set up us the bomb.", "Critical hit!", "But nothing happened!",
+        "You fight like a dairy farmer.", "Rise from your grave!", "Toasty!", "Barf!",
+        "It's not very effective...",
+        "It's super effective!", "Welcome to your doom!", "Fatality", "Can't escape!", "What you say !!",
+        "Got away safely!", "It's a secret to everybody.",
+        "All your base are belong to us.", "For great justice.", "How are you gentlemen !!", "A winner is you",
+        "Conglaturation !!!", "You have completed a great game.", "Flawless victory", "Course clear!",
     )
 
     // --- Commander damage: the targeted player ------------------------------------------------

@@ -13,6 +13,15 @@ line breaks the rules below. (Not a coder? Edit this file and ask for the Kotlin
 - Characters the `ui` face can draw: letters, digits, space and `+ - / : ; . , ? ( ) [ ] % # & ' " < > = _ | *`.
 - Sentence case, no full stop at the end, no exclamation marks. No duplicates anywhere.
 - Original lines only: no card names, card text or other apps' quips. Kid-safe.
+- **Exception (T42): verbatim game quotes.** The KO and winner lists end with a few famous one-liners
+  from 8- and 16-bit era games, quoted exactly (Sam, 2026-11-14), listed under *Verbatim game quotes*.
+  They keep their own punctuation (`!`, a closing full stop, odd spacing); the case here is sentence
+  case because every KO and winner line is drawn in caps. Each one's source is in the table at the
+  bottom. Only lines we are sure of word-for-word; a misquote is worse than no quote.
+
+**Size (T42):** KO and winner lines replace the life total and are drawn as big as they fit — up to
+7 characters on one line at the largest size, two lines of 9 at the next, two lines of 12 below
+that; anything longer drops to the small size. Short is better.
 
 **Voice:** the friend across the Commander table who enjoys your misfortune a little. A smidge
 combative — "uh oh", "whoops", "beefed it" — short, blunt interjections mixed with the dry,
@@ -29,37 +38,34 @@ strings at the bottom are used instead.
 ### Knocked out: life (0 or less)
 - Beefed it
 - Kept a one-lander
-- Had an answer. In the deck
 - Oof
-- Board wipe was one turn late
 - Folded like a lawn chair
 - Should have mulliganed
-- Big talk, small life total
 - Durdled too long
 - Got got
 - Trusted a handshake deal
 - Poked the wrong bear
 - Deck was 'about a 7'
 - Spectator mode unlocked
-- Asked what it does. Too late
-- Kind of had that coming
-- Was one turn from winning
 - Thoroughly cooked
-- Monarch for one whole turn
-- Down you go
-- Turned out to be the threat
-- That plan aged badly
-- Tapped out at the worst time
 - Lost the table vote
-- Paid life for everything
 - Oops. Anyway
+- Game over
+- Press start to cry
+
+#### Verbatim game quotes *(sources below)*
+- Somebody set up us the bomb.
+- Critical hit!
+- But nothing happened!
+- You fight like a dairy farmer.
+- Rise from your grave!
+- Toasty!
+- Barf!
 
 ### Knocked out: poison (10 counters)
-- Thought 9 was a safe number
 - Poisoned. Gross
 - It was only a 1/1
 - Nibbled to death
-- Laughed at the infect deck
 - Full health, still dead
 - One proliferate too many
 - Wasn't counting, clearly
@@ -67,31 +73,41 @@ strings at the bottom are used instead.
 - Death by tally marks
 - Doesn't feel so good
 - Died of ten papercuts
+- Forgot the antidote
+
+#### Verbatim game quotes *(sources below)*
+- It's not very effective...
 
 ### Knocked out: commander damage (21 from one commander)
 - One creature. Lots of hats
 - Bonk. Twenty-one
-- Counted to 21 the hard way
 - Should have chump blocked
 - Ugh, that commander again
 - Was saving the removal
 - Bullied by one commander
 - Killed it. It came back
 - Ignored it for too long
-- Commander tax was too low
-- Couldn't stop it. Didn't try
-- Unblockable, as it turns out
+- Lost to the final boss
+
+#### Verbatim game quotes *(sources below)*
+- It's super effective!
+- Welcome to your doom!
+- Fatality
+- Can't escape!
+- What you say !!
 
 ### Knocked out: marked out by hand (conceded)
 - Scooped with dignity
 - Rage quit, politely
-- Declined to watch the combo
 - Chose peace
 - Has a train to catch
-- Read the room. Left it
 - Went to get snacks
 - Bailed. Fair enough
-- Sure, 'had to go'
+- Insert coin to rejoin
+
+#### Verbatim game quotes *(sources below)*
+- Got away safely!
+- It's a secret to everybody.
 
 ### Starting player *(under name)*
 - Goes first. No pressure
@@ -160,16 +176,25 @@ Any pair can follow any prompt, so the confirm label must read as "reset" on its
 - Nothing has happened. Yet
 - Waiting on you lot
 
-### Winner *(under name)*
+### Winner *(drawn large on their tile, T42)*
 - Last one standing
 - Never in doubt
 - Survived the politics
-- Wins. Salt levels rising
 - Told you so
-- Was the threat all along
 - Wins. Rematch?
 - Too easy
-- Picks the snacks next time
+- High score. Enter name
+- Level up
+
+#### Verbatim game quotes *(sources below)*
+- All your base are belong to us.
+- For great justice.
+- How are you gentlemen !!
+- A winner is you
+- Conglaturation !!!
+- You have completed a great game.
+- Flawless victory
+- Course clear!
 
 ### Commander damage: the targeted player *(drawn large on their tile, at most 16 characters; heckling a little)*
 - Uh oh
@@ -240,3 +265,34 @@ Any pair can follow any prompt, so the confirm label must read as "reset" on its
 
 ### Default player names
 - Players: Player 1, Player 2, Player 3, Player 4, Player 5, Player 6
+
+## Sources (verbatim game quotes)
+
+Exact on-screen text (or the spoken line, for announcer voices) as it appeared; "As shown" is the
+original casing. Check any you doubt before shipping; drop rather than "fix" one.
+
+| Line | As shown | Game (year, platform) | Where |
+|---|---|---|---|
+| Somebody set up us the bomb. | SOMEBODY SET UP US THE BOMB. | Zero Wing (1991, Mega Drive) | KO: life |
+| Critical hit! | Critical hit! | Pokemon Red / Blue (1996-98, Game Boy) | KO: life |
+| But nothing happened! | But nothing happened! | Pokemon Red / Blue (Game Boy) | KO: life |
+| You fight like a dairy farmer. | You fight like a dairy farmer. | The Secret of Monkey Island (1990, PC) | KO: life |
+| Rise from your grave! | (spoken) | Altered Beast (1988, arcade / Mega Drive) | KO: life |
+| Toasty! | (spoken) | Mortal Kombat II (1993, arcade) | KO: life |
+| Barf! | BARF! | River City Ransom (1989, NES) | KO: life |
+| It's not very effective... | It's not very effective... | Pokemon Red / Blue (Game Boy) | KO: poison |
+| It's super effective! | It's super effective! | Pokemon Red / Blue (Game Boy) | KO: commander damage |
+| Welcome to your doom! | (spoken) | Altered Beast (1988, arcade / Mega Drive) | KO: commander damage |
+| Fatality | FATALITY (and spoken) | Mortal Kombat (1992, arcade) | KO: commander damage |
+| Can't escape! | Can't escape! | Pokemon Red / Blue (Game Boy) | KO: commander damage |
+| What you say !! | WHAT YOU SAY !! | Zero Wing (1991, Mega Drive) | KO: commander damage |
+| Got away safely! | Got away safely! | Pokemon Red / Blue (Game Boy) | KO: conceded |
+| It's a secret to everybody. | IT'S A SECRET TO EVERYBODY. | The Legend of Zelda (1986, NES) | KO: conceded |
+| All your base are belong to us. | ALL YOUR BASE ARE BELONG TO US. | Zero Wing (1991, Mega Drive) | Winner |
+| For great justice. | FOR GREAT JUSTICE. | Zero Wing (1991, Mega Drive) | Winner |
+| How are you gentlemen !! | HOW ARE YOU GENTLEMEN !! | Zero Wing (1991, Mega Drive) | Winner |
+| A winner is you | A WINNER IS YOU | Pro Wrestling (1986, NES) | Winner |
+| Conglaturation !!! | CONGLATURATION !!! | Ghostbusters (1988, NES) | Winner |
+| You have completed a great game. | YOU HAVE COMPLETED A GREAT GAME. | Ghostbusters (1988, NES) | Winner |
+| Flawless victory | (spoken) | Mortal Kombat (1992, arcade) | Winner |
+| Course clear! | COURSE CLEAR! | Super Mario World (1990, SNES) | Winner |
