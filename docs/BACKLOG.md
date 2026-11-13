@@ -36,6 +36,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
     user-visible task. Its adb serial is in the untracked `local/README.md`; always pass `adb -s`.
     At most one running task may use it. (Two agents tapping it at once corrupted each other's runs
     in tick 11.) With both attached, a bare `adb` command fails — always name the target.
+- Scratch files: each agent keeps its helper scripts and captures in its own subfolder of the
+  scratchpad (named after its task), never in the shared root — one agent's script overwrote
+  another's in tick 43.
 - Agents: work only inside the task's **Files**; don't edit this file; finish by
   reporting what was built, how it was verified, and anything left open.
 - "Verified" always means `./gradlew :core:test :app:assembleDebug` passes, plus the task's own check.
@@ -83,7 +86,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | done | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
 | T42 | wip | T15 | **KO / winner tile: the quip replaces the life total** (Sam, 2026-11-14) — on a dead tile and on the winner's tile the quip takes the hero position at a large size instead of the (ringed, hollow) number; cause/final life becomes the small detail. Plus a copy exploration: death and victory lines in a classic 8/16-bit game-text voice (**verbatim** famous one-liners, per Sam — exact wording only, short lines). Dead tiles use a **light ordered dither, not crosshatch** (Sam: crosshatch is not part of the dither language) — change `Role.DEAD`. Also fix: the centre diamond and dividers must keep their outline against dead tiles' crosshatch. Emulator 5564. | `ko/`, `core/**/flavour/`, `design/copy/quips.md` |
-| T43 | wip | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
+| T43 | review | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
 
@@ -448,3 +451,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   life totals; results are not logged yet (hook `ToolResults` ready). Running: T42, T43, T44.
 - 2026-11-14 — Sam: player colours can be dropped too (T45 dropped); die rolls should use the mini
   font (T46 dispatched).
+- 2026-11-14 — Tick 43: T43 reported with 3 commits; emulator capture eyeballed
+  (`design/captures/t43-*.png`): each non-zero cell is a framed card reading "- icon value +";
+  zero cells show the icon and a lone +; holding - resets to 0 as one undo step; 3-digit cells drop
+  the glyphs. In `review` until the clean build and Nomad check. Coordinator's note: the active grid
+  is dense (2-digit cells are snug). Running: T42, T44, T46.
