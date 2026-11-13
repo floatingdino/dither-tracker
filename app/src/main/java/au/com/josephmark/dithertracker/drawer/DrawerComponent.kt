@@ -85,7 +85,7 @@ class DrawerComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = Drawe
     override fun draw(f: Frame, seat: Int) {
         val d = dl ?: return
         if (!state.isOpen(seat)) return
-        painter(f).draw(d, controller, seat, stage.session.state.players, f.clip)
+        painter(f).draw(d, controller, seat, f.players, f.clip)
     }
 
     override fun zones(seat: Int, z: ZoneSink) {

@@ -167,7 +167,7 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
         val l = l ?: return
         val c = layout ?: return
         if (t?.compact(seat) == true) return
-        val players = stage.session.state.players
+        val players = f.players
         val tg = mode.target
         val rot = l.rotation[seat]
         if (tg !in players.indices) return

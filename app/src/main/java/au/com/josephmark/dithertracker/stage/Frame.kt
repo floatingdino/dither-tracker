@@ -1,5 +1,6 @@
 package au.com.josephmark.dithertracker.stage
 
+import au.com.josephmark.dithertracker.core.Player
 import au.com.josephmark.dithertracker.dither.DitherRenderer
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.type.TextRenderer
@@ -15,6 +16,9 @@ abstract class Frame {
     lateinit var r: DitherRenderer
     lateinit var text: TextRenderer
     lateinit var icons: IconPainter
+
+    /** The players being drawn this frame (`session.state.players`, read once per frame by the stage). */
+    var players: List<Player> = emptyList()
 
     /** Dither-px rect covering the canvas clip. */
     val clip = IRect()

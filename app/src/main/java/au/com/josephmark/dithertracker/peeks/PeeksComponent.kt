@@ -45,7 +45,7 @@ class PeeksComponent : Component(Layer.TILE, Kind.CONTENT) {
         val k = pk ?: return
         val t = t ?: return
         if (t.compact(seat) || !k.enabled || !f.hit(t.underRow(seat))) return
-        val p = stage.session.state.players[seat]
+        val p = f.players[seat]
         val all = DrawerItems.tray(p, stage.settings.current.drawerCounters, items)
         var n = 0
         for (i in 0 until all) {

@@ -214,6 +214,7 @@ class Stage(
 
     /** Whether [c] is visible on [seat] ([SCREEN] for screen components): no active [Cover] hides it. */
     fun isVisible(c: Component, seat: Int): Boolean {
+        if (!anyCover) return true
         val cs = covers
         for (i in cs.indices) {
             val cv = cs[i]
@@ -233,6 +234,8 @@ class Stage(
             val oldScreen = cover.screen
             cover.seats = seats
             cover.screen = screen
+            anyCover = false
+            for (cv in covers) if (cv.active) anyCover = true
             input.cancelAll()
             for (c in comps) c.onCoversChanged()
             val l = layout ?: return
@@ -395,7 +398,7 @@ class Stage(
     override fun repeats(zone: Int): Boolean = comps[idComp[zone]].repeats(idSeat[zone], idLocal[zone])
 
     override fun onZoneTap(zone: Int) {
-        log?.invoke("tap zone $zone (${comps[idComp[zone]].javaClass.simpleName} seat ${idSeat[zone]} local ${idLocal[zone]})")
+        log?.invoke("tap zone $zone (component ${idComp[zone]} seat ${idSeat[zone]} local ${idLocal[zone]})")
         comps[idComp[zone]].onTap(idSeat[zone], idLocal[zone])
     }
 
@@ -423,6 +426,7 @@ class Stage(
      */
     fun draw(f: Frame) {
         if (layout == null) return
+        f.players = session.state.players
         for (layer in 0 until Layer.COUNT) {
             drawLayer(f, layer)
             invertPressed(f, layer)
@@ -431,6 +435,7 @@ class Stage(
 
     /** Draws layers `0..layer` without press feedback (the API < 29 inverted-redraw fallback). */
     fun drawUpTo(f: Frame, layer: Int) {
+        f.players = session.state.players
         for (l in 0..layer) drawLayer(f, l)
     }
 
@@ -439,23 +444,27 @@ class Stage(
         val cs = byLayer[layer]
         if (cs.isEmpty()) return
         if (Layer.isTile(layer)) {
-            val n = minOf(l.playerCount, session.state.players.size, seats)
+            val n = minOf(l.playerCount, f.players.size, seats)
+            val covered = anyCover
             for (s in 0 until n) {
                 if (!f.hit(l.panels[s])) continue
-                for (c in cs) if (isVisible(c, s)) c.draw(f, s)
+                for (c in cs) if (!covered || isVisible(c, s)) c.draw(f, s)
             }
         } else {
-            for (c in cs) if (isVisible(c, SCREEN)) c.draw(f, SCREEN)
+            val covered = anyCover
+            for (c in cs) if (!covered || isVisible(c, SCREEN)) c.draw(f, SCREEN)
         }
     }
 
     private fun invertPressed(f: Frame, layer: Int) {
-        for (z in 0 until zoneCount) {
-            if (!input.isPressed(z)) continue
-            val c = comps[idComp[z]]
-            if (c.layer != layer) continue
-            if (!c.feedback(idSeat[z], idLocal[z], fbDraw) || !f.hit(fbDraw)) continue
-            f.invert(fbDraw, layer)
+        if (input.pressedCount == 0) return
+        for (c in byLayer[layer]) {
+            val base = zoneBase[c.index]
+            for (z in base until base + zoneSpan(c)) {
+                if (!input.isPressed(z)) continue
+                if (!c.feedback(idSeat[z], idLocal[z], fbDraw) || !f.hit(fbDraw)) continue
+                f.invert(fbDraw, layer)
+            }
         }
     }
 
@@ -465,6 +474,9 @@ class Stage(
         override fun schedule(id: Int, delayMillis: Long) = platform.schedule(id, delayMillis)
         override fun cancel(id: Int) = platform.cancel(id)
     }
+
+    /** True while any cover is active (fast path for [isVisible]). */
+    private var anyCover = false
 
     private var depth = 0
     private val dirty = IRect()

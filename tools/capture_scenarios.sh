@@ -6,6 +6,8 @@
 #   NO_INSTALL=1 tools/capture_scenarios.sh <outdir>
 #   for f in before/*.png; do cmp "$f" "after/$(basename "$f")"; done
 #
+# With more than one device attached (an emulator), pick the Nomad: ANDROID_SERIAL=<serial> tools/...
+#
 # Device rules (docs/BACKLOG.md): only one task uses the Nomad at a time; this script only installs,
 # clears, launches, taps and screencaps this app.
 #

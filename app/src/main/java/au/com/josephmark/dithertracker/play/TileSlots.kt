@@ -96,6 +96,17 @@ class TileSlots(val play: PlayLayout) {
     /** The row under the number (peeks, partner icons); only meaningful while the seat is full. */
     fun underRow(seat: Int): IRect = play.underRow[seat]
 
+    // The same, for a caller that already asked [compact] once this frame (fewer calls on the draw path).
+    fun numberSlot(seat: Int, compact: Boolean): IRect = if (compact) cNumber[seat] else play.numberSlot[seat]
+    fun numberFootprint(seat: Int, compact: Boolean, value: Int, out: IRect): Int =
+        if (compact) play.numberFootprintAt(seat, value, compactNumberK, compactNumberTop, out) else play.numberFootprint(seat, value, out)
+    fun readoutSlot(seat: Int, compact: Boolean): IRect = if (compact) cReadout[seat] else play.readoutSlot[seat]
+    fun readoutFootprint(seat: Int, compact: Boolean, delta: Int, out: IRect): Int =
+        if (compact) play.readoutFootprintAt(seat, delta, compactReadoutK, compactReadoutTop, out) else play.readoutFootprint(seat, delta, out)
+    fun minusGlyph(seat: Int, compact: Boolean): IRect = if (compact) cMinus[seat] else play.minusGlyph[seat]
+    fun plusGlyph(seat: Int, compact: Boolean): IRect = if (compact) cPlus[seat] else play.plusGlyph[seat]
+    fun pmK(compact: Boolean): Int = if (compact) PlayLayout.pmK(compactNumberK) else play.pmK
+
     private fun IRect.copyFrom(o: IRect) {
         set(o.left, o.top, o.right, o.bottom)
     }

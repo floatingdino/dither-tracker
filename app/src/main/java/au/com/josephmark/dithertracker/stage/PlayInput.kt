@@ -77,6 +77,10 @@ class PlayInput(
 
     fun isPressed(zone: Int): Boolean = zone in 0 until zoneCount && zonePointers[zone] > 0
 
+    /** Number of zones pressed right now (0 = nothing to invert). */
+    var pressedCount: Int = 0
+        private set
+
     /** Number of repeats applied so far in [zone]'s current press. */
     fun repeatCount(zone: Int): Int = if (zone in 0 until zoneCount) repeats[zone] else 0
 
@@ -95,6 +99,7 @@ class PlayInput(
         pointerZone[pointerId] = zone
         pointerDown[pointerId] = eventTimeMillis
         if (zonePointers[zone]++ == 0) {
+            pressedCount++
             repeats[zone] = 0
             if (map.repeats(zone)) scheduler.schedule(zone, holdDelayMillis)
             sink.onZonePressed(zone)
@@ -124,7 +129,10 @@ class PlayInput(
         pointerZone[pointerId] = PlayLayout.NONE
         val tap = apply && repeats[zone] == 0
         val last = --zonePointers[zone] == 0
-        if (last) scheduler.cancel(zone)
+        if (last) {
+            pressedCount--
+            scheduler.cancel(zone)
+        }
         if (tap) sink.onZoneTap(zone)
         if (last) sink.onZoneReleased(zone)
     }

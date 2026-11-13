@@ -51,8 +51,10 @@ class ReadoutComponent : Component(Layer.TILE, Kind.READOUT, timerCount = PlayLa
         val l = l ?: return
         val t = t ?: return
         val delta = pending.delta(seat)
-        if (delta != 0 && f.hit(t.readoutSlot(seat))) {
-            val k = t.readoutFootprint(seat, delta, fp)
+        if (delta == 0) return
+        val compact = t.compact(seat)
+        if (f.hit(t.readoutSlot(seat, compact))) {
+            val k = t.readoutFootprint(seat, compact, delta, fp)
             f.text.drawInt(l.readoutFont, delta, fp.left, fp.top, k, l.rotation[seat], signed = true)
         }
     }

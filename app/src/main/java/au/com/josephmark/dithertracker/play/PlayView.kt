@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.os.Debug
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -101,11 +102,13 @@ class PlayView(
         get() = stage.holdStep
         set(value) { stage.holdStep = value }
 
-    /** Debug (`--ez trace true`): logs every onDraw's clip and duration, touches, taps, layout. Allocates; off by default. */
+    /** Debug (`--ez trace true`): logs every onDraw's clip, duration and allocation count, touches (with their allocation count), taps, layout. Allocates; off by default. */
     var trace = false
         set(value) {
             field = value
             stage.log = if (value) { msg -> Log.d(TAG, msg) } else null
+            @Suppress("DEPRECATION")
+            if (value) Debug.startAllocCounting() else Debug.stopAllocCounting()
         }
 
     init {
@@ -154,6 +157,7 @@ class PlayView(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val l = stage.layout ?: return true
         if (trace && event.actionMasked != MotionEvent.ACTION_MOVE) Log.d(TAG, "touch $event")
+        val a0 = if (trace) allocs() else 0
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 val i = event.actionIndex
@@ -167,12 +171,14 @@ class PlayView(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> stage.up(event.getPointerId(event.actionIndex))
             MotionEvent.ACTION_CANCEL -> stage.cancel()
         }
+        if (trace) Log.d(TAG, "touch handled allocs=${allocs() - a0}")
         return true
     }
 
     override fun onDraw(canvas: Canvas) {
         val l = stage.layout ?: return
         val t0 = if (trace) SystemClock.elapsedRealtimeNanos() else 0L
+        val a0 = if (trace) allocs() else 0
         r.begin(canvas)
         if (!canvas.getClipBounds(clipDev)) return
         clipDevI.set(clipDev.left, clipDev.top, clipDev.right, clipDev.bottom)
@@ -183,9 +189,14 @@ class PlayView(
         this.canvas = null
         if (trace) {
             val us = (SystemClock.elapsedRealtimeNanos() - t0) / 1000
-            Log.d(TAG, "onDraw hw=${canvas.isHardwareAccelerated} clip=$clipDev took ${us}us")
+            val n = allocs() - a0
+            Log.d(TAG, "onDraw hw=${canvas.isHardwareAccelerated} clip=$clipDev allocs=$n took ${us}us")
         }
     }
+
+    /** Objects allocated on this thread so far (trace only: counting starts when [trace] is set). */
+    @Suppress("DEPRECATION")
+    private fun allocs(): Int = Debug.getThreadAllocCount()
 
     companion object {
         private const val TAG = "PlayView"

@@ -41,17 +41,18 @@ class LifeComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = 2) {
     override fun draw(f: Frame, seat: Int) {
         val l = l ?: return
         val t = t ?: return
-        val p = stage.session.state.players[seat]
+        val p = f.players[seat]
         val rot = l.rotation[seat]
+        val compact = t.compact(seat)
         if (l.pmVisible) {
-            val pmK = t.pmK(seat)
-            val minus = t.minusGlyph(seat)
-            val plus = t.plusGlyph(seat)
+            val pmK = t.pmK(compact)
+            val minus = t.minusGlyph(seat, compact)
+            val plus = t.plusGlyph(seat, compact)
             if (f.hit(minus)) f.text.draw(l.pmFont, MINUS_GLYPH, minus.left, minus.top, pmK, rot)
             if (f.hit(plus)) f.text.draw(l.pmFont, PLUS_GLYPH, plus.left, plus.top, pmK, rot)
         }
-        if (f.hit(t.numberSlot(seat))) {
-            val k = t.numberFootprint(seat, p.life, fp)
+        if (f.hit(t.numberSlot(seat, compact))) {
+            val k = t.numberFootprint(seat, compact, p.life, fp)
             f.text.drawInt(l.font, p.life, fp.left, fp.top, k, rot)
         }
     }
