@@ -96,6 +96,7 @@ class SettingsOverlay private constructor(b: Built) :
     val access: SettingsAccess = object : SettingsAccess {
         override val app: AppSettings get() = stage.settings.current
         override val game: GameSettings get() = stage.session.state.settings
+        override val players: Int get() = stage.session.state.players.size
         override fun updateApp(new: AppSettings) = stage.settings.update(new)
         override fun updateGame(new: GameSettings) {
             if (new != game) stage.dispatch(Origin.EXTERNAL, Action.UpdateSettings(new))

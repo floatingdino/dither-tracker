@@ -193,4 +193,30 @@ class ReducerTest {
         s.players.forEachIndexed { i, p -> assertEquals(i, p.seat) }
         assertNull(s.player(42))
     }
+
+    // ---- T11: a new game at another player count ----------------------------------------------------
+
+    @Test fun newGameForResizesAndResetsInOneStep() {
+        var s = GameState.create(4)
+        s = reduce(s, ChangeLife(0, -7))
+        s = reduce(s, SetPartner(1, true))
+        for (n in 2..6) {
+            val g = reduce(s, NewGameFor(n))
+            assertEquals(n, g.players.size)
+            g.players.forEachIndexed { i, p -> assertEquals(i, p.seat); assertEquals(40, p.life) }
+            assertTrue(g.players[1].partner) // kept, like NewGame
+        }
+        assertEquals(reduce(s, NewGame), reduce(s, NewGameFor(4)))
+    }
+
+    @Test fun newGameForIsOneUndoStepAndLogsANewGame() {
+        var h = History(GameState.create(4))
+        h = h.dispatch(ChangeLife(0, -3), 0L, "life:0")
+        h = h.dispatch(NewGameFor(6), 10_000L, null)
+        assertEquals(6, h.state.players.size)
+        assertEquals(listOf<LogEvent>(LogEvent.NewGameStarted), h.log.map { it.event })
+        h = h.undo()
+        assertEquals(4, h.state.players.size)
+        assertEquals(37, h.state.players[0].life)
+    }
 }

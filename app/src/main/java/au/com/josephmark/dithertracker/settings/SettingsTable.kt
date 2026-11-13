@@ -19,6 +19,9 @@ import au.com.josephmark.dithertracker.widgets.Segmented
  */
 object SettingsTable {
 
+    /** Player count choices (T11): every count the layout engine seats; takes effect on the next new game. */
+    val PLAYERS = intArrayOf(2, 3, 4, 5, 6)
+
     /** Starting life choices (Sam, 2026-11-13): a three-way segmented choice, no stepper. */
     val STARTING_LIFE = intArrayOf(40, 30, 20)
 
@@ -37,6 +40,11 @@ object SettingsTable {
     /** The footnote once starting life differs from when the card was opened (+ the value). */
     const val LIFE_HINT = "Next game starts at "
 
+    /** The footnote while the chosen player count differs from the table's (T11): + count + [PLAYERS_HINT_END] (+ `, ` life [LIFE_HINT_END]). */
+    const val PLAYERS_HINT = "Next game: "
+    const val PLAYERS_HINT_END = " players"
+    const val LIFE_HINT_END = " life"
+
     const val TITLE = "SETTINGS"
     const val COUNTERS_TITLE = "COUNTERS"
 
@@ -44,10 +52,11 @@ object SettingsTable {
         check(COUNTER_LABELS.size == COUNTERS.size && COUNTER_ICONS.size == COUNTERS.size)
     }
 
-    /** The main page, top to bottom. Add T11/T13 rows here. */
+    /** The main page, top to bottom (T11 added Players). Add rows here. */
     fun main(): SettingsPage = SettingsPage(
         TITLE,
         arrayOf(
+            players(),
             startingLife(),
             scale(),
             ToggleRow("Invert", { it.app.inverted }, { s, v -> s.updateApp(s.app.copy(inverted = v)) }),
@@ -59,19 +68,42 @@ object SettingsTable {
         ),
     )
 
+    /** Seats for the next game (T11): `[2][3][4][5][6]`, stored in `AppSettings.playerCount`, applied by NEW. */
+    fun players(): ChoiceRow = ChoiceRow(
+        "Players", labels(PLAYERS), PLAYERS,
+        { it.app.playerCount },
+        { s, v -> s.updateApp(s.app.copy(playerCount = v)) },
+    )
+
     fun startingLife(): ChoiceRow = ChoiceRow(
         "Starting life", labels(STARTING_LIFE), STARTING_LIFE,
         { it.game.startingLife },
         { s, v -> s.updateGame(s.game.copy(startingLife = v)) },
     )
 
-    /** "Next game starts at 30", once starting life differs from when the card was opened. */
+    /**
+     * The next-game footnote: "Next game starts at 30" once starting life differs from when the card
+     * was opened; "Next game: 5 players" while the chosen count differs from the table's (T11); both
+     * at once read "Next game: 5 players, 30 life".
+     */
     fun lifeHint(): HintRow = HintRow(
-        { s, out ->
-            for (i in LIFE_HINT.indices) out.append(LIFE_HINT[i])
-            out.append(s.game.startingLife)
+        { s, opened, out ->
+            val players = s.app.playerCount != s.players
+            if (!players) {
+                for (i in LIFE_HINT.indices) out.append(LIFE_HINT[i])
+                out.append(s.game.startingLife)
+            } else {
+                for (i in PLAYERS_HINT.indices) out.append(PLAYERS_HINT[i])
+                out.append(s.app.playerCount)
+                for (i in PLAYERS_HINT_END.indices) out.append(PLAYERS_HINT_END[i])
+                if (opened != null && s.game.startingLife != opened.startingLife) {
+                    out.append(','); out.append(' ')
+                    out.append(s.game.startingLife)
+                    for (i in LIFE_HINT_END.indices) out.append(LIFE_HINT_END[i])
+                }
+            }
         },
-        { s, opened -> opened != null && s.game.startingLife != opened.startingLife },
+        { s, opened -> (opened != null && s.game.startingLife != opened.startingLife) || s.app.playerCount != s.players },
     )
 
     fun scale(): ScaleRow = ScaleRow({ it.app.scale }, { s, v -> s.updateApp(s.app.copy(scale = v)) })

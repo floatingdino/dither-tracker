@@ -19,6 +19,9 @@ import au.com.josephmark.dithertracker.widgets.Widget
 interface SettingsAccess {
     val app: AppSettings
     val game: GameSettings
+
+    /** Seats at the table now (the running game's player count; `app.playerCount` is the next game's). */
+    val players: Int get() = app.playerCount
     fun updateApp(new: AppSettings)
     fun updateGame(new: GameSettings)
 }
@@ -190,7 +193,8 @@ class HintRow(private val text: Text, private val shown: Shown) : SettingsRow() 
     }
 
     fun interface Text {
-        fun write(s: SettingsAccess, out: CharBuf)
+        /** [opened]: the game settings when the card opened (as [Shown] gets them). */
+        fun write(s: SettingsAccess, opened: GameSettings?, out: CharBuf)
     }
 
     private var opened: GameSettings? = null
@@ -205,7 +209,7 @@ class HintRow(private val text: Text, private val shown: Shown) : SettingsRow() 
 
     override fun visible(s: SettingsAccess): Boolean = shown.shown(s, opened)
     override fun bind(s: SettingsAccess) {
-        text.write(s, buf.clear())
+        text.write(s, opened, buf.clear())
     }
 
     override fun tap(part: Int, s: SettingsAccess): Int = Tap.NONE

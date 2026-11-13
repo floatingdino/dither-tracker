@@ -74,6 +74,12 @@ sealed interface Action {
      * seats (and the commander damage they dealt). Existing players keep their values.
      */
     data class SetPlayerCount(val count: Int) : Action
+
+    /**
+     * A new game at [players] seats (2..6) as one step (T11: the player count chosen in settings
+     * takes effect on the next new game): [SetPlayerCount] then [NewGame]. Logged as a new game.
+     */
+    data class NewGameFor(val players: Int) : Action
 }
 
 /**

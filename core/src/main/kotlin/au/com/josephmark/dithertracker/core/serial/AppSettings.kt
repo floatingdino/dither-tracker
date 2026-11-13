@@ -33,12 +33,18 @@ data class AppSettings(
      * [DEFAULT_LAYOUT] means "default layout for the count".
      */
     val layout: String = DEFAULT_LAYOUT,
+    /**
+     * Seats for the next new game (T11), 2..6: chosen in settings, applied when a new game starts
+     * (like starting life). The running game's own count is its player list.
+     */
+    val playerCount: Int = DEFAULT_PLAYER_COUNT,
 ) {
     init {
         require(scale == SCALE_AUTO || scale in SCALE_MIN..SCALE_MAX) { "scale out of range: $scale" }
         require(holdRepeatStep in HOLD_STEP_RANGE) { "holdRepeatStep out of range: $holdRepeatStep" }
         require(fullRefreshEvery in FULL_REFRESH_RANGE) { "fullRefreshEvery out of range: $fullRefreshEvery" }
         require(drawerCounters.size == drawerCounters.toSet().size) { "drawerCounters must be distinct" }
+        require(playerCount in PLAYER_COUNT_RANGE) { "playerCount out of range: $playerCount" }
     }
 
     companion object {
@@ -46,6 +52,8 @@ data class AppSettings(
         const val SCALE_MIN = 2
         const val SCALE_MAX = 6
         const val DEFAULT_LAYOUT = ""
+        const val DEFAULT_PLAYER_COUNT = 4
+        val PLAYER_COUNT_RANGE = 2..6
         val HOLD_STEP_RANGE = 1..100
         val FULL_REFRESH_RANGE = 0..1000
 

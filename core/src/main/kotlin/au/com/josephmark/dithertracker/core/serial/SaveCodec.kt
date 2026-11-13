@@ -66,7 +66,8 @@ enum class FailureReason {
  * body    ...      version-specific (v1 below)
  * crc32   u32 BE   CRC-32 of every preceding byte (magic + version + body)
  * ```
- * v1 body: AppSettings, then the Game (GameSettings, dayNight, turn, players, log). Integers are
+ * v1 body: AppSettings, then the Game (GameSettings, dayNight, turn, players, log). v2 (T11) appends
+ * `AppSettings.playerCount` to the settings; a v1 save takes it from the saved game. Integers are
  * LEB128 varints, signed ones zigzag-encoded; strings are varint length + UTF-8; enums use the
  * explicit codes in [Codes]; booleans of a player/settings are packed into flag bytes. Log entries
  * are length-prefixed (so an entry with an unknown tag or enum code is skipped, not fatal) and
@@ -82,7 +83,7 @@ enum class FailureReason {
  * the current model. Older readers reject newer versions with [FailureReason.UNSUPPORTED_VERSION].
  */
 object SaveCodec {
-    const val CURRENT_VERSION = 1
+    const val CURRENT_VERSION = 2
 
     /** Log entries kept by default when encoding (the most recent ones). */
     const val DEFAULT_MAX_LOG_ENTRIES = 500
@@ -100,6 +101,7 @@ object SaveCodec {
         w.bytes(MAGIC)
         w.u16(CURRENT_VERSION)
         writeSettings(w, save.settings)
+        w.uvar(save.settings.playerCount) // v2
         writeGame(w, save.game, maxLogEntries.coerceAtLeast(0))
         val crc = CRC32().apply { update(w.toByteArray()) }.value.toInt()
         w.u32(crc)
@@ -145,7 +147,8 @@ object SaveCodec {
 
     private fun readBody(version: Int, r: ByteReader, ctx: DecodeContext): SaveFile = when (version) {
         1 -> readBodyV1(r, ctx)
-        // 2 -> readBodyV2(r, ctx); readBodyV1 stays and maps the old layout into the current model.
+        2 -> readBodyV2(r, ctx)
+        // 3 -> readBodyV3(r, ctx); the older readers stay and map their layouts into the current model.
         else -> corrupt("no reader for version $version")
     }
 
@@ -153,6 +156,17 @@ object SaveCodec {
 
     private fun readBodyV1(r: ByteReader, ctx: DecodeContext): SaveFile {
         val settings = readSettings(r)
+        val game = readGame(r, ctx)
+        // v1 had no pending player count: the next new game keeps the saved game's.
+        return SaveFile(game, settings.copy(playerCount = game.state.players.size))
+    }
+
+    // ---- v2 (T11): v1 + AppSettings.playerCount ------------------------------------------------
+
+    private fun readBodyV2(r: ByteReader, ctx: DecodeContext): SaveFile {
+        val v1 = readSettings(r)
+        val count = r.uvar()
+        val settings = v1.copy(playerCount = if (count in AppSettings.PLAYER_COUNT_RANGE) count else AppSettings.DEFAULT_PLAYER_COUNT)
         val game = readGame(r, ctx)
         return SaveFile(game, settings)
     }

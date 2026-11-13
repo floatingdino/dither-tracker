@@ -49,7 +49,7 @@ internal fun describe(before: GameState, after: GameState, action: Action, times
     fun add(e: LogEvent) = out.add(LogEntry(timestamp, before.turn.number, e))
 
     when (action) {
-        Action.NewGame -> return listOf(LogEntry(timestamp, 0, LogEvent.NewGameStarted))
+        Action.NewGame, is Action.NewGameFor -> return listOf(LogEntry(timestamp, 0, LogEvent.NewGameStarted))
         Action.Reset -> return listOf(LogEntry(timestamp, 0, LogEvent.GameReset))
         is Action.SetPlayerCount -> add(LogEvent.PlayerCountChanged(after.players.size))
         else -> Unit

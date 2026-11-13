@@ -5,6 +5,7 @@ import au.com.josephmark.dithertracker.core.Game
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.History
 import au.com.josephmark.dithertracker.core.coalesceKey
+import au.com.josephmark.dithertracker.data.SettingsHolder
 
 /**
  * The one owner of the live game: a [History] (undo/redo + log) from `:core`. Pure Kotlin.
@@ -139,7 +140,7 @@ class GameSession(history: History) {
     companion object {
         fun newGame(playerCount: Int = 4): GameSession = GameSession(History(GameState.create(playerCount)))
 
-        /** The process-wide session (restored from disk by `data.Persistence`). */
-        val shared: GameSession by lazy { newGame(PlayLayout.PLAYERS) }
+        /** The process-wide session (restored from disk by `data.Persistence`); a fresh one seats the settings' count. */
+        val shared: GameSession by lazy { newGame(SettingsHolder.shared.current.playerCount) }
     }
 }

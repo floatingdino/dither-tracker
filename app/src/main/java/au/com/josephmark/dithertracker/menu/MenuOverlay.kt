@@ -33,7 +33,7 @@ import kotlin.random.Random
  * - **UNDO / REDO** → `stage.session` undo/redo; the menu stays open (repeated undo); a facet is
  *   disabled (`Role.DISABLED`, no zone) while there is nothing to undo/redo.
  * - **NEW** → the confirm; confirm dispatches core `NewGame` (keeps players and settings, resets the
- *   values) and closes; cancel (either button face or the fold's close diamond) returns to the gem.
+ *   values), or `NewGameFor(n)` when settings ask for another player count (T11), and closes; cancel (either button face or the fold's close diamond) returns to the gem.
  * - **CLEAN** → closes and sends [Events.CLEAN] (`eink.CleanComponent`: one black frame, 300 ms, redraw).
  * - **DICE / FIRST / LOG / SETUP** → [destinations]: closes and calls the registered
  *   [MenuDestination]; unregistered ones are drawn disabled and take no tap.
@@ -176,7 +176,10 @@ class MenuOverlay(
             CANCEL, FOLD_CANCEL -> state.back()
             CONFIRM -> {
                 state.close()
-                stage.dispatch(Origin.EXTERNAL, Action.NewGame)
+                // T11: the player count chosen in settings takes effect here (the screen re-lays out).
+                val want = stage.settings.current.playerCount
+                if (want != stage.session.state.players.size) stage.dispatch(Origin.EXTERNAL, Action.NewGameFor(want))
+                else stage.dispatch(Origin.EXTERNAL, Action.NewGame)
             }
             GemLayout.CENTRE -> state.close()
             else -> if (local < GemLayout.SLOTS) tapItem(local)

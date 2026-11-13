@@ -61,6 +61,7 @@ private fun reduceRaw(s: GameState, a: Action): GameState = when (a) {
     ).orSame(s)
     Action.Reset -> GameState.create(s.players.size, s.settings).orSame(s)
     is Action.SetPlayerCount -> setPlayerCount(s, a.count)
+    is Action.NewGameFor -> reduce(setPlayerCount(s, a.players), Action.NewGame).orSame(s)
 }
 
 private fun GameState.orSame(old: GameState): GameState = if (this == old) old else this

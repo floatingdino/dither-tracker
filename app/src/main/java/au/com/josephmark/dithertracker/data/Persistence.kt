@@ -63,12 +63,11 @@ object Persistence {
         if (loaded.failures.isNotEmpty()) {
             Log.w(TAG, "save problems: ${loaded.failures.joinToString("; ")} → using ${loaded.source.name.lowercase()}")
         }
-        // PlayView is fixed at PlayLayout.PLAYERS until T11; a save with another count is ignored
-        // (and overwritten by the next change) rather than crashing the layout.
+        // Any count the layout engine seats (2..6, T11; core rejects anything else on decode).
         var applied = false
         if (save != null) {
             settings.update(save.settings)
-            if (save.game.state.players.size == PlayLayout.PLAYERS && session.isPristine) {
+            if (save.game.state.players.size in 2..PlayLayout.MAX_PLAYERS && session.isPristine) {
                 session.replace(History(save.game))
                 applied = true
             }

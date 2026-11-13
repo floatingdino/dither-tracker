@@ -391,10 +391,59 @@ class SaveCodecTest {
                 scale = AppSettings.SCALE_AUTO, inverted = true, holdRepeatStep = 1, keepScreenAwake = true,
                 drawerCounters = listOf(Counter.POISON), fullRefreshEvery = 1000, haptics = true,
                 orientation = AppSettings().orientation, layout = "x",
+                playerCount = 2, // a v1 save has no pending count: the saved game's (T11)
             ),
             save.settings,
         )
         assertTrue(save.game.state.players.all { it.koOverride == KoOverride.NONE })
+    }
+
+    // ---- v2 (T11): the player count for the next game -------------------------------------------------
+
+    @Test fun pendingPlayerCountRoundTrips() {
+        for (n in AppSettings.PLAYER_COUNT_RANGE) for (seats in 2..6) {
+            val save = SaveFile(Game(GameState.create(seats)), richSettings().copy(playerCount = n))
+            assertEquals(save, roundTrip(save))
+        }
+    }
+
+    @Test fun version1SavesStillLoadAndKeepTheirGamesCount() {
+        // The v1 body is the v2 body without the count after the settings: rebuild one from a v2 encoding.
+        for (seats in listOf(2, 4, 6)) {
+            val game = Game(GameState.create(seats))
+            val settings = richSettings()
+            val v2 = SaveCodec.encode(SaveFile(game, settings.copy(playerCount = 3)))
+            val settingsOnly = ByteWriter().also { it.bytes("DTSV".encodeToByteArray()); it.u16(2) }.toByteArray().size +
+                settingsSize(settings)
+            val v1 = v2.copyOfRange(0, settingsOnly) + v2.copyOfRange(settingsOnly + 1, v2.size) // drop the 1-byte count
+            v1[5] = 1 // version 1
+            fixCrc(v1)
+            val r = SaveCodec.decode(v1)
+            assertIs<DecodeResult.Success>(r, "v1 decode failed: $r")
+            assertEquals(1, r.version)
+            assertEquals(game, r.save.game)
+            assertEquals(settings.copy(playerCount = seats), r.save.settings)
+        }
+    }
+
+    @Test fun outOfRangePendingPlayerCountFallsBackToTheDefault() {
+        val bytes = SaveCodec.encode(SaveFile(Game(GameState.create(4)), richSettings().copy(playerCount = 6)))
+        val at = 6 + settingsSize(richSettings())
+        assertEquals(6, bytes[at].toInt())
+        bytes[at] = 9
+        fixCrc(bytes)
+        val save = SaveCodec.decodeOrNull(bytes) ?: fail("did not decode")
+        assertEquals(AppSettings.DEFAULT_PLAYER_COUNT, save.settings.playerCount)
+    }
+
+    /** Encoded size of the v1 settings block (the v2 count follows it). */
+    private fun settingsSize(s: AppSettings): Int {
+        val a = SaveCodec.encode(SaveFile(Game(GameState.create(4)), s)).size
+        val b = SaveCodec.encode(SaveFile(Game(GameState.create(4)), AppSettings())).size
+        val d = AppSettings()
+        // Default settings: scale 0, flags 2, hold 10, refresh 20, 7 counters, orientation, empty layout.
+        val defaultSize = 1 + 1 + 1 + 1 + 1 + d.drawerCounters.size + 1 + 1
+        return defaultSize + (a - b)
     }
 
     @Test fun duplicatePlayerIdsAreCorrupt() {

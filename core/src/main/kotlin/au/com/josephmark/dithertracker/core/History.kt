@@ -11,7 +11,7 @@ data class Game(val state: GameState, val log: List<LogEntry> = emptyList()) {
     }
 }
 
-private val Action.startsFreshLog get() = this == Action.NewGame || this == Action.Reset
+private val Action.startsFreshLog get() = this == Action.NewGame || this == Action.Reset || this is Action.NewGameFor
 
 /**
  * One undo step: a coalesced burst of same-key actions (a *group*), or a single action dispatched
@@ -30,7 +30,7 @@ class UndoStep internal constructor(
      * the next dispatch (core never reads the clock), so an open group may already be past its window.
      */
     val isOpen: Boolean,
-    /** Whether the step's first action started a fresh log (NewGame / Reset). */
+    /** Whether the step's first action started a fresh log (NewGame / NewGameFor / Reset). */
     internal val freshLog: Boolean,
 ) {
     internal fun with(entries: List<LogEntry> = this.entries, lastTimestamp: Long = this.lastTimestamp, isOpen: Boolean = this.isOpen) =

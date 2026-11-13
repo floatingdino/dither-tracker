@@ -94,7 +94,7 @@ class CountRig(val w: Int, val h: Int, val s: Int, players: Int, seed: Long = 7)
     }
 
     fun tapAt(gx: Int, gy: Int) {
-        val p = pointer++
+        val p = pointer; pointer = (pointer + 1) % 16 // MotionEvent-like small ids (PlayInput ignores ids ≥ 32)
         stage.down(p, gx, gy, now)
         stage.up(p)
     }

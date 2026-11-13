@@ -176,12 +176,12 @@ class SettingsOverlayTest {
         val r = Rig(4)
         r.overlay.open(0)
         val m = WidgetMetrics(4)
-        // 8 rows (7 settings + the hint, or back + 7 counters), rowH 27 + 1-px dividers.
-        assertEquals(8, r.overlay.pages.maxOf { it.rows.size })
+        // 9 rows (8 settings + the hint; T11 added Players), rowH 27 + 1-px dividers.
+        assertEquals(9, r.overlay.pages.maxOf { it.rows.size })
         assertEquals(r.card.side, r.card.bounds.width)
         assertTrue(r.card.side <= minOf(r.screen.width, r.screen.height) - 2 * m.size(SettingsCard.MARGIN))
         assertEquals(1, r.card.list.pageCount)
-        assertEquals(7, r.card.shownCount) // the hint is hidden until starting life changes
+        assertEquals(8, r.card.shownCount) // the hint is hidden until starting life or players change
         assertFalse(r.card.list.hasFooter)
     }
 
@@ -247,6 +247,25 @@ class SettingsOverlayTest {
 
     // ---- rows: read / write ------------------------------------------------------------------------
 
+    @Test fun playersIsASegmentedChoiceAppliedByTheNextNewGame() {
+        val r = Rig()
+        r.overlay.open(0)
+        val seg = (r.row("Players") as ChoiceRow).segmented
+        assertArrayEquals(arrayOf("2", "3", "4", "5", "6"), seg.options)
+        assertEquals(2, seg.selected) // 4
+        val before = r.overlay.main.rows.filter { it !is HintRow }.map { IRect().also { o -> assertTrue(r.card.rowRect(it, o)) } }
+        r.choose("Players", 3)
+        val after = r.overlay.main.rows.filter { it !is HintRow }.map { IRect().also { o -> assertTrue(r.card.rowRect(it, o)) } }
+        assertEquals("the hint never moves a row", before, after)
+        assertEquals(5, r.settings.current.playerCount)
+        assertEquals(4, r.rig.session.state.players.size) // the table is untouched until NEW
+        assertEquals("Next game: 5 players", (r.card.shown[8]!!.widget as ListRow).value.toString())
+        r.choose("Starting life", 1)
+        assertEquals("Next game: 5 players, 30 life", (r.card.shown[8]!!.widget as ListRow).value.toString())
+        r.choose("Players", 2)
+        assertEquals("Next game starts at 30", (r.card.shown[8]!!.widget as ListRow).value.toString())
+    }
+
     @Test fun startingLifeIsASegmentedChoiceWrittenToTheGameAndHintedOnce() {
         val r = Rig()
         r.overlay.open(0)
@@ -263,14 +282,14 @@ class SettingsOverlayTest {
         assertEquals(1, seg.selected)
         // Applies on the next game: the current lives are untouched; the quiet hint appears at the foot of the page.
         assertTrue(r.rig.session.state.players.all { it.life == 40 })
-        assertEquals(8, r.card.shownCount)
+        assertEquals(9, r.card.shownCount)
         // Last on the page, so no row moves under a finger.
-        assertTrue(r.card.shown[7] is HintRow)
-        assertEquals("Next game starts at 30", (r.card.shown[7]!!.widget as ListRow).value.toString())
+        assertTrue(r.card.shown[8] is HintRow)
+        assertEquals("Next game starts at 30", (r.card.shown[8]!!.widget as ListRow).value.toString())
         // Back to 40: no hint.
         r.choose("Starting life", 0)
         assertEquals(40, r.rig.session.state.settings.startingLife)
-        assertEquals(7, r.card.shownCount)
+        assertEquals(8, r.card.shownCount)
         // The game's settings persist with the game (a session change, which Persistence observes).
         r.choose("Starting life", 2)
         assertEquals(20, r.rig.session.state.settings.startingLife)
@@ -359,7 +378,7 @@ class SettingsOverlayTest {
                 else -> null
             }
         }
-        assertEquals(listOf("Starting life", "Scale", "Invert", "Hold step", "Keep awake", "Screen clean", "Counters"), labels)
+        assertEquals(listOf("Players", "Starting life", "Scale", "Invert", "Hold step", "Keep awake", "Screen clean", "Counters"), labels)
     }
 
     // ---- scale options -------------------------------------------------------------------------------
@@ -457,7 +476,7 @@ class SettingsOverlayTest {
         val m = WidgetMetrics(4)
         assertEquals(card.maxSide(m, r.l.grid.width, r.l.grid.height), card.side)
         assertTrue(card.list.hasFooter)
-        assertEquals(27, card.shownCount) // 7 + 20 (the hint is hidden)
+        assertEquals(28, card.shownCount) // 8 + 20 (the hint is hidden)
         val pages = card.list.pageCount
         assertTrue(pages >= 3)
         // ‹ is disabled on the first page; › walks to the last; rows there are live.
