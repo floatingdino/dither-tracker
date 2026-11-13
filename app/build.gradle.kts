@@ -1,6 +1,27 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
 }
+
+// ---- Release signing (T23): never in the repo. See README.md "Release build and signing". ----
+// Read, first match wins per key: env var DITHER_<KEY> → Gradle property dither.<key> (e.g. in
+// ~/.gradle/gradle.properties) → local/keystore.properties (gitignored `/local/`), key `<key>`.
+// Keys: storeFile, storePassword, keyAlias, keyPassword. Without a storeFile the release APK is built
+// unsigned (app-release-unsigned.apk); `-PdebugSignRelease` signs it with the debug key instead, for
+// local testing only.
+val keystoreProps = Properties().apply {
+    providers.fileContents(rootProject.layout.projectDirectory.file("local/keystore.properties"))
+        .asText.orNull?.let { load(it.reader()) }
+}
+
+fun signingValue(key: String): String? =
+    providers.environmentVariable("DITHER_" + key.replace(Regex("([a-z])([A-Z])"), "$1_$2").uppercase()).orNull
+        ?: providers.gradleProperty("dither.$key").orNull
+        ?: keystoreProps.getProperty(key)
+
+val releaseStoreFile: File? = signingValue("storeFile")?.let { rootProject.file(it) }
+val debugSignRelease = providers.gradleProperty("debugSignRelease").isPresent
 
 android {
     namespace = "au.com.josephmark.dithertracker"
@@ -10,15 +31,35 @@ android {
         applicationId = "au.com.josephmark.dithertracker"
         minSdk = 26
         targetSdk = 37
+        // Bump versionCode for every APK handed to a device as an update; versionName is semver.
         versionCode = 1
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = signingValue("storePassword")
+                keyAlias = signingValue("keyAlias")
+                keyPassword = signingValue("keyPassword") ?: signingValue("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // R8 (full mode) + resource shrinking. The app needs no keep rules of its own: nothing is
+            // looked up by name (no Class.forName, no enum valueOf, saves are numeric codes), and the
+            // one reflective call (eink/SupernoteFullRefresh) targets a framework class R8 never sees.
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            signingConfig = when {
+                releaseStoreFile != null -> signingConfigs.getByName("release")
+                debugSignRelease -> signingConfigs.getByName("debug")
+                else -> null
+            }
         }
     }
 
@@ -28,9 +69,29 @@ android {
     }
 
     buildFeatures {
-        buildConfig = false
+        // BuildConfig.DEBUG gates the adb-only QA hooks in MainActivity, so release compiles them out.
+        buildConfig = true
         resValues = false
     }
+}
+
+if (releaseStoreFile != null && !releaseStoreFile.isFile &&
+    gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+) {
+    throw GradleException("Release storeFile not found: $releaseStoreFile (see README.md, Release build and signing)")
+}
+
+// Say how the release APK was signed every time it is assembled (also on a configuration-cache hit).
+val releaseSigningNote: String = when {
+    releaseStoreFile != null -> "Release APK signed with ${releaseStoreFile.name}: app/build/outputs/apk/release/app-release.apk"
+    debugSignRelease -> "WARNING: release APK signed with the DEBUG key (-PdebugSignRelease). For testing only; do not distribute."
+    else -> "WARNING: no release keystore configured, so app/build/outputs/apk/release/app-release-unsigned.apk " +
+        "is unsigned and cannot be installed until signed. See README.md, Release build and signing."
+}
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+    val note = releaseSigningNote
+    val warn = note.startsWith("WARNING")
+    doLast { if (warn) logger.warn(note) else logger.lifecycle(note) }
 }
 
 kotlin {

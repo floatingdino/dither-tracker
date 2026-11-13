@@ -2,7 +2,6 @@ package au.com.josephmark.dithertracker
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
-import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -29,9 +28,12 @@ class MainActivity : Activity() {
         // Once per process: load the save synchronously (a few ms) so the first frame is the restored
         // game, then save changes in the background. No-op on activity recreation.
         Persistence.start(applicationContext)
-        // Debug/QA hooks (not reachable from the UI):
+        // Debug/QA hooks (not reachable from the UI). "Debuggable builds only" ones are gated on the
+        // compile-time BuildConfig.DEBUG, so R8 drops them (and DitherDemoView) from release; `inverted`
+        // and `trace` stay in release (harmless; `trace` is how release onDraw times are measured).
         //   --ez inverted true  start in dark mode (overrides the saved setting either way)
-        //   --ez demo true      the T04/T05 engine + type demo instead of the Play screen (portrait)
+        //   --ez demo true      (debuggable builds only) the T04/T05 engine + type demo instead of the Play
+        //                       screen (portrait)
         //   --ez trace true     log Play onDraw clip + duration (tag PlayView)
         //   --es partners 1,3   (debuggable builds only) set `partner` on exactly these seats (T30/T32
         //                       QA until T13 adds a UI for it); an empty string clears every partner
@@ -53,7 +55,7 @@ class MainActivity : Activity() {
         applyDebugPartners()
         applyDebugFx()
         applyEink()
-        root = if (intent?.getBooleanExtra("demo", false) == true) {
+        root = if (BuildConfig.DEBUG && intent?.getBooleanExtra("demo", false) == true) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             DitherDemoView(this).apply { setInverted(inverted) }
         } else {
@@ -68,14 +70,14 @@ class MainActivity : Activity() {
 
     /** Debug-only capture hook: `--el seed N` makes the commander-mode quip picks reproducible. */
     private fun debugRandom(): Random? {
-        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return null
+        if (!BuildConfig.DEBUG) return null
         if (intent?.hasExtra("seed") != true) return null
         return Random(intent.getLongExtra("seed", 0L))
     }
 
     /** Debug-only effects hooks (T28c): `--es fx <name|all>`, `--ei fxLife N`, `--ef fxHold X`. */
     private fun applyDebugFx() {
-        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return
+        if (!BuildConfig.DEBUG) return
         val i = intent ?: return
         FxDebug.gallery = i.getStringExtra("fx")
         FxDebug.life = i.getIntExtra("fxLife", 37)
@@ -84,7 +86,7 @@ class MainActivity : Activity() {
 
     /** E-ink cleanup switches (T19b): the vendor refresh (constant, or the debug extra) and the debug threshold. */
     private fun applyEink() {
-        val debug = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        val debug = BuildConfig.DEBUG
         val i = intent
         EinkConfig.cleanEvery = if (debug && i?.hasExtra("cleanEvery") == true) i.getIntExtra("cleanEvery", -1) else -1
         val vendor = SupernoteFullRefresh.USE_VENDOR_REFRESH ||
@@ -95,7 +97,7 @@ class MainActivity : Activity() {
 
     /** Debug-only QA hook: `--es partners 1,3` sets the partner flag on exactly those seats. */
     private fun applyDebugPartners() {
-        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return
+        if (!BuildConfig.DEBUG) return
         val spec = intent?.getStringExtra("partners") ?: return
         val seats = spec.split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
         val session = GameSession.shared
