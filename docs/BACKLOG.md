@@ -51,7 +51,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T30 | wip | T08 T27 | **Commander damage mode on the main interface** (Sam, 2026-11-13): an icon button on each player's tile; pressing it makes that player the *target* — every other tile swaps its life total for the commander damage that tile's player has dealt to the target (−/+ adjust it; partner slots supported), and the target's own tile swaps its life total for a quip (e.g. "Target"). Press again (or the target tile) to leave. Remove the drawer's COMMANDER DAMAGE button/view. Add a target quip category to core flavour. Same agent as T27, after it. | `play/`, `drawer/`, `core/**/flavour/` |
 | T31 | done | — | Icon: redraw `commander` (and `partner` to match) to read as an *enemy* — demon/imp — in the current solid style. Design-only. | `design/icons/` |
 | T32 | wip | T30 | Counter peeks (Sam, 2026-11-13): with the drawer closed, show each non-zero counter as a small icon + value chip on the tile, display-only, overflow as "+N". Same agent as T27/T30. | `play/`, `drawer/` |
-| T09 | todo | T06 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
+| T34 | todo | T27 T30 T32 | **Component refactor** (Sam approved, 2026-11-13: play-screen edits were blocking compartmentalised features). No behaviour change. A `Component` contract (layout on the grid, draw, claim touch zones, tap/hold, invalidation on state change); a host view that owns no feature logic and loops over an ordered component list; zone ids allocated by the host; a per-seat tile layer (life, readout, drawer, peeks, commander mode, effects slot, KO slot) and a screen layer for overlays (menu, settings, history, tools). Existing tests pass; before/after device captures pixel-identical. Write `docs/architecture.md`. | `app/` |
+| T35 | wip | T05 | Shared 1-bit widgets (JVM-only, new package): button, icon button, list row, toggle, stepper, segmented choice, confirm prompt, paged list — pure layout + painter + hit-testing over `DitherRenderer`/`TextRenderer`, press inversion, fingertip-size rule. | `app/**/widgets/` |
+| T09 | todo | T34 T35 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
 | T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
 | T10b | done | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
 
@@ -60,18 +62,18 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
 | T11 | todo | T06 | Layout engine for 2–6 players, portrait + landscape, per-seat rotation (0/90/180/270), all on the dither grid with leftover px as margin. Render tests per layout. | `app/src/main/**/layout/` |
-| T12 | todo | T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life, counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
+| T12 | todo | T34 T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life, counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
 | T13 | todo | T08 T12 | Player customisation: name entry (in-app 1-bit keyboard — no system IME, see SPEC rule 7), per-player background pattern picker. | `app/src/main/**/player/` |
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
-| T15 | todo | T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive) + toggle. | `play/` |
+| T15 | todo | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive) + toggle. | `play/` |
 
 ### Phase 3 — Table tools
 
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
-| T16 | todo | T09 | Random starting player, dice (d6/d20/custom), coin flip — static result reveal, 1-bit dice faces. | `app/src/main/**/tools/` |
-| T17 | todo | T09 T03 | Turn tracker + optional turn/game timer (redraw at most once a minute; partial refresh). | `tools/`, `core/` |
-| T18 | todo | T09 T03 | Game history log view (scrolling by page, not smooth scroll). | `app/src/main/**/history/` |
+| T16 | todo | T34 T09 | Random starting player, dice (d6/d20/custom), coin flip — static result reveal, 1-bit dice faces. | `app/src/main/**/tools/` |
+| T17 | todo | T34 T09 T03 | Turn tracker + optional turn/game timer (redraw at most once a minute; partial refresh). | `tools/`, `core/` |
+| T18 | todo | T34 T09 T03 | Game history log view (scrolling by page, not smooth scroll). | `app/src/main/**/history/` |
 
 ### Phase 4 — E-ink polish & release
 
@@ -243,3 +245,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-13 — Sam: poison option E after all; all round-two animations approved, `claw-cut` (Claw-A)
   the pick of the claws, loves the dither shading in overlays and numeral interactions, wants more in
   this style afterwards (T28f); quips a smidge more combative (T33; target-mode lines told now).
+- 2026-11-13 — Sam approved the component refactor ahead of the centre menu -> T34 (waits for the
+  T27/T30/T32 agent, which owns the play files), then T09/T12/T15/T16/T17/T18/T28c can run in
+  parallel as separate components. Dispatched T35 (widgets, JVM-only) now. Running: T27->T30->T32
+  (device), T28e, T35.
