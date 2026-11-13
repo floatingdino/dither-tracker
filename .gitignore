@@ -25,3 +25,6 @@ captures/
 
 # Device captures kept as design evidence
 !design/captures/
+
+# Private, machine-local fixtures (device ids, reference screenshots, private links)
+/local/

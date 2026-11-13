@@ -43,7 +43,7 @@ A 1-bit life tracker for MTG Commander, built for E-ink. Primary target: **Super
 
 ## Design reference
 
-Figma: https://www.figma.com/design/REDACTED/Dither-Tracker (pages: Screens, Icons).
+Figma: the source file link is private — see the untracked `local/README.md` (pages: Screens, Icons).
 Renders are in `design/figma/` (`play.png`, `panel.png`, `button.png`, 3 icons).
 `design/png2txt.py <png> [x0 y0 x1 y1]` prints a PNG region as ASCII for pixel inspection.
 The Figma renders are **early and resampled** (patterns are blurry there) — treat them as intent

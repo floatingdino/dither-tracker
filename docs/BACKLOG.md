@@ -20,8 +20,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   stage another agent's files. If `index.lock` is held by another agent, wait a moment and retry.
   Agents never push, never commit to `main`, never rewrite history. **The coordinator pushes `build` to
   `origin` (github.com/floatingdino/dither-tracker, public) regularly** — after each verified task or
-  backlog update (Sam, 2026-11-13). Keep device serials, third-party screenshots and personal details
-  out of commits. The coordinator still verifies each task
+  backlog update (Sam, 2026-11-13). **Private material never goes in a commit** (Sam, 2026-11-13): device
+  serials, third-party reference screenshots, private links (e.g. the Figma file), personal details.
+  Put them in the untracked `local/` folder (gitignored; see `local/README.md`) or the coordinator's
+  memory, and refer to them from tracked docs without the content. The coordinator still verifies each task
   after the agent reports and commits follow-up fixes and backlog updates separately.
 - **The Nomad is a single shared resource.** At most one running task may use the device
   (install/launch/tap/screencap); other concurrent tasks must be JVM-test-only and the coordinator
@@ -317,3 +319,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-13 — Sam: push commits to GitHub regularly. The repo is public; at Sam's choice the tip was
   scrubbed (device serial removed from this file, Lotus reference screenshot deleted) and `build`
   pushed as is — both remain in earlier commits' history.
+- 2026-11-13 — Sam: private material belongs in untracked fixtures or memory, not the repo. Added
+  gitignored `local/` (Figma link, device serial); removed the Figma link from SPEC. Earlier commits
+  on GitHub still contain the serial, the Lotus screenshot and the Figma link (history not rewritten).
