@@ -26,7 +26,8 @@ import au.com.josephmark.dithertracker.type.TextLayout
  * drops k for anything wider (defensive, and for future faces). Above the number (towards the far
  * edge, the Lotus convention) sits the pending-delta [readoutSlot]; the drawer tab is on the near
  * edge; the centre diamond takes one far corner. T30/T32 add the [underRow] between number and tab, which
- * holds counter peeks normally and the commander-mode labels in the mode.
+ * holds the commander-mode partner icons and the KO winner caption (counter peeks moved to the near
+ * corners in T38, `peeks.PeekLayout`).
  *
  * Choice of k (by maths, not by eye; T27): the hero face is the sticker `num-l`, drawn natively at
  * k = 1 (32×56 box, `−999` = 140×56), and the ± are their own half-size face `num-l-pm` (20×20 box,
@@ -111,7 +112,7 @@ class PlayLayout private constructor(
 
     /**
      * The row under the number (player frame: between the number slot and the tab's hit area,
-     * [V_MIN] clear of both), one icon tall plus a paper rim. Counter peeks (T32) and the commander
+     * [V_MIN] clear of both), one icon tall plus a paper rim. (Counter peeks lived here until T38.) The commander
      * mode labels (T30) live here. Empty (zero size) when the band is too short for it.
      */
     val underRow: Array<IRect> = Array(PLAYERS) { IRect() }
@@ -216,7 +217,7 @@ class PlayLayout private constructor(
         } else {
             underH = 0; underY = 0; underX = 0; underW = 0
         }
-        // The under row is required too: counter peeks and the partner slot icons live there.
+        // The under row is required too: the partner slot icons live there.
         comfortable = fits(font, pmFont, kMax, panelW, panelH, c.tabH) && underH > 0
 
         for (s in 0 until PLAYERS) {

@@ -12,7 +12,8 @@ import au.com.josephmark.dithertracker.dither.IRect
  * answers [LowerTile.occupies] from its own state, so there is nothing to keep in sync.
  *
  * Writers: the occupant (once per layout, [publishCompact]). Readers: life (number, ±, life halves),
- * readout (readout slot), peeks ([underRow], only while full), effects/KO (T28c/T15: [numberSlot],
+ * readout (readout slot), peeks (only while full; their own near-corner rects since T38), [underRow] (partner
+ * icons, KO caption), effects/KO (T28c/T15: [numberSlot],
  * [play]'s panels).
  */
 class TileSlots(val play: PlayLayout) {
@@ -93,7 +94,7 @@ class TileSlots(val play: PlayLayout) {
     fun lifeFeedback(seat: Int, side: Int): IRect =
         if (compact(seat)) cLife[seat * 2 + side] else play.zones[PlayLayout.zone(seat, side)]
 
-    /** The row under the number (peeks, partner icons); only meaningful while the seat is full. */
+    /** The row under the number (partner icons, KO winner caption); only meaningful while the seat is full. */
     fun underRow(seat: Int): IRect = play.underRow[seat]
 
     // The same, for a caller that already asked [compact] once this frame (fewer calls on the draw path).
