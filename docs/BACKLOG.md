@@ -643,3 +643,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   **Needs Sam (design):** is the tab visible enough across the table; keep hold-to-correct?; game
   clock reads "107" not "1:47"; turn/round number on the play screen?; no icon on 6-player middle
   tabs with the timer on.
+- 2026-11-14 — Tick 63: current HEAD debug build installed on the Nomad over the old one (save kept
+  and restored: 40 / 39 / 39 with poison 2 / seat 2 KO'd), app in front. No agents running. Every
+  buildable ticket is done or in `review`; what remains needs Sam: design answers (T11 layouts, T14
+  toggles, T17 turn tab, T47/T41/T48 looks), which T28f effects to promote (then a runtime ticket),
+  the release keystore, slow-mo video for e-ink timing, and the go-ahead for T39 (history rewrite +
+  force-push). Loop stopped until then; restart with /loop.
