@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.ko
 
 import au.com.josephmark.dithertracker.dither.IRect
+import au.com.josephmark.dithertracker.peeks.PeekLayout
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.PlayLayout.Chrome
 import au.com.josephmark.dithertracker.type.Font
@@ -26,7 +27,8 @@ import au.com.josephmark.dithertracker.widgets.TextWrap
  *   largest scale ≤ [quipKMax] that fits ([arrange]). While a revive is armed the plate is inked and
  *   reads [REVIVE] in paper at the quip's scale.
  *
- * The winner caption ([winnerFootprint]) sits in the under-number row of the last player standing.
+ * The winner caption ([arrangeWinner]) sits in the under-number row of the last player standing,
+ * between the counter-peek corners.
  */
 class KoLayout(val play: PlayLayout) {
 
@@ -168,27 +170,54 @@ class KoLayout(val play: PlayLayout) {
 
     // ---- winner caption ---------------------------------------------------------------------------
 
-    /** Largest scale ≤ [quipKMax] at which a caption of [len] chars fits the under row (0 = none). */
-    fun winnerK(len: Int): Int {
-        if (play.underH <= 0) return 0
+    /**
+     * Where the winner caption may go (player frame): the under-number row, between the counter-peek
+     * corners (T38, [PeekLayout.corner]) with [PlayLayout.V_MIN] clear of each, so it never sits on a
+     * peek. Without peeks (disabled layout) it has the row's full width.
+     */
+    private val peek = PeekLayout(play)
+    val winnerLeft: Int = if (peek.enabled) peek.leftX + peek.colW + peek.pad + PlayLayout.V_MIN else play.underX
+    val winnerRight: Int = if (peek.enabled) peek.rightX - peek.colW - peek.pad - PlayLayout.V_MIN else play.underX + play.underW
+    val winnerW: Int get() = maxOf(0, winnerRight - winnerLeft)
+    private val winnerWrap = TextWrap(MAX_LINES)
+
+    /**
+     * Lays out a winner [caption] (caps) on [seat] into [out]: the largest scale ≤ [quipKMax] at which
+     * it wraps into at most [MAX_LINES] lines of [winnerW] without cutting a word and fits the row's
+     * height; if none does, scale 1 with what fits. `out.k == 0` = no room at all.
+     */
+    fun arrangeWinner(seat: Int, caption: CharSequence, out: Block) {
+        out.k = 0; out.lines = 0
+        val w = winnerW
+        if (play.underH <= 0 || w <= 0) return
         var k = quipKMax
-        while (k >= 1) {
-            if (ui.widthOf(len, k) <= play.underW && ui.height(k) <= play.underH) return k
+        while (true) {
+            winnerWrap.wrap(caption, ui, k, w)
+            if ((!winnerWrap.truncated && winnerH(k, winnerWrap.lines) <= play.underH) || k == 1) break
             k--
         }
-        return 0
+        var n = winnerWrap.lines
+        while (n > 1 && winnerH(k, n) > play.underH) n-- // scale 1 still too tall: drop lines
+        if (n == 0 || winnerH(k, n) > play.underH) return
+        out.k = k; out.lines = n
+        val lh = ui.capHeight * k
+        val bh = winnerH(k, n)
+        var y = play.underY + (play.underH - bh) / 2
+        for (i in 0 until n) {
+            out.start[i] = winnerWrap.start[i]; out.end[i] = winnerWrap.end[i]
+            val tw = ui.widthOf(out.end[i] - out.start[i], k)
+            // Box top from the cap top, kept inside the row (the face's descender band may hang below).
+            val top = minOf(y - ui.capTop * k, play.underY + play.underH - ui.height(k))
+            play.mapRect(seat, winnerLeft + (w - tw) / 2, maxOf(play.underY, top), tw, ui.height(k), out.line[i])
+            y += lh + winnerGap
+        }
     }
 
-    /** Footprint of a [len]-char caption in [seat]'s under row; returns its scale (0 = does not fit). */
-    fun winnerFootprint(seat: Int, len: Int, out: IRect): Int {
-        val k = winnerK(len)
-        if (k == 0) return 0
-        val tw = ui.widthOf(len, k)
-        val capH = ui.capHeight * k
-        val y = minOf(play.underY + (play.underH - capH) / 2 - ui.capTop * k, play.underY + play.underH - ui.height(k))
-        play.mapRect(seat, (W - tw) / 2, maxOf(play.underY, y), tw, ui.height(k), out)
-        return k
-    }
+    /** Gap between the caption's cap bands (tighter than the plate's: the row is one icon high). */
+    val winnerGap: Int = Chrome.size(WINNER_GAP, s)
+
+    /** Height of a [lines]-line caption's cap bands at scale [k]. */
+    private fun winnerH(k: Int, lines: Int): Int = lines * ui.capHeight * k + (lines - 1) * winnerGap
 
     /** One seat's plate (screen rects), filled by [arrange]. */
     class Block {
@@ -228,5 +257,6 @@ class KoLayout(val play: PlayLayout) {
         const val LINE_GAP = 5
         const val ICON_GAP = 3
         const val CAUSE_GAP = 10
+        const val WINNER_GAP = 2
     }
 }

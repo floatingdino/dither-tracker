@@ -109,12 +109,29 @@ class KoTest {
                     assertFalse("$tag tomb/cause", overlaps(tomb, ci) || overlaps(ci, cn) || overlaps(tomb, cn))
                 }
             }
-            for (line in Flavour.quippy.lines(QuipKind.WINNER)) for (s in 0 until 4) {
-                val out = IRect()
-                val kk = k.winnerFootprint(s, line.length, out)
-                if (l.underH == 0) { assertEquals(0, kk); continue } // no under row (a layout never chosen)
-                assertTrue("$w×$h S=$sc winner '$line' k$kk", kk >= 1)
-                assertTrue("$w×$h S=$sc winner in under row", inside(out, l.underRow[s]))
+        }
+    }
+
+    @Test fun winnerCaptionStaysInTheUnderRowClearOfThePeekCorners() {
+        for ((w, h) in screens) for (sc in 2..6) {
+            val l = PlayLayout.compute(DitherGrid(w, h, sc))
+            val k = KoLayout(l)
+            val peek = au.com.josephmark.dithertracker.peeks.PeekLayout(l)
+            val b = KoLayout.Block()
+            for (line in Flavour.quippy.lines(QuipKind.WINNER) + Flavour.plain.lines(QuipKind.WINNER)) for (s in 0 until 4) {
+                val tag = "$w×$h S=$sc seat $s '$line'"
+                k.arrangeWinner(s, line.uppercase(), b)
+                if (l.underH == 0) { assertEquals(tag, 0, b.lines); continue } // no under row (a layout never chosen)
+                assertTrue("$tag shown", b.k >= 1 && b.lines >= 1)
+                if (w == 1872 && sc <= 4) assertEquals("$tag whole caption", line.length, (0 until b.lines).sumOf { b.end[it] - b.start[it] } + b.lines - 1)
+                for (i in 0 until b.lines) {
+                    val r = b.line[i]
+                    assertTrue("$tag line $i $r in under row ${l.underRow[s]}", inside(r, l.underRow[s]))
+                    if (peek.enabled) for (col in 0..1) {
+                        val c = IRect().also { peek.corner(s, col, it) }
+                        assertFalse("$tag line $i over peek corner $col", overlaps(r, c))
+                    }
+                }
             }
         }
     }
@@ -124,6 +141,8 @@ class KoTest {
         assertEquals(2, k.iconK)
         assertEquals(2, k.quipKMax)
         assertEquals(1, k.causeK)
+        assertEquals(64, k.winnerLeft) // between the peek corners (T38): x 64..169 at S = 4
+        assertEquals(169, k.winnerRight)
         val b = KoLayout.Block()
         k.arrange(3, "COULDN'T STOP IT. DIDN'T TRY", b)
         assertEquals(2, b.k)
