@@ -55,7 +55,8 @@ cells; the short axis the length nearest the screen's aspect with the same prope
 (T11) needs no change: pass its panels. Equal cells beat filling the box — a 3-over-2 split is 13 wide
 at 16 px.
 
-Fill: solid, flush with the cell lines (`INSET = 0`; a 1-px inset leaves a 4×2 dash at 16 px). There is
+Fill: solid, inset 1 px from the cell lines (`INSET = 1`, the designer's pick over a flush fill; at
+16 px that is a 4×2 block inside its 6×4 cell). There is
 deliberately no dither fill for a second seat: a pattern baked into a mask can't keep the global pattern
 phase (SPEC rule 3) and at 6×4 px it reads as noise — show two glyphs (`source → target`) instead.
 

@@ -118,11 +118,11 @@ class SeatGlyphs private constructor(private val panels: Array<IRect>) {
         const val ICON = 16
 
         /**
-         * Paper between a filled cell and its lines. 0 (T44, chosen from the specimen): at 16 px a cell is
-         * only 6×4 inside, and a 1-px inset leaves a 4×2 dash that reads as noise; flush, the filled
-         * quadrant reads instantly as "that corner of the table".
+         * Paper between a filled cell and its lines. 1: the designer's pick from the specimen — the
+         * fill sits inside its cell (a 4×2 block in a 6×4 cell at 16 px) so the table's lines stay
+         * whole around it.
          */
-        const val INSET = 0
+        const val INSET = 1
 
         /** Glyphs for these screen panel rects (copied). */
         fun forPanels(panels: Array<out IRect>): SeatGlyphs =

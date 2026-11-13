@@ -37,7 +37,7 @@ class SeatGlyphsTest {
     @Test fun blittedWithTheCardsRotationTheGlyphLiesLikeTheTable() {
         for (size in intArrayOf(16, 24)) for (rot in rotations) for (seat in SeatGlyphs.EMPTY until 4) {
             val g = glyphs.glyph(seat, rot, size)
-            assertEquals("seat $seat rot $rot @$size", glyphs.map(size).ascii(seat), onScreen(g, rot))
+            assertEquals("seat $seat rot $rot @$size", glyphs.map(size).ascii(seat, SeatGlyphs.INSET), onScreen(g, rot))
         }
     }
 
@@ -89,7 +89,8 @@ class SeatGlyphsTest {
         }
         // And by name: the card facing N (180) shows seats 0 and 1 (the top row) at the bottom.
         val north = glyphs.glyph(0, 180)
-        assertTrue(north.ascii().lines()[north.height - 2].contains("######"))
+        // (The fill is inset by SeatGlyphs.INSET from the cell lines, so look one row further in.)
+        assertTrue(north.ascii().lines()[north.height - 2 - SeatGlyphs.INSET].contains("####"))
     }
 
     @Test fun sidewaysReadersSeeAPortraitTable() {
@@ -155,7 +156,7 @@ class SeatGlyphsTest {
         )
         val g = SeatGlyphs.forPanels(six)
         for (rot in rotations) for (seat in 0 until 6) {
-            assertEquals(g.map(16).ascii(seat), onScreen(g.glyph(seat, rot), rot))
+            assertEquals(g.map(16).ascii(seat, SeatGlyphs.INSET), onScreen(g.glyph(seat, rot), rot))
         }
     }
 }

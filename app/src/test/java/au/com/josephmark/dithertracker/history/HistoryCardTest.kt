@@ -195,10 +195,10 @@ class HistoryCardTest {
             val night = c.rows[0]; val gone = c.rows[1]; val cmd = c.rows[2]; val life = c.rows[3]
             assertFalse(tag, night.hasSeat)
             assertEquals(tag, map.ascii(SeatGlyphs.EMPTY), painted(c, canvas, gone.seat, gone.seatRect))
-            assertEquals(tag, map.ascii(3), painted(c, canvas, cmd.seat, cmd.seatRect))
-            assertEquals(tag, map.ascii(1), painted(c, canvas, cmd.seat2, cmd.seat2Rect))
+            assertEquals(tag, map.ascii(3, SeatGlyphs.INSET), painted(c, canvas, cmd.seat, cmd.seatRect))
+            assertEquals(tag, map.ascii(1, SeatGlyphs.INSET), painted(c, canvas, cmd.seat2, cmd.seat2Rect))
             assertFalse(tag, cmd.pairArrow.isEmpty)
-            assertEquals(tag, map.ascii(2), painted(c, canvas, life.seat, life.seatRect))
+            assertEquals(tag, map.ascii(2, SeatGlyphs.INSET), painted(c, canvas, life.seat, life.seatRect))
             // Glyph slots are icon-sized squares right after the kind icon; the glyph sits inside.
             for (r in arrayOf(gone, cmd, life)) {
                 assertEquals(tag, c.metrics.icon, r.seatRect.width)
