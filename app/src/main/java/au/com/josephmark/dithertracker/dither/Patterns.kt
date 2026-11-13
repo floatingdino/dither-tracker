@@ -165,8 +165,8 @@ enum class Role(val tile: Tile) {
     DISABLED(Patterns.DIAG),
     /** Selected item: solid ink; content on it is drawn inverted. */
     SELECTED(Patterns.D[16]),
-    /** Auto-KO'd seat overlay. */
-    DEAD(Patterns.CROSSHATCH),
+    /** Auto-KO'd seat field: a light ordered dither (T42; was CROSSHATCH — Sam: not our language). */
+    DEAD(Patterns.D[2]),
     /** Dotted divider lines (a 1-px slice of a checkerboard = 1 on / 1 off, globally phased). */
     DOTTED(Patterns.CHECKER),
     /** Drop shadow of the hero numerals (T27): a 50% checker filled through each glyph's shadow mask. */
