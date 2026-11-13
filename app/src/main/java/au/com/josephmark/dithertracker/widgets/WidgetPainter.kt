@@ -37,6 +37,9 @@ class WidgetPainter(val c: WidgetCanvas) {
             is Toggle -> toggle(f, w)
             is Stepper -> stepper(f, w)
             is Segmented -> segmented(f, w)
+            is ConfirmPrompt -> confirmPrompt(f, w)
+            is PagedList -> pagedList(f, w)
+            is Panel -> panel(f, w)
             else -> throw IllegalArgumentException("no painter for ${w::class.simpleName}")
         }
     }
@@ -157,6 +160,59 @@ class WidgetPainter(val c: WidgetCanvas) {
         for (i in sg.options.indices) {
             text(f, m, m.ui, sg.options[i], 0, sg.segChars[i], sg.segVis[i], TextLayout.CENTRE, invert = i == sel, opaque = false)
         }
+    }
+
+    private fun confirmPrompt(f: WidgetFrame, p: ConfirmPrompt) {
+        val m = p.metrics
+        paper(f, p.box)
+        outline(f, p.box, m.stroke)
+        val w = p.wrap
+        for (i in 0 until w.lines) {
+            text(f, m, m.ui, p.prompt, w.start[i], w.end[i], p.lineRects[i], TextLayout.CENTRE, invert = false, opaque = false)
+        }
+        button(f, p.cancel)
+        button(f, p.confirm)
+    }
+
+    private fun panel(f: WidgetFrame, p: Panel) {
+        val m = p.metrics
+        paper(f, p.bounds)
+        outline(f, p.bounds, m.stroke)
+        if (p.hasTitleBar) {
+            fill(f, Role.TAB, p.titleBar)
+            p.title?.let { text(f, m, m.ui, it, 0, p.titleChars, p.titleRect, TextLayout.START, invert = false, opaque = true) }
+            p.close?.let { button(f, it) }
+        }
+        for (i in p.rows.indices) {
+            draw(f, p.rows[i])
+            dottedRect(f, p.dividers[i])
+        }
+        dottedRect(f, p.columnRule)
+    }
+
+    private fun pagedList(f: WidgetFrame, l: PagedList) {
+        val m = l.metrics
+        paper(f, l.bounds)
+        val n = l.visibleCount
+        val pool = l.pool
+        for (i in 0 until n) {
+            if (pool != null) draw(f, pool[i])
+            if (i + 1 < n) {
+                val s = l.slots[i]
+                dotted(f, s.left + m.padX, s.bottom, s.width - 2 * m.padX, 1)
+            }
+        }
+        if (l.hasFooter) {
+            val ft = l.footer
+            dotted(f, ft.left + m.padX, ft.top - 1, ft.width - 2 * m.padX, 1)
+            button(f, l.prev)
+            button(f, l.next)
+            text(f, m, m.ui, l.indicator, 0, l.indicator.length, l.indicatorRect, TextLayout.CENTRE, invert = false, opaque = false)
+        }
+    }
+
+    private fun dottedRect(f: WidgetFrame, r: IRect) {
+        if (!r.isEmpty) dotted(f, r.left, r.top, r.width, r.height)
     }
 
     // ---- primitives (local rects through the frame) -----------------------------------------------
