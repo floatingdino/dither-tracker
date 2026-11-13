@@ -328,6 +328,19 @@ class KoTest {
         assertTrue(r.rig.platform.invalidated.isNotEmpty())
     }
 
+    @Test fun aHoldRepeatStopsAtTheKoEvenWhileAnEffectHoldsTheTile() {
+        val r = Rig()
+        r.session.dispatch(Action.SetLife(r.rig.id(3), 10), 0)
+        r.stage.send(Events.KO_HOLD, 3)
+        val m = mid(r.l.zones[PlayLayout.zone(3, MINUS)])
+        r.stage.down(9, m[0], m[1], r.clock.now)
+        r.clock.advance(500) // first repeat: 10 -> 0, KO
+        assertEquals(0, r.session.state.players[3].life)
+        r.clock.advance(3000)
+        assertEquals(0, r.session.state.players[3].life)
+        r.stage.up(9)
+    }
+
     @Test fun holdSentAfterTheFlipTakesTheTileDownAndTimesOut() {
         val r = Rig()
         r.kill(3)

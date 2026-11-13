@@ -188,8 +188,11 @@ class KoComponent(
                 stage.log?.invoke("KO seat $s ($reason): '${quips[s]}'")
             }
         }
+        val newlyHeld = mask and dead.inv() and held
         dead = mask
         applyCover()
+        // A held seat (an effect is playing) keeps its life halves: stop a hold-repeat that killed it.
+        if (newlyHeld != 0) stage.cancelAllTouches()
     }
 
     /** Points the cover at [shown] (no-op when unchanged; `setCover` redraws the flipped panels). */
