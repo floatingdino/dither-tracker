@@ -103,7 +103,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
 | T19a | done | — | E-ink refresh research: Supernote/Ratta refresh-mode APIs, what stock Android offers, ghosting strategy → `docs/eink.md` with a concrete recommendation. Read-only device inspection. | `docs/eink.md` |
-| T19b | wip | T19a T06 | Implement the refresh strategy from `docs/eink.md`: invalidation audit, periodic full refresh, any safely available device refresh-mode hook. | `app/src/main/**/eink/` |
+| T19b | review | T19a T06 | Implement the refresh strategy from `docs/eink.md`: invalidation audit, periodic full refresh, any safely available device refresh-mode hook. | `app/src/main/**/eink/` |
 | T20 | todo | T09 T12 T28c (most features in) | **Comprehensive performance and battery pass** (Sam, 2026-11-14: as responsive as possible, very frugal with battery). *Responsiveness:* tap-to-pixel latency on the Nomad (trace + high-speed video), cold and warm start, onDraw time per interaction, zero allocations in draw/touch paths (allocation tracker, not just code reading), no main-thread disk or decode, overdraw, bitmap/mask memory, GC pauses, StrictMode clean, baseline profile / R8 full mode, APK size. *Battery:* no wake locks beyond the keep-awake setting; nothing scheduled while idle (no timers, handlers or animations ticking — verify with `dumpsys alarm`, `batterystats`, and CPU time over a 30-minute idle with the screen on and off); save writes batched; effects and readout timers cancelled when idle and in `onPause`; e-ink refresh count per action minimal (each panel update costs power); cleanup-flash cadence justified by measurement; behaviour when backgrounded and on screen-off. Known going in: the T34 component host costs ~25–60 µs more per `onDraw` in release (443–463 µs vs 401–416 µs on the Nomad); candidates: public `Frame` fields, fewer `TileSlots` hops. Effects prewarm builds ~30 MB of full-frame masks at S=4 (crop masks to each layer's ink bounds). *Deliverables:* a repeatable benchmark script under `tools/`, `docs/performance.md` with before/after numbers and budgets (e.g. tap latency, idle CPU ~0), regression tests where practical, fixes applied. Uses the Nomad for all timing. | whole app, `tools/`, `docs/performance.md` |
 | T21 | review | T04 T02 | App icon (1-bit, adaptive + legacy) and launcher label from the icon set / dither patterns. | `app/src/main/res/` |
 | T22 | todo | all | Full pixel-purity regression suite: render every screen at S=2..6, both orientations, inverted and not; fail on any non-#000/#FFF pixel or any off-grid edge. | `app/src/test/` |
@@ -506,3 +506,13 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   the launcher's rescaling decides whether it stays pixel-exact. Running: T41, T19b.
 - 2026-11-14 — Sam on the death copy: use the smaller size for all quips; the paper ground should
   continue between words. -> T47 dispatched.
+- 2026-11-14 — Tick 49: T19b reported with 4 commits (132 core + 574 app tests on a clean worktree):
+  automatic clean once the "Screen clean" count is reached and the table has been quiet for 2 s
+  (never during a touch, an open overlay, or a running readout/effect timer); per-seat clean when
+  one seat alone reached the threshold; black keyframe on settings/history close; vendor
+  `screenRefresh` behind `USE_VENDOR_REFRESH = false` / `--ez vendorRefresh true`; menu CLEAN now
+  routes through the same state machine. Counting is done in one stage observer. Correction sent
+  back: the agent had made a tap during a clean be swallowed (per the coordinator's brief) — SPEC
+  rule 4 wins, a touch must cancel the clean and still act. In `review` for that fix and the Nomad
+  checklist in `docs/eink.md` ("T19b as built"). Note for T20: the readout timer still fires while
+  backgrounded. Running: T41, T47.
