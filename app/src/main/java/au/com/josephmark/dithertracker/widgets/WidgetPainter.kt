@@ -15,7 +15,8 @@ import au.com.josephmark.dithertracker.type.TextLayout
  * Each widget paints its whole [Widget.bounds] (its background first), so a pressed part can be
  * redrawn inverted in isolation ([drawPressed] on devices without in-place inversion).
  *
- * Glyphs and icons on a dither fill (title bar, disabled hatch) are drawn opaque, on a paper backing.
+ * Glyphs and icons on a dither fill (title bar, disabled hatch) are drawn `opaque`: on their paper
+ * cut-out (T41 halo: `Icon.halo`, `Glyph.halo`), or on a paper box for a face without halo rows.
  */
 class WidgetPainter(val c: WidgetCanvas) {
 
@@ -27,6 +28,7 @@ class WidgetPainter(val c: WidgetCanvas) {
 
     private var iconK = 1
     private val scaledIcons = arrayOfNulls<MonoImage>(Icon.entries.size)
+    private val scaledHalos = arrayOfNulls<MonoImage>(Icon.entries.size)
 
     /** Draws [w] (and its children) in frame [f]. */
     fun draw(f: WidgetFrame, w: Widget) {
@@ -248,7 +250,8 @@ class WidgetPainter(val c: WidgetCanvas) {
 
     /**
      * Draws `text[from, to)` in [font] at the metrics' k inside the local rect [r]: aligned by [align]
-     * along the reader's line, cap band centred across it. Opaque text gets a [WidgetMetrics.halo] rim.
+     * along the reader's line, cap band centred across it. Opaque text sits on its glyphs' cut-outs
+     * ([Font.hasHalo] faces), else on a box with a [WidgetMetrics.halo] rim.
      */
     internal fun text(
         f: WidgetFrame, m: WidgetMetrics, font: Font, text: CharSequence, from: Int, to: Int, r: IRect,
@@ -263,19 +266,32 @@ class WidgetPainter(val c: WidgetCanvas) {
         val rot = f.rotation
         val x = s.left + TextLayout.placeX(rot, s.width, s.height, tw, th, font.capTop * k, font.capHeight * k, align)
         val y = s.top + TextLayout.placeY(rot, s.width, s.height, tw, th, font.capTop * k, font.capHeight * k, align)
-        c.text(font, run, x, y, k, rot, invert, opaque, if (opaque) m.halo else 0)
+        val halo = opaque && font.hasHalo
+        c.text(font, run, x, y, k, rot, invert, opaque && !halo, if (opaque && !halo) m.halo else 0, halo)
     }
 
-    /** Blits [icon] (scaled to the metrics' k) with its local footprint at [r]'s top-left. */
+    /**
+     * Blits [icon] (scaled to the metrics' k) with its local footprint at [r]'s top-left; [opaque] puts it
+     * on its paper cut-out ([Icon.halo], k px beyond the footprint; the halo is ink with [invert]).
+     */
     internal fun icon(f: WidgetFrame, m: WidgetMetrics, icon: Icon, r: IRect, invert: Boolean, opaque: Boolean) {
         f.map(r.left, r.top, m.icon, m.icon, tmp)
-        c.blit(scaledIcon(icon, m.k), tmp.left, tmp.top, f.rotation, invert, opaque)
+        val k = m.k
+        if (opaque) c.blit(scaledHalo(icon, k), tmp.left - k, tmp.top - k, f.rotation, !invert, opaque = false)
+        c.blit(scaledIcon(icon, k), tmp.left, tmp.top, f.rotation, invert, opaque = false)
+    }
+
+    /** [Icon.halo] enlarged k× as a stable instance. */
+    fun scaledHalo(icon: Icon, k: Int): MonoImage {
+        if (k == 1) return icon.halo
+        scaledIcon(icon, k) // resets both caches on a k change
+        return scaledHalos[icon.ordinal] ?: Scaled(icon.halo, k).also { scaledHalos[icon.ordinal] = it }
     }
 
     /** [icon] enlarged k× as a stable instance (the renderer caches its bitmap per instance). */
     fun scaledIcon(icon: Icon, k: Int): MonoImage {
         if (k == 1) return icon
-        if (k != iconK) { scaledIcons.fill(null); iconK = k }
+        if (k != iconK) { scaledIcons.fill(null); scaledHalos.fill(null); iconK = k }
         return scaledIcons[icon.ordinal] ?: Scaled(icon, k).also { scaledIcons[icon.ordinal] = it }
     }
 

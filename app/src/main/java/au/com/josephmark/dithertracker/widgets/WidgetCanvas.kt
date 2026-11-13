@@ -26,8 +26,11 @@ interface WidgetCanvas {
 
     fun blit(img: MonoImage, x: Int, y: Int, rotation: Int, invert: Boolean, opaque: Boolean)
 
-    /** Text with its footprint's top-left at (x, y) (see `TextRenderer.draw`). */
-    fun text(font: Font, text: CharSequence, x: Int, y: Int, k: Int, rotation: Int, invert: Boolean, opaque: Boolean, pad: Int)
+    /**
+     * Text with its footprint's top-left at (x, y) (see `TextRenderer.draw`). [halo]: each glyph on its
+     * paper cut-out (`Glyph.halo`, T41) — text on a dither fill; [opaque]/[pad] are then not used.
+     */
+    fun text(font: Font, text: CharSequence, x: Int, y: Int, k: Int, rotation: Int, invert: Boolean, opaque: Boolean, pad: Int, halo: Boolean = false)
 
     /** Inverts what is drawn in the rect (press feedback). */
     fun invert(x: Int, y: Int, w: Int, h: Int)

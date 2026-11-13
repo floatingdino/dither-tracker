@@ -238,8 +238,26 @@ class DitherRenderer {
 
     fun fillMask(mask: MonoImage, x: Int, y: Int, role: Role, invert: Boolean = false) = fillMask(mask, x, y, role.tile, invert)
 
-    fun icon(icon: Icon, x: Int, y: Int, rotation: Int = 0, invert: Boolean = false, opaque: Boolean = false) =
-        blit(icon, x, y, rotation, invert, opaque)
+    /**
+     * Blits [img] on a paper cut-out in its own shape (T41): [halo] — the same image's halo, a frame g px
+     * wider on every side (`Icon.halo`, `Glyph.halo`, [HaloMask.of]) — in paper, then [img] in ink, with
+     * [img]'s footprint top-left at (x, y). With [invert] the halo is ink and the glyph paper. Rotation
+     * turns both about their common centre. Two cached-mask draws, no allocation.
+     */
+    fun blitHaloed(img: MonoImage, halo: MonoImage, x: Int, y: Int, rotation: Int = 0, invert: Boolean = false) {
+        val g = (halo.width - img.width) / 2
+        blit(halo, x - g, y - g, rotation, invert = !invert)
+        blit(img, x, y, rotation, invert)
+    }
+
+    /**
+     * Draws [icon] at (x, y). [halo]: on its paper cut-out ([Icon.halo], see [blitHaloed]) instead of
+     * [opaque]'s square backing — the way to put an icon on a dither fill.
+     */
+    fun icon(
+        icon: Icon, x: Int, y: Int, rotation: Int = 0, invert: Boolean = false, opaque: Boolean = false,
+        halo: Boolean = false,
+    ) = if (halo) blitHaloed(icon, icon.halo, x, y, rotation, invert) else blit(icon, x, y, rotation, invert, opaque)
 
     // ---- effect masks (T28e) --------------------------------------------------------------
 

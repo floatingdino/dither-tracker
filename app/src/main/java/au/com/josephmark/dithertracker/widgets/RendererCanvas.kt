@@ -37,8 +37,8 @@ class RendererCanvas(val renderer: DitherRenderer, val textRenderer: TextRendere
     override fun blit(img: MonoImage, x: Int, y: Int, rotation: Int, invert: Boolean, opaque: Boolean) =
         renderer.blit(img, x, y, rotation, invert, opaque)
 
-    override fun text(font: Font, text: CharSequence, x: Int, y: Int, k: Int, rotation: Int, invert: Boolean, opaque: Boolean, pad: Int) =
-        textRenderer.draw(font, text, x, y, k, rotation, invert, opaque, pad)
+    override fun text(font: Font, text: CharSequence, x: Int, y: Int, k: Int, rotation: Int, invert: Boolean, opaque: Boolean, pad: Int, halo: Boolean) =
+        textRenderer.draw(font, text, x, y, k, rotation, invert, opaque && !halo, pad, halo = halo)
 
     override fun invert(x: Int, y: Int, w: Int, h: Int) = renderer.invertRect(x, y, w, h)
 

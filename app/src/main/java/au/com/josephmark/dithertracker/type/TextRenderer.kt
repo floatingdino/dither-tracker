@@ -13,7 +13,9 @@ import au.com.josephmark.dithertracker.dither.Role
  *   from per-glyph [DitherRenderer.blit] rotation and [TextLayout] position maths, never
  *   `Canvas.rotate`.
  * - `invert` draws glyph ink as paper; `opaque` first paints the footprint (grown by `pad` on every
- *   side) in the background colour (paper, or ink when inverted) — use it for text on dither fills.
+ *   side) in the background colour (paper, or ink when inverted).
+ * - `halo` (T41, faces with [Font.hasHalo]: `ui`) first paints every glyph's cut-out ([Glyph.halo],
+ *   k px beyond its box) in the background colour — the way to put text on a dither fill.
  * - `tracking` overrides the face's gap between glyphs (font px, scaled by k).
  * - Unknown characters draw the face's `.notdef` box; see [Font.glyph] for fallbacks.
  * - Faces with drop-shadow masks ([Font.hasShadow], T27: the sticker `num-l`) draw in two passes:
@@ -33,17 +35,17 @@ class TextRenderer(val renderer: DitherRenderer) {
     fun draw(
         font: Font, text: CharSequence, x: Int, y: Int,
         k: Int = 1, rotation: Int = 0, invert: Boolean = false, opaque: Boolean = false, pad: Int = 0,
-        tracking: Int = font.tracking, shadow: Boolean = true,
-    ) = drawRun(font, text, text.length, x, y, k, rotation, invert, opaque, pad, tracking, shadow)
+        tracking: Int = font.tracking, shadow: Boolean = true, halo: Boolean = false,
+    ) = drawRun(font, text, text.length, x, y, k, rotation, invert, opaque, pad, tracking, shadow, halo)
 
     /** Draws [value] in decimal (U+2212 minus when the face has it; `+` prefix when [signed] and > 0). */
     fun drawInt(
         font: Font, value: Int, x: Int, y: Int,
         k: Int = 1, rotation: Int = 0, invert: Boolean = false, opaque: Boolean = false, pad: Int = 0,
-        tracking: Int = font.tracking, signed: Boolean = false, shadow: Boolean = true,
+        tracking: Int = font.tracking, signed: Boolean = false, shadow: Boolean = true, halo: Boolean = false,
     ) {
         format(font, value, signed)
-        drawRun(font, null, digitsLen, x, y, k, rotation, invert, opaque, pad, tracking, shadow)
+        drawRun(font, null, digitsLen, x, y, k, rotation, invert, opaque, pad, tracking, shadow, halo)
     }
 
     /**
@@ -54,13 +56,13 @@ class TextRenderer(val renderer: DitherRenderer) {
     fun drawIn(
         font: Font, text: CharSequence, rx: Int, ry: Int, rw: Int, rh: Int,
         k: Int = 1, rotation: Int = 0, invert: Boolean = false, opaque: Boolean = false, pad: Int = 0,
-        tracking: Int = font.tracking, align: Int = TextLayout.CENTRE, shadow: Boolean = true,
+        tracking: Int = font.tracking, align: Int = TextLayout.CENTRE, shadow: Boolean = true, halo: Boolean = false,
     ) {
         val tw = font.widthOf(text.length, k, tracking)
         val th = font.height(k)
         val x = rx + TextLayout.placeX(rotation, rw, rh, tw, th, font.capTop * k, font.capHeight * k, align)
         val y = ry + TextLayout.placeY(rotation, rw, rh, tw, th, font.capTop * k, font.capHeight * k, align)
-        drawRun(font, text, text.length, x, y, k, rotation, invert, opaque, pad, tracking, shadow)
+        drawRun(font, text, text.length, x, y, k, rotation, invert, opaque, pad, tracking, shadow, halo)
     }
 
     /** [drawIn] for an integer (see [drawInt]). */
@@ -68,14 +70,14 @@ class TextRenderer(val renderer: DitherRenderer) {
         font: Font, value: Int, rx: Int, ry: Int, rw: Int, rh: Int,
         k: Int = 1, rotation: Int = 0, invert: Boolean = false, opaque: Boolean = false, pad: Int = 0,
         tracking: Int = font.tracking, align: Int = TextLayout.CENTRE, signed: Boolean = false,
-        shadow: Boolean = true,
+        shadow: Boolean = true, halo: Boolean = false,
     ) {
         format(font, value, signed)
         val tw = font.widthOf(digitsLen, k, tracking)
         val th = font.height(k)
         val x = rx + TextLayout.placeX(rotation, rw, rh, tw, th, font.capTop * k, font.capHeight * k, align)
         val y = ry + TextLayout.placeY(rotation, rw, rh, tw, th, font.capTop * k, font.capHeight * k, align)
-        drawRun(font, null, digitsLen, x, y, k, rotation, invert, opaque, pad, tracking, shadow)
+        drawRun(font, null, digitsLen, x, y, k, rotation, invert, opaque, pad, tracking, shadow, halo)
     }
 
     // ---- internals ------------------------------------------------------------------------
@@ -84,6 +86,7 @@ class TextRenderer(val renderer: DitherRenderer) {
     private fun drawRun(
         font: Font, text: CharSequence?, n: Int, x: Int, y: Int,
         k: Int, rotation: Int, invert: Boolean, opaque: Boolean, pad: Int, tracking: Int, shadow: Boolean,
+        halo: Boolean,
     ) {
         if (n <= 0) return
         val r = renderer
@@ -99,6 +102,18 @@ class TextRenderer(val renderer: DitherRenderer) {
             TextLayout.isSideways(rotation) // validates rotation even when nothing is opaque
         }
         val step = (font.glyphWidth + tracking) * k
+        if (halo) {
+            // Pass 0 (T41): every glyph's paper cut-out first, so no halo lands on a neighbour's ink.
+            require(font.hasHalo) { "${font.name} has no halo rows (GenerateFontsTask.HALO_FACES)" }
+            for (i in 0 until n) {
+                val c = if (text != null) text[i] else digits[i]
+                val m = font.glyph(c).haloScaled(k) ?: continue
+                val lx = i * step
+                val gx = x + TextLayout.mapX(rotation, tw, th, lx, 0, gw, gh)
+                val gy = y + TextLayout.mapY(rotation, tw, th, lx, 0, gw, gh)
+                r.blit(m, gx - k, gy - k, rotation, invert = !invert)
+            }
+        }
         if (shadow && font.hasShadow) {
             // Pass 1: every shadow first, so no glyph's shadow lands on a neighbour's ink.
             for (i in 0 until n) {

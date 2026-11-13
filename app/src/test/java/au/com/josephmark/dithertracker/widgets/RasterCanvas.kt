@@ -84,13 +84,25 @@ class RasterCanvas(val width: Int, val height: Int, private val flat: Boolean = 
         }
     }
 
-    override fun text(font: Font, text: CharSequence, x: Int, y: Int, k: Int, rotation: Int, invert: Boolean, opaque: Boolean, pad: Int) {
+    override fun text(font: Font, text: CharSequence, x: Int, y: Int, k: Int, rotation: Int, invert: Boolean, opaque: Boolean, pad: Int, halo: Boolean) {
         val n = text.length
         if (n == 0) return
         val gw = font.glyphWidth * k
         val gh = font.glyphHeight * k
         val tw = font.widthOf(n, k)
-        if (opaque) {
+        val step0 = font.advance * k
+        if (halo) {
+            for (i in 0 until n) {
+                val m = font.glyph(text[i]).haloScaled(k) ?: continue
+                val lx = i * step0
+                blit(
+                    m,
+                    x + TextLayout.mapX(rotation, tw, gh, lx, 0, gw, gh) - k,
+                    y + TextLayout.mapY(rotation, tw, gh, lx, 0, gw, gh) - k,
+                    rotation, invert = !invert, opaque = false,
+                )
+            }
+        } else if (opaque) {
             rect(x - pad, y - pad, TextLayout.footprintW(rotation, tw, gh) + 2 * pad, TextLayout.footprintH(rotation, tw, gh) + 2 * pad, ink = invert)
         }
         val step = font.advance * k
