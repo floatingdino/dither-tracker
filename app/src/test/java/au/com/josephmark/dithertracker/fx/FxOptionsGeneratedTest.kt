@@ -32,8 +32,6 @@ class FxOptionsGeneratedTest {
         assertTrue(all.any { it.anchorRef == FxAnchorRef.TILE })
         val focus = FxOptions.byName("focus")!!
         assertEquals(Patterns.HLINES, focus.tiles.single().tile)
-        assertEquals(FxRole.BIG_HIT, focus.role)
-        assertEquals(FxRole.WIN, FxOptions.byName("winner")!!.role)
         assertEquals(listOf(1, 2), FxOptions.byName("ko-shatter")!!.tiles.map { it.digit })
     }
 

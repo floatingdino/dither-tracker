@@ -6,7 +6,7 @@ import org.junit.Test
 
 class FxLayoutTest {
 
-    private val pow = Fx.byName("pow")!! // 60×60, anchor tr -6 2
+    private val pow = Fx.byName("pow")!!
 
     /** Independent reference: clockwise rotation of pixel (u, v) in a W×H box (as TextLayoutTest). */
     private fun refX(rot: Int, w: Int, h: Int, u: Int, v: Int) = when (rot) {
@@ -19,14 +19,14 @@ class FxLayoutTest {
 
     @Test fun uprightSeatPutsFrameCentreAtRefPointPlusOffset() {
         val box = IRect(100, 50, 140, 80) // 40×30 ink box
-        val out = FxLayout.place(pow, box, 0, IRect())
+        val out = FxLayout.place(60, 60, FxAnchorRef.TR, -6, 2, box, 0, IRect()) // a 60×60 frame, anchor tr -6 2
         // tr = (140, 50); + (-6, 2) = (134, 52); minus half the frame (30, 30).
         assertEquals(IRect(104, 22, 164, 82), out)
     }
 
     @Test fun rotated180SeatMirrorsTheAnchorThroughTheBox() {
         val box = IRect(100, 50, 140, 80)
-        val out = FxLayout.place(pow, box, 180, IRect())
+        val out = FxLayout.place(60, 60, FxAnchorRef.TR, -6, 2, box, 180, IRect())
         // Upright local centre (34, 2) turns to (40-34, 30-2) = (6, 28) → screen (106, 78).
         assertEquals(IRect(76, 48, 136, 108), out)
         // Its upright top-right corner is now at the bottom-left of the box, as the seat sees it.

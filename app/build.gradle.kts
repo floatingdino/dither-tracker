@@ -394,18 +394,11 @@ abstract class GenerateFxTask : DefaultTask() {
         val ROLES = listOf("damage", "heal", "big-hit", "ko", "win")
         val REFS = listOf("centre", "tl", "tr", "bl", "br", "top", "bottom", "left", "right", "tile")
         val MODES = listOf("ink", "paper", "fill")
+        // design/fx/options/ is the design archive (test-only FxOptions): its metas carry no `role`
+        // line and the engine tests don't depend on one, so a missing role there is just "damage".
+        // Shipped effects (design/fx/) must declare it.
+        const val UNSET_ROLE = "damage"
         val KEYS = listOf("size", "frames", "anchor", "hold_ms", "ink_px", "knockout_px", "cut_px", "tile_px", "flips", "role", "tile")
-        // Used only when meta.txt has no `role` line (the T28a and T28d metas predate the key).
-        val DEFAULT_ROLES = mapOf(
-            "pow" to "damage", "zap" to "damage", "claw" to "damage", "crack" to "damage",
-            "heart" to "heal", "sprout" to "heal", "twinkle" to "heal",
-            "wham" to "big-hit", "fizzle" to "ko",
-            // Round two (design/fx/options/README.md).
-            "pow2" to "damage", "crack2" to "damage", "claw-cut" to "damage", "claw-paper" to "damage",
-            "quake" to "damage", "fault" to "damage",
-            "twinkle2" to "heal", "rise" to "heal", "sunrise" to "heal", "vines" to "heal",
-            "claw-swipe" to "big-hit", "focus" to "big-hit", "ko-shatter" to "ko", "winner" to "win",
-        )
         const val RLE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
         const val RLE_PART = 16000 // chars per string constant (well under the 65535-byte limit)
     }
@@ -417,21 +410,21 @@ abstract class GenerateFxTask : DefaultTask() {
         val tileNames = patternFiles.files.map { it.nameWithoutExtension }.filter { it != "INDEX" }.toSortedSet()
         val byDir = fxFiles.files.groupBy { it.parentFile }
         val effects = sortedMapOf<String, Effect>()
+        val options = when (target.get()) {
+            "enum" -> false
+            "options" -> true
+            else -> throw GradleException("generateFx target must be enum|options, was '${target.get()}'")
+        }
         for ((dir, files) in byDir.entries.sortedBy { it.key.name }) {
             val meta = files.firstOrNull { it.name == "meta.txt" } ?: continue
             val id = dir.name
             if (!nameRe.matches(id)) { errors += "${dir.path}: effect name '$id' must match [a-z0-9]+(-[a-z0-9]+)*"; continue }
             val before = errors.size
-            val fx = parseEffect(id, meta, files, tileNames, errors)
+            val fx = parseEffect(id, meta, files, tileNames, errors, roleRequired = !options)
             if (fx != null && errors.size == before) effects[id] = fx
         }
         if (errors.isNotEmpty()) {
             throw GradleException("Malformed effect(s) (format: design/fx/README.md, design/fx/options/README.md):\n  " + errors.joinToString("\n  "))
-        }
-        val options = when (target.get()) {
-            "enum" -> false
-            "options" -> true
-            else -> throw GradleException("generateFx target must be enum|options, was '${target.get()}'")
         }
         val pkg = "au.com.josephmark.dithertracker.fx"
         val out = outputDir.get().asFile.resolve(pkg.replace('.', '/')).resolve(if (options) "FxOptions.kt" else "Fx.kt")
@@ -565,7 +558,7 @@ abstract class GenerateFxTask : DefaultTask() {
         return parts
     }
 
-    private fun parseEffect(id: String, meta: File, files: List<File>, tileNames: Set<String>, errors: MutableList<String>): Effect? {
+    private fun parseEffect(id: String, meta: File, files: List<File>, tileNames: Set<String>, errors: MutableList<String>, roleRequired: Boolean): Effect? {
         val vals = HashMap<String, List<String>>()
         val lineOf = HashMap<String, Int>()
         val tileLines = ArrayList<Pair<Int, List<String>>>() // (line index, values)
@@ -616,7 +609,7 @@ abstract class GenerateFxTask : DefaultTask() {
         }
         val role = vals["role"]?.let { r ->
             if (r.size != 1 || r[0] !in ROLES) { err("role", "'role' must be one of ${ROLES.joinToString("|")}"); null } else r[0]
-        } ?: DEFAULT_ROLES[id]
+        } ?: if (roleRequired) null else UNSET_ROLE
         if (role == null && "role" !in vals) errors += "${meta.path}: missing 'role' (one of ${ROLES.joinToString("|")})"
         val e = Effect(id, w, h, role ?: "", ref, dx, dy, holds) // a missing role is already an error
         // Tile layers: `tile <digit 1-9> <TILE> <ink|paper|fill>`, one line per digit.

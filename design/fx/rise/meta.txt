@@ -1,0 +1,15 @@
+# rise: HEAL. Beat 1: a few fat twinkles pop low around the numeral. Beat 2: they have risen and spread across the upper tile, with hollow glints between. Beat 3: dots at the top. Clean.
+size 233 175
+frames 4
+role heal
+anchor tile 0 0
+hold_ms 300 300 250 0
+ink_px 342 430 20 0
+knockout_px 248 396 0 0
+flips 342 772 450 20   # total 1584 dither px = 25344 device px, over sticker "37" in a full tile
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords
+#   (y down). ref "tile" = the seat tile centre; otherwise a point of the life
+#   total's layout box (centre|tl|tr|bl|br|top|bottom|left|right).
+# symbols: # ink, o paper, x cut (invert), digits = tile layers above (global phase)
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.
+# flips: changed dither px base->f1, ..., last drawn frame->clean.

@@ -1,0 +1,17 @@
+# winner: LAST PLAYER STANDING. Beat 1: a laurel wreath closes round the numeral with two big twinkles over it. Beat 2: confetti bursts across the whole tile around the wreath. Beat 3: a few pieces settle at the bottom. Clean.
+size 233 175
+frames 4
+role win
+anchor tile 0 0
+tile 3 CHECKER fill
+hold_ms 350 400 250 0
+ink_px 1112 1438 100 0
+knockout_px 1139 1680 0 0
+tile_px 0 256 0 0
+flips 1112 774 1666 100   # total 3652 dither px = 58432 device px, over sticker "37" in a full tile
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords
+#   (y down). ref "tile" = the seat tile centre; otherwise a point of the life
+#   total's layout box (centre|tl|tr|bl|br|top|bottom|left|right).
+# symbols: # ink, o paper, x cut (invert), digits = tile layers above (global phase)
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.
+# flips: changed dither px base->f1, ..., last drawn frame->clean.

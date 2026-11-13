@@ -1,6 +1,7 @@
 # fizzle: KO (optional): the numeral dissolves into dither and puffs away; then the dead panel draws.
 size 80 76
 frames 4
+role ko
 anchor centre 0 -2
 hold_ms 300 300 300 0
 ink_px 4 8 8 0

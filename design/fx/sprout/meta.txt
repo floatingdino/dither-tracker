@@ -1,6 +1,7 @@
 # sprout: A seedling pokes up out of the gap between the digits, unfurls two leaves, then a twinkle.
 size 32 28
 frames 4
+role heal
 anchor top 0 -14
 hold_ms 300 350 250 0
 ink_px 52 136 8 0

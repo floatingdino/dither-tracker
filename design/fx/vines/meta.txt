@@ -1,0 +1,15 @@
+# vines: HEAL. Beat 1: two vines sprout in the bottom corners and climb the side edges. Beat 2: they have reached up to the +/- glyphs, opened a flower each, and sent runners along the bottom edge toward the tab. Beat 3: only the two flowers. Clean.
+size 233 175
+frames 4
+role heal
+anchor tile 0 0
+hold_ms 300 350 250 0
+ink_px 306 980 116 0
+knockout_px 0 8 8 0
+flips 306 674 864 116   # total 1960 dither px = 31360 device px, over sticker "37" in a full tile
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords
+#   (y down). ref "tile" = the seat tile centre; otherwise a point of the life
+#   total's layout box (centre|tl|tr|bl|br|top|bottom|left|right).
+# symbols: # ink, o paper, x cut (invert), digits = tile layers above (global phase)
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.
+# flips: changed dither px base->f1, ..., last drawn frame->clean.
