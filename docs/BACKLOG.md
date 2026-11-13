@@ -88,7 +88,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
-| T16 | wip | T34 T09 | Random starting player, dice (d6/d20/custom), coin flip — static result reveal, 1-bit dice faces. | `app/src/main/**/tools/` |
+| T16 | review | T34 T09 | Random starting player, dice (d6/d20/custom), coin flip — static result reveal, 1-bit dice faces. | `app/src/main/**/tools/` |
 | T17 | todo | T34 T09 T03 | Turn tracker + optional turn/game timer (redraw at most once a minute; partial refresh). | `tools/`, `core/` |
 | T18 | review | T34 T09 T03 | Game history log view (scrolling by page, not smooth scroll). | `app/src/main/**/history/` |
 | T44 | wip | T18 | **Seat glyph instead of player names** (Sam, 2026-11-14: "Player 1/2/3/4 are meaningless"). A small table diagram with one position filled marks the affected seat; drawn from the real layout (2x2 today, any 2–6 layout later) and turned with the card so it always matches the physical table. Use it in history rows (source -> target as two glyphs) and anywhere else a default name appears. Emulator 5570. | new `seat/` package, `history/` |
@@ -439,3 +439,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   that spot filled in. -> T44 dispatched. T13 (names) flagged for a scope decision.
 - 2026-11-14 — Sam: player names can be dropped. T13 dropped; pattern picker split out as T45 (to
   confirm); SPEC updated; T44 agent told to show no names anywhere.
+- 2026-11-14 — Tick 42: T16 reported with 6 commits; emulator captures eyeballed
+  (`design/captures/t16-*.png`): two-faced dice/coin panel on the crossing (d20, d6, coin, roll
+  again on the fold diamond, explicit close), 250 ms "?" reveal beat, quip captions; first player
+  shown as an ink badge under the chosen tile's life total, sets the starting player in core. In
+  `review` until the clean build and Nomad check. Known: the panel's corners cover part of 3-glyph
+  life totals; results are not logged yet (hook `ToolResults` ready). Running: T42, T43, T44.
