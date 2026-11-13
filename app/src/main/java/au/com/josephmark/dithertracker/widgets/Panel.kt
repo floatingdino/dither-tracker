@@ -124,12 +124,14 @@ class Panel(
             val h = r.naturalHeight(m, w)
             r.layout(m, x, y, w, h)
             y += h
+            // (Statement form on purpose: an if/else whose branches end in different types makes
+            // Kotlin box `y` as the expression's value.)
             if (i + 1 < until) {
                 dividers[i].setXywh(x + m.padX, y, maxOf(0, w - 2 * m.padX), 1)
-                y += 1
-            } else {
-                dividers[i].set(0, 0, 0, 0)
+                y++
+                continue
             }
+            dividers[i].set(0, 0, 0, 0)
         }
         return y
     }

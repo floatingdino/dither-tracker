@@ -59,6 +59,11 @@ class ButtonTest {
         val i = laidOut(Button(0, "RESET", Icon.RESET), m4, 27)
         assertEquals(0, i.labelChars) // no room for a glyph: icon only, centred
         assertEquals(5, i.iconRect.left)
+        val stub = laidOut(Button(0, "RESET", Icon.RESET), m4, 39 + 6 * 1)
+        assertEquals(0, stub.labelChars) // room for "RE" only: beside an icon that is a stub, so icon only
+        assertEquals((45 - 16) / 2, stub.iconRect.left)
+        assertEquals(3, laidOut(Button(0, "RESET", Icon.RESET), m4, 39 + 6 * 2).labelChars) // "RES" stays
+        assertEquals(2, laidOut(Button(0, "OK", Icon.CHECK), m4, 39 + 6).labelChars) // a whole short label stays
     }
 
     @Test fun disabledButtonRegistersNoHit() {

@@ -54,12 +54,19 @@ open class Button(
         if (label.isNotEmpty()) {
             val avail = b.width - 2 * (m.stroke + m.padX) - if (ic != null) m.icon + m.gap else 0
             labelChars = TextFit.fit(label, m.ui, m.k, maxOf(0, avail))
+            // Next to an icon, a stub ("⟳ R") reads worse than the icon alone.
+            if (ic != null && labelChars < minOf(label.length, MIN_LABEL_WITH_ICON)) labelChars = 0
             if (labelChars > 0 && ic != null) iconW += m.gap
         }
         val contentW = iconW + m.textW(labelChars)
         val sx = b.left + TextLayout.centre(b.width, contentW)
         if (ic != null) iconRect.setXywh(sx, b.top + TextLayout.centre(b.height, m.icon), m.icon, m.icon) else iconRect.set(0, 0, 0, 0)
         labelRect.setXywh(sx + iconW, b.top, m.textW(labelChars), b.height)
+    }
+
+    companion object {
+        /** Fewest label glyphs kept beside an icon; any fewer and the button shows the icon only. */
+        const val MIN_LABEL_WITH_ICON = 3
     }
 }
 
