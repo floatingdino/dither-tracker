@@ -82,7 +82,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T29 | done | T03 | Core: per-seat undo grouping so interleaved taps from different seats don't split one seat's burst into several undo steps/log entries. JVM-only. | `core/src/` |
 | T26 | done | — | Hero numeral exploration: 4–5 heavier, more characterful candidates for life totals, rendered in-context at device pixels for Sam to pick. | `design/font/candidates/` (or `design/font-candidates/`) |
 | T28a | done | — | Hit/heal effect sprites: 3–4 damage and 2–3 heal effect concepts (swipe, crunch, fizzle, sparkle…), 2–4 frames each as 1-bit ASCII frames, with offline previews (frame strips + in-context mock). | `design/fx/` |
-| T28b | wip | T28a | Effect engine (JVM-only): build step turning `design/fx/<name>/` frames + meta into generated Kotlin, pure `FxPlayer` state machine (injectable scheduler; trigger/cancel/no-queue/max-two rules), draw helper (black + knock-out layers, rotation). Ships `pow` and `twinkle`. No PlayView wiring. | `app/**/fx/`, `app/build.gradle.kts` |
+| T28b | done | T28a | Effect engine (JVM-only): build step turning `design/fx/<name>/` frames + meta into generated Kotlin, pure `FxPlayer` state machine (injectable scheduler; trigger/cancel/no-queue/max-two rules), draw helper (black + knock-out layers, rotation). Ships `pow` and `twinkle`. No PlayView wiring. | `app/**/fx/`, `app/build.gradle.kts` |
 | T28c | todo | T28b T08 T27 | Wire effects into the play screen: trigger on delta commit by sign, cancel on tap, settings toggle; re-fit frames to sticker numerals; tune hold time and film on the Nomad. | `play/`, `design/fx/` |
 | T28d | wip | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
 | T27 | todo | T08 (owns play/) | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
@@ -205,3 +205,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   per key via replay through `reduce`; undo removes the last-touched group and leaves other seats'
   changes intact. App follow-up forwarded to the T08 agent: use `history.endGroup(seatKey)` in
   PlayView's commit path. T08 (device), T28b, T28d running.
+- 2026-11-13 — Tick 18: T28b verified (157 app tests pass incl. 23 fx; build.gradle change is an
+  appended block only) and committed. `fx/` has `Fx` (generated, all 9 effects), `FxPlayer`,
+  `FxRenderer`, `FxLayout`, `FxPolicy`; wiring notes for T28c in `app/.../fx/README.md`. Note for
+  T28c: `PendingDeltas.commit` zeroes the delta before the sink callback — pass the net through.
+  Metas lack a `role` line (built-in fallback table for the nine names). T08 (device), T28d running.
