@@ -20,6 +20,7 @@ import au.com.josephmark.dithertracker.core.DayNight
 import au.com.josephmark.dithertracker.core.Player
 import au.com.josephmark.dithertracker.core.Toggle
 import au.com.josephmark.dithertracker.core.serial.AppSettings
+import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.eink.EinkConfig
 import au.com.josephmark.dithertracker.eink.ScreenCleaner
@@ -71,6 +72,10 @@ class MainActivity : Activity() {
         //   --ei players N      (debuggable builds only) start a new game at N seats (2..6) and choose N in
         //                       settings (T11 captures); applied before --es partners / --es lives
         //   --es lives 40,0,12  (debuggable builds only) set each seat's life in order (T11 captures: a KO)
+        //   --ei turn S         (debuggable builds only) start turn tracking from seat S (T17 captures), the
+        //                       clock backdated --ei turnAgo M minutes; --ei turnPass N then passes N times,
+        //                       the last pass --ei turnPassAgo M minutes ago (default 0)
+        //   --es turns off|on|game|turn  (debuggable builds only) the Turns setting (T17)
         val inverted = if (intent?.hasExtra("inverted") == true) {
             intent.getBooleanExtra("inverted", false)
         } else {
@@ -80,6 +85,7 @@ class MainActivity : Activity() {
         applyDebugPartners()
         applyDebugLives()
         applyDebugToggles()
+        applyDebugTurns()
         applyDebugFx()
         applyEink()
         root = if (BuildConfig.DEBUG && intent?.getBooleanExtra("demo", false) == true) {
@@ -204,6 +210,32 @@ class MainActivity : Activity() {
             "day" -> d(Action.SetDayNight(DayNight.DAY))
             "night" -> d(Action.SetDayNight(DayNight.NIGHT))
         }
+    }
+
+    /**
+     * Debug-only capture hook (T17): `--es turns off|on|game|turn` sets the Turns setting; `--ei turn S`
+     * starts tracking from seat S with the clock `--ei turnAgo M` minutes back, then `--ei turnPass N`
+     * passes N times, the last one `--ei turnPassAgo M` minutes back (so the timer shows minutes at once).
+     */
+    private fun applyDebugTurns() {
+        if (!BuildConfig.DEBUG) return
+        val i = intent ?: return
+        val h = SettingsHolder.shared
+        when (i.getStringExtra("turns")) {
+            "off" -> h.update(h.current.copy(turnTracker = false, turnTimer = TurnTimer.OFF))
+            "on" -> h.update(h.current.copy(turnTracker = true, turnTimer = TurnTimer.OFF))
+            "game" -> h.update(h.current.copy(turnTracker = true, turnTimer = TurnTimer.GAME))
+            "turn" -> h.update(h.current.copy(turnTracker = true, turnTimer = TurnTimer.TURN))
+        }
+        if (!i.hasExtra("turn")) return
+        val session = GameSession.shared
+        val p = session.state.players.getOrNull(i.getIntExtra("turn", 0)) ?: return
+        val now = System.currentTimeMillis()
+        val ago = i.getIntExtra("turnAgo", 0) * 60_000L
+        session.dispatch(Action.SetStartingPlayer(p.id), now - ago)
+        val passes = i.getIntExtra("turnPass", 0)
+        val passAgo = i.getIntExtra("turnPassAgo", 0) * 60_000L
+        for (n in 1..passes) session.dispatch(Action.NextTurn, if (n == passes) now - passAgo else now - ago)
     }
 
     /** Keep-awake (T12): `FLAG_KEEP_SCREEN_ON` on the play window only while resumed and the setting is on. */

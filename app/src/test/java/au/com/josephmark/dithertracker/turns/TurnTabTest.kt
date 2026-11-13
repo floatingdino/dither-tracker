@@ -172,10 +172,12 @@ class TurnTabTest {
         assertEquals(0, r.active())
         assertEquals(0, r.turn.shownSeat)
         assertEquals(1, r.c.session.state.turn.number)
-        // Hold: 500 ms, then a step a second, each moving the turn one live seat without counting.
+        // Hold: nothing for 1.5 s, then a step a second, each moving the turn one live seat without counting.
         r.c.dispatch(Action.MarkDead(r.c.id(1)))
         r.press()
         r.c.advance(600)
+        assertEquals("0.6 s: still pressed, nothing moved", 0, r.active())
+        r.c.advance(1_000)
         assertEquals(2, r.active())
         r.c.advance(1_000)
         assertEquals(3, r.active())
@@ -184,6 +186,12 @@ class TurnTabTest {
         assertEquals(1, r.c.session.state.turn.number)
         assertEquals(1, r.c.session.state.turn.round)
         assertTrue(r.c.check("held").isEmpty())
+        // Let go between 0.5 and 1.5 s: neither a pass nor a correction.
+        r.press()
+        r.c.advance(900)
+        r.release()
+        assertEquals(3, r.active())
+        assertEquals(1, r.c.session.state.turn.number)
     }
 
     @Test fun aKnockedOutActiveSeatKeepsItsTabAndTheGameOverHidesIt() {

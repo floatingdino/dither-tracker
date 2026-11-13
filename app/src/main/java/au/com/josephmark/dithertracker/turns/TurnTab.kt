@@ -31,8 +31,9 @@ import au.com.josephmark.dithertracker.stage.ZoneSink
  * - **Passes** with a tap on the tab (release-to-fire like every zone; a press inverts it):
  *   `Action.NextTurn`, which skips knocked-out seats and counts the turn. One redraw: the old tab's
  *   rect and the new one's, nothing else. Undo (the gem) takes a pass back.
- * - **Corrects** by holding the tab: after 500 ms, and every second while held, the turn moves on one
- *   live seat **without counting** (`Action.SetActivePlayer`) — for a mark on the wrong seat.
+ * - **Corrects** by holding the tab: after [CORRECT_AFTER] hold steps (1.5 s), and every second while
+ *   held, the turn moves on one live seat **without counting** (`Action.SetActivePlayer`) — for a mark
+ *   on the wrong seat. Letting go between 0.5 and 1.5 s does nothing (a held tap is never a pass).
  * - **Timer** (`AppSettings.turnTimer`, off by default): the minutes since tracking started (GAME) or
  *   since this turn began (TURN), beside the icon, from the stamps core keeps in `TurnState` (wall
  *   clock, persisted, so a restart or process death resumes the count). ONE timer, armed only while
@@ -230,8 +231,9 @@ class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, time
         stage.dispatch(Origin.EXTERNAL, Action.NextTurn)
     }
 
-    /** Hold step: move the turn to the next live seat without counting it (a correction). */
+    /** Hold step: from the [CORRECT_AFTER]th on, move the turn to the next live seat without counting it. */
     override fun onRepeat(seat: Int, local: Int) {
+        if (stage.input.repeatCount(stage.zoneId(this, seat, local)) < CORRECT_AFTER) return
         val s = stage.session.state
         val id = s.turn.activePlayer ?: return
         val from = seatOf(s, id)
@@ -296,6 +298,9 @@ class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, time
         const val TICK = 0
         const val TIMERS = 1
         const val MINUTE = 60_000L
+
+        /** Hold steps (500 ms, then one a second) before a hold starts correcting: 1.5 s. */
+        const val CORRECT_AFTER = 2
 
         private val ICONS = arrayOf(Icon.TURN)
         private const val DIGITS = "0123456789"
