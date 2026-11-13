@@ -13,7 +13,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - Coordinator, per tick: (1) verify anything in `review` (build + tests + look at output), mark
   `done` or send back; (2) pick ready tasks whose **Files** don't overlap any `wip` task;
   (3) mark them `wip`, dispatch one Opus agent each; (4) log the tick below.
-- Commits: the coordinator (only) commits each verified task to the `build` branch, one commit
+- Commits: stage explicit paths only (never `git add docs` / `git add app` while agents are mid-edit —
+  tick 16 swept an agent's unverified doc edit into an unrelated commit). The coordinator (only) commits each verified task to the `build` branch, one commit
   per task (`T07: …`), staging only that task's files. Never push; never commit to `main`.
   (Approved by Sam 2026-11-13.)
 - **The Nomad is a single shared resource.** At most one running task may use the device
@@ -78,7 +79,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T24 | done | — | Icon redesign per Sam's feedback: redo `poison` (ugly), `rads` (too large in the set), refine `storm`; rework `experience`, `life`, `energy`, `commander` (too simplistic/off); add weight and a slightly cutesy/wacky character across the set, keeping the filled-arrow feel of `refresh`/`reset`. | `design/icons/` |
 | T25a | done | T03 | Personality copy tables in core: original quips (KO lines by reason, dice/coin lines, reset confirm, empty history, default player names) with a pure picker taking `Random`; length-checked against the `ui` face budget. | `core/src/**/flavour/` |
 | T25b | todo | T25a T15 T16 | Show quips at their call sites (KO panel, tools, reset confirm, history) as static text; "quips" setting. | call sites |
-| T29 | wip | T03 | Core: per-seat undo grouping so interleaved taps from different seats don't split one seat's burst into several undo steps/log entries. JVM-only. | `core/src/` |
+| T29 | done | T03 | Core: per-seat undo grouping so interleaved taps from different seats don't split one seat's burst into several undo steps/log entries. JVM-only. | `core/src/` |
 | T26 | done | — | Hero numeral exploration: 4–5 heavier, more characterful candidates for life totals, rendered in-context at device pixels for Sam to pick. | `design/font/candidates/` (or `design/font-candidates/`) |
 | T28a | done | — | Hit/heal effect sprites: 3–4 damage and 2–3 heal effect concepts (swipe, crunch, fizzle, sparkle…), 2–4 frames each as 1-bit ASCII frames, with offline previews (frame strips + in-context mock). | `design/fx/` |
 | T28b | wip | T28a | Effect engine (JVM-only): build step turning `design/fx/<name>/` frames + meta into generated Kotlin, pure `FxPlayer` state machine (injectable scheduler; trigger/cancel/no-queue/max-two rules), draw helper (black + knock-out layers, rotation). Ships `pow` and `twinkle`. No PlayView wiring. | `app/**/fx/`, `app/build.gradle.kts` |
@@ -200,3 +201,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   over the numerals; wants options that open up and cover more of the tile; start building with `pow`
   and `twinkle`. SPEC rule 4 footprint wording loosened. Dispatched T28b (engine, JVM-only) and T28d
   (more options, design-only). T08 (device), T29 running.
+- 2026-11-13 — Tick 17: T29 verified (130 core tests pass on rerun) and committed. Undo grouping is
+  per key via replay through `reduce`; undo removes the last-touched group and leaves other seats'
+  changes intact. App follow-up forwarded to the T08 agent: use `history.endGroup(seatKey)` in
+  PlayView's commit path. T08 (device), T28b, T28d running.

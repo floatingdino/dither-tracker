@@ -71,15 +71,18 @@ class HistoryTest {
         assertEquals(null, SetToggle(0, Toggle.MONARCH, true).coalesceKey)
     }
 
-    @Test fun differentKeyNullKeyEndGroupAndUndoAllBreakTheGroup() {
+    @Test fun nullKeyEndGroupAndUndoBreakTheGroupButAnotherKeyDoesNot() {
         fun burst(h0: History, t: Long): History {
             val a = ChangeLife(0, -1)
             return h0.dispatch(a, t, a.coalesceKey).dispatch(a, t + 1, a.coalesceKey)
         }
+        // T29: groups are per key, so another seat's tap no longer splits seat 0's burst
+        // (this used to be 3 steps).
         var h = burst(History(s0), 0)
         h = h.dispatch(ChangeLife(1, -1), 2, ChangeLife(1, -1).coalesceKey)
         h = burst(h, 3)
-        assertEquals(3, h.past.size)
+        assertEquals(2, h.past.size)
+        assertEquals(listOf("life:1", "life:0"), h.past.map { it.key })
 
         h = burst(History(s0), 0).endGroup()
         h = burst(h, 2)
