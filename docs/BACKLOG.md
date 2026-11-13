@@ -90,7 +90,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T28a | done | — | Hit/heal effect sprites: 3–4 damage and 2–3 heal effect concepts (swipe, crunch, fizzle, sparkle…), 2–4 frames each as 1-bit ASCII frames, with offline previews (frame strips + in-context mock). | `design/fx/` |
 | T28b | done | T28a | Effect engine (JVM-only): build step turning `design/fx/<name>/` frames + meta into generated Kotlin, pure `FxPlayer` state machine (injectable scheduler; trigger/cancel/no-queue/max-two rules), draw helper (black + knock-out layers, rotation). Ships `pow` and `twinkle`. No PlayView wiring. | `app/**/fx/`, `app/build.gradle.kts` |
 | T28c | todo | T28b T08 T27 | Wire effects into the play screen: trigger on delta commit by sign, cancel on tap, settings toggle; re-fit frames to sticker numerals; tune hold time and film on the Nomad. | `play/`, `design/fx/` |
-| T28e | todo | T28b + Sam's picks | Engine support for round-two effects: `x` (invert under mask), tile-filled layers at global phase, `anchor tile`; promote chosen options from `design/fx/options/` to `design/fx/`. JVM-only. | `app/**/fx/`, `design/fx/` |
+| T28e | wip | T28b | Engine support for round-two effects: `x` (invert under mask), tile-filled layers at global phase, `anchor tile`; promote chosen options from `design/fx/options/` to `design/fx/`. JVM-only. | `app/**/fx/`, `design/fx/` |
 | T28d | done | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
 | T27 | wip | T08 | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
@@ -240,3 +240,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   commits) — 14 options over sticker numerals; awaiting Sam's picks. Poison icon went through two more
   passes at Sam's request: now a heavy ring with a floating beam (`candidates/poison-options.png`).
   Running: T27 -> T30 -> T32 (one agent, device).
+- 2026-11-13 — Tick 22: dispatched T28e (engine capability only, JVM-only, tested against
+  `design/fx/options/`; promotion of chosen effects waits for Sam's picks). Poison icon reverted to
+  option A at Sam's request. Running: T27 -> T30 -> T32 (device), T28e.
