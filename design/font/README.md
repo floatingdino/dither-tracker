@@ -10,13 +10,20 @@ malformed. Draw them with `type.TextRenderer`; see `type.Font` for metrics.
 | `ui`    | 5×9       | 1        | rows 0–6  | labels, buttons, menus, settings, log | A–Z, a–z (x-height rows 2–6, descenders 7–8), 0–9, `+ - − × / : ; . , ! ? ( ) [ ] % # & ' " < > = _ \| *`, space |
 | `num-l` | 32×56     | 4        | rows 0–52 | hero life totals and commander damage ("sticker", T27) | 0–9, `+`, `-`, space |
 | `num-l-pm` | 20×20  | 4        | rows 0–16 | the −/+ zone glyphs beside the hero number (T27) | `+ - −`, space |
-| `num-m` | 8×14      | 2        | rows 0–13 | counters, pending deltas, peeks, dice | 0–9, `+ - / :`, space |
+| `num-m` | 10×14     | 2        | rows 0–13 | the small numerals at k=1: pending deltas, the commander target's life, drawer values, peeks, dice | 0–9, `+ - / :`, space |
 
 `num-l` is the **sticker** face (T26 candidate, adopted T27): puffy bubble numerals on a ~10 px
 round pen with ball terminals and a drop shadow. `num-l-pm` is its half-size `+`/`−` (5 px pen,
-rounded ends, same shadow). `num-m` has 2 px strokes since T27 so it sits next to the heavy
-numerals and solid icons; `ui` is 1 px. The previous thin `num-l` is kept in
-`candidates/num-l-thin/` (not built).
+rounded ends, same shadow). `num-m` is the hero's little sibling since T37: the `bold` mini
+sticker from `candidates/mini2/` (3-px verticals, 2-px horizontals, pointed-oval zero with a pill,
+the 1's ball flag, the 4's solid wedge, knob terminals; no shadow), drawn at k=1 wherever it
+appears, so a pending `−7` or a counter's `12` reads as a small copy of the life total. `ui` is
+1 px. The previous thin `num-l` and `num-m` are kept in `candidates/num-l-thin/` and
+`candidates/num-m-thin/` (not built).
+
+`num-m` is 10 px wide: `999` at its tracking is 34 px, 2 px more than a Nomad drawer cell's value
+box, so the drawer closes a value's tracking to 1 px when (and only when) it would not fit
+(`DrawerLayout.valueTracking`).
 
 **Drop shadows.** In a glyph, `:` marks the shadow *mask*: paper in the glyph, filled at draw
 time by `TextRenderer` with `Role.SHADOW` (50% checker) at global pattern phase (SPEC rule 3),

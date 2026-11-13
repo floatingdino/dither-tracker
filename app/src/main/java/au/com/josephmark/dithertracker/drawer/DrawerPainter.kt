@@ -18,7 +18,8 @@ import au.com.josephmark.dithertracker.type.TextRenderer
  *   the tab's three dots on a paper backing in the middle (= close); on the right the page chevron
  *   (opaque, paper square): `›` with a next page, `‹` on the last page of several;
  * - body: `DRAWER` (sparse) dither;
- * - cell: paper card. Non-zero values get a 1-px ink frame and the value in `num-m`; at 0 the card
+ * - cell: paper card. Non-zero values get a 1-px ink frame and the value in `num-m` (a 3-digit value
+ *   closes its tracking to fit, [DrawerLayout.valueTracking]); at 0 the card
  *   is frameless and the value hidden, so active counters stand out. Poison at 8+ is a solid ink
  *   card with paper content (nearly lethal).
  */
@@ -65,7 +66,9 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
             icon(l.tk, iconFor(item), l.trayIcon[i], rot, invert = warn, opaque = false)
             if (v != 0) {
                 val vr = l.trayValue[i]
-                text.drawIntIn(l.numFont, v, vr.left, vr.top, vr.width, vr.height, l.tk, rot, invert = warn)
+                // The reading-direction width of the value rect (rotation is only ever 0 or 180 here).
+                val tr = l.valueTracking(v, vr.width)
+                text.drawIntIn(l.numFont, v, vr.left, vr.top, vr.width, vr.height, l.tk, rot, invert = warn, tracking = tr)
             }
         }
     }

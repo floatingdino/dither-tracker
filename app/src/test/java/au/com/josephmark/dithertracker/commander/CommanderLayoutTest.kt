@@ -68,9 +68,9 @@ class CommanderLayoutTest {
         assertEquals(3, c.quipFootprint(3, 5, fp))
         assertEquals(IRect((233 - 87) / 2, 176 + 65, (233 - 87) / 2 + 87, 176 + 65 + 27), fp)
         assertEquals(2, c.lifeFootprint(3, 5, 40, icon, num))
-        // icon 16 + gap 3 + "40" (36) = 55 wide, centred at x 89
-        assertEquals(IRect(89, 176 + 102, 105, 176 + 118), icon)
-        assertEquals(IRect(108, 176 + 96, 144, 176 + 124), num)
+        // icon 16 + gap 3 + "40" (44) = 63 wide, centred at x 85
+        assertEquals(IRect(85, 176 + 102, 101, 176 + 118), icon)
+        assertEquals(IRect(104, 176 + 96, 148, 176 + 124), num)
         // The close X sits centred on the diamond.
         assertEquals(IRect(225, 167, 241, 183), c.closeIcon)
     }

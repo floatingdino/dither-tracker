@@ -126,6 +126,34 @@ class DrawerLayoutTest {
         }
     }
 
+    @Test fun everyCounterValueFitsItsCellWithoutClipping() {
+        // T37: the bold num-m is 10 wide; `999` at tracking 2 is 34 px against a 32-px value box at
+        // S = 4, so 3-digit values close to tracking 1 (and nothing else does).
+        val d4 = nomad[2]
+        val vr = d4.trayValue[3 * DrawerZones.MAX_SLOTS]
+        assertEquals(32, vr.width)
+        assertEquals(2, d4.valueTracking(7, vr.width)); assertEquals(2, d4.valueTracking(42, vr.width))
+        assertEquals(1, d4.valueTracking(100, vr.width)); assertEquals(1, d4.valueTracking(999, vr.width))
+        assertEquals(32, d4.numFont.measureInt(999, 1, 1))
+        for (d in layouts()) {
+            if (!d.comfortable) continue
+            for (s in 0 until 4) for (slot in 0 until d.perPage) {
+                val i = s * DrawerZones.MAX_SLOTS + slot
+                val v = d.trayValue[i]
+                val icon = d.trayIcon[i]
+                assertFalse("$d", overlaps(icon, v))
+                assertTrue("$d", inside(v, d.cellVis[i]))
+                for (value in intArrayOf(0, 9, 10, 99, 100, 999)) {
+                    val t = d.valueTracking(value, v.width)
+                    assertTrue("$d $value", t >= DrawerLayout.TIGHT_TRACKING)
+                    assertTrue("$d $value", d.numFont.measureInt(value, d.tk, t) <= v.width)
+                    if (value < 100) assertEquals("$d $value", d.numFont.tracking, t)
+                }
+                assertTrue(d.numFont.height(d.tk) <= v.height)
+            }
+        }
+    }
+
     @Test fun cellHitsTileTheBody() {
         for (d in nomad) for (s in 0 until 4) {
             var area = 0

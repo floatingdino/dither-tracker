@@ -25,26 +25,26 @@ class PeekLayoutTest {
     @Test fun nomadAtScale4() {
         val k = nomad4
         assertTrue(k.enabled)
-        // pad 2 + icon 16 + gap 2 + digits (num-m 8 wide, tracking 2) + pad 2
-        assertEquals(30, k.chipWidth(4))
-        assertEquals(40, k.chipWidth(12))
-        assertEquals(2 + 18 + 2, k.moreWidth(3)) // "+3"
+        // pad 2 + icon 16 + gap 2 + digits (num-m 10 wide, tracking 2) + pad 2
+        assertEquals(32, k.chipWidth(4))
+        assertEquals(44, k.chipWidth(12))
+        assertEquals(2 + 22 + 2, k.moreWidth(3)) // "+3"
         val xs = IntArray(17)
         // three chips centred as a group
         val v = intArrayOf(4, 2, 7)
         assertEquals(3, k.arrange(v, 3, xs))
-        val total = 3 * 30 + 2 * k.gap
+        val total = 3 * 32 + 2 * k.gap
         assertEquals(k.play.underX + (k.play.underW - total) / 2, xs[0])
-        assertEquals(xs[0] + 30 + k.gap, xs[1])
+        assertEquals(xs[0] + 32 + k.gap, xs[1])
     }
 
     @Test fun overflowShowsAsManyAsFitThenPlusN() {
         val k = nomad4
         val xs = IntArray(17)
-        val v = IntArray(9) { 10 + it } // nine 2-digit chips, 40 wide each
+        val v = IntArray(9) { 10 + it } // nine 2-digit chips, 44 wide each
         val shown = k.arrange(v, 9, xs)
-        // 4 × 40 + "+5" (22) + 4 gaps of 6 = 206 ≤ 217; a fifth chip would need 252.
-        assertEquals(4, shown)
+        // 3 × 44 + "+6" (26) + 3 gaps of 6 = 176 ≤ 217; a fourth chip would need 226.
+        assertEquals(3, shown)
         assertTrue(k.widthOf(v, shown, 9) <= k.play.underW)
         assertTrue(shown == 8 || k.widthOf(v, shown + 1, 9) > k.play.underW) // the largest that fits
         // the +N chip follows the last shown chip

@@ -69,8 +69,12 @@ class DrawerLayout(val play: PlayLayout) {
     /** Tallest cell content: an icon or a `num-m` value. */
     val contentH: Int = maxOf(iconSize, numFont.height(tk))
 
-    /** Widest tray-cell content: icon, gap, three digits of num-m. */
-    val contentW: Int = iconSize + iconGap + numFont.widthOf(3, tk)
+    /**
+     * Widest tray-cell content: icon, gap, three digits of num-m at [TIGHT_TRACKING] (T37: the bold
+     * 10-wide face makes `999` 2 px wider than a Nomad cell at the face's own tracking, so a value
+     * that does not fit its cell closes up to 1 px rather than clip or shrink the grid; see [valueTracking]).
+     */
+    val contentW: Int = iconSize + iconGap + numFont.widthOf(3, tk, TIGHT_TRACKING)
 
     val rowH: Int = maxOf(target, contentH + 2 * pad + 2 * inset)
     val cols: Int
@@ -291,6 +295,17 @@ class DrawerLayout(val play: PlayLayout) {
         }
     }
 
+    /**
+     * Tracking (font px) to draw [value] with in tray-value rect [valueW] wide: the face's own, or
+     * tighter (never below [TIGHT_TRACKING]) when that is too wide. Only 3-digit values ever close up.
+     */
+    fun valueTracking(value: Int, valueW: Int): Int {
+        val len = Font.intLength(value)
+        var t = numFont.tracking
+        while (t > TIGHT_TRACKING && numFont.widthOf(len, tk, t) > valueW) t--
+        return t
+    }
+
     // ---- number / readout footprints while open --------------------------------------------------
 
     /** Screen footprint of the life total for an open drawer; returns the glyph scale. */
@@ -315,5 +330,8 @@ class DrawerLayout(val play: PlayLayout) {
         const val ICON_GAP = 2
         const val READOUT_GAP = 6
         const val HALO = 1
+
+        /** Closest a tray value's digits ever sit (font px): 1 keeps the 3-px stems apart. */
+        const val TIGHT_TRACKING = 1
     }
 }

@@ -40,13 +40,13 @@ class PlayLayoutTest {
         // Under-number row: between the number (bottom 115) and the tab's hit band (top 146).
         assertEquals(IRect(8, 176 + 121, 225, 176 + 139), l.underRow[3])
         assertEquals(IRect(72, 330, 161, 351), l.tab[3]) // 89×21 (T06: 55×12)
-        assertEquals(IRect(58, 176 + 15, 174, 176 + 43), l.readoutSlot[3]) // 6 × num-m at k=2, above the number
+        assertEquals(IRect(46, 176 + 15, 186, 176 + 43), l.readoutSlot[3]) // 6 × num-m (10 wide) at k=2, above the number
         assertEquals(2, l.readoutK)
         // Top-left seat (180°): mirrored, tab on the screen top edge.
         assertEquals(IRect(200, 78, 220, 98), l.minusGlyph[0])
         assertEquals(IRect(13, 78, 33, 98), l.plusGlyph[0])
         assertEquals(IRect(72, 0, 161, 21), l.tab[0])
-        assertEquals(IRect(59, 132, 175, 160), l.readoutSlot[0]) // "above" = towards the screen centre
+        assertEquals(IRect(47, 132, 187, 160), l.readoutSlot[0]) // "above" = towards the screen centre
         assertEquals(233, l.diamondCx); assertEquals(175, l.diamondCy)
         assertEquals(IRect(213, 155, 254, 196), l.diamond) // 41×41 (T06: 23×23)
         assertEquals(IRect(224, 166, 243, 185), l.menuBarsBacking)

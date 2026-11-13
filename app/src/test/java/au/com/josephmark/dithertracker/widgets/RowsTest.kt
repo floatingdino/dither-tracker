@@ -96,7 +96,7 @@ class RowsTest {
         // Columns from the right: plus hit 27 (button 23, right edge at row − padX), value 3 digits of num-m + gaps, minus hit 27.
         assertEquals(IRect(220 - 6 + 2 - 27, 0, 220 - 6 + 2, 27), st.plusHit)
         assertEquals(IRect(st.plusHit.left + 2, 2, st.plusHit.right - 2, 25), st.plusBtn)
-        assertEquals(3 * 8 + 2 * 2 + 2 * 4, st.valueRect.width)
+        assertEquals(3 * 10 + 2 * 2 + 2 * 4, st.valueRect.width)
         assertEquals(st.valueRect.left, st.minusHit.right)
         assertEquals(13, st.labelChars)
         val r = hits(st)
