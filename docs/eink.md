@@ -226,3 +226,75 @@ for ghosting. Put the results back into this file.
 - Whether an app-drawn black flash cleans as well as the vendor GC refresh (E4).
 - The `screenRefresh` call is reverse-engineered and could change or vanish with any firmware update.
   It must stay optional and degrade silently.
+
+## T19b as built
+
+Code: `app/.../eink/` — `ScreenCleaner` (one state machine: `cleanRegion(rect)` / `cleanFull()`),
+`CleanCadence` (pure policy, JVM-tested), `CleanComponent` (the Play-screen glue, registered last in
+the OVERLAY layer), `SupernoteFullRefresh` + `VendorRefreshGuard`. The stage hook is
+`Stage.Observer` (every invalidation, every pointer-down, the end of every entry point with its
+`Stage.Cause`) plus `Stage.timersPending(except)` and `Stage.covered(kind, seat)`.
+
+**Constants**
+
+| What | Value | Where |
+|---|---|---|
+| Ink frame hold | 300 ms | `ScreenCleaner.HOLD_MS` (unchanged from the manual CLEAN) |
+| Quiet period before an automatic clean | 2000 ms | `CleanCadence.QUIET_MS` |
+| Threshold | the "Screen clean" setting (`fullRefreshEvery`: OFF / 20 / 50 / 100) | debug override `--ei cleanEvery N` |
+| Per-seat rule | one seat ≥ threshold and every other seat ≤ threshold / 4 | `CleanCadence.OTHERS_QUIET_DIVISOR` |
+| Vendor refresh | off | `SupernoteFullRefresh.USE_VENDOR_REFRESH`; debug `--ez vendorRefresh true` |
+| Delay before the vendor call | 300 ms | `ScreenCleaner.VENDOR_DELAY_MS` |
+
+**What counts.** One count per entry point that changed pixels and is a committed touch (release,
+hold-repeat step) or an outside game change; timer-driven redraws (readout clearing, effect
+keyframes, menu timeout) count once per burst after a user action; touch-down and cancel (press
+inversion only) never count. So a tap is ~1, a burst of taps then its commit and effect is taps + 1.
+Each count also goes to every seat whose panel the redraw touched (the gem touches all four).
+
+**When.** Due at `count ≥ threshold`. Then a single quiet timer is (re)armed at the end of every entry
+point; when it fires the clean runs only if nothing is busy: no pointer down, no press, no clean
+running, no other component timer armed (readout, effects, menu idle, KO hold, first-player…), and no
+overlay declaring touch zones (menu, dice, settings, history open). Busy → nothing re-armed until the
+next entry point (the one that ends the busy state). Nothing is scheduled while OFF or below the
+threshold; `onPause` drops the timer (`Events.PAUSE`), `onResume` re-arms if due.
+
+**Scope.** One seat alone (rule above) → black over that seat's panel, then redraw; otherwise full.
+Closing a full-table overlay (settings, history) puts one ink keyframe in front of its full redraw
+when the setting is on. Manual CLEAN (menu) is the same full clean and works with the setting OFF.
+Counts reset after a clean that ran to its end (any kind), on new game and on a threshold change; a
+cancelled clean keeps them, so it is retried at the next quiet moment.
+
+**Touch during a clean.** Any pointer-down cancels it and the region is redrawn in that frame; a tap
+inside the cleaned region is swallowed (for a full clean: the whole screen), outside it acts.
+
+**Emulator (logic only, emulator-5566).** With `--ez trace true --ei cleanEvery 3`: three taps on one
+seat → `eink count=…`, `pending`, the readout commit and its effect hold it off, the seat clean starts
+2.0 s after the last effect keyframe and ends 300 ms later; screencap just before vs after the clean is
+byte-identical (`cmp`); a tap 6 ms into the black frame cancelled it at once and was swallowed (life
+unchanged); the clean was retried 2 s later. Spread taps → full clean, before/after identical. Settings
+card open 12 s → no timer; closing it → full ink keyframe, then the table. `cleanEvery 0` → no eink
+activity in 12 taps. HOME while pending → no clean in the background; back → clean 2 s later. Every
+capture passes `tools/check_1bit.py --scale 4`. Not judged: anything about the panel.
+
+**What to look at on the Nomad** (`A=~/Library/Android/sdk/platform-tools/adb`, serial from
+`local/README.md`, `P=au.com.josephmark.dithertracker`):
+
+1. Cadence feel: `$A -s <nomad> shell am start -n $P/.MainActivity --ez trace true --ei cleanEvery 5`,
+   `$A -s <nomad> logcat -s PlayView:D | grep eink`. Tap one seat 5×, wait: does the seat flash come
+   only after the table is quiet, and does it feel like a deliberate beat rather than a glitch? Is
+   2 s the right quiet period (too eager / too late)?
+2. Does the 300 ms black hold clean the shadow digits (E3/E4)? Tap one seat ~30× at `cleanEvery 30`,
+   photograph under raking light before and after the seat clean. Try the full clean too.
+3. Does a seat clean flicker the other seats (E1/E8: whether the HWC escalates a big diff to a full
+   flash)?
+4. Tap during the black frame: the redraw must come back immediately and the tap must not act.
+5. Settings → close with Screen clean on: one black beat, then the table. Does it read as intended or
+   as a double flash on top of the HWC's own update?
+6. Vendor refresh: `$A -s <nomad> shell getprop ro.product.manufacturer` (the guard requires
+   "Supernote"), then relaunch with `--ez vendorRefresh true --ei cleanEvery 5` and trigger a full clean
+   (spread taps, or menu → CLEAN). Expect the same flash as the sidebar slide-up; `logcat -s
+   SupernoteRefresh` must stay silent (a line there means it failed once and fell back to the black
+   flash for the session). Seat cleans always use the black flash.
+7. Battery (T20): with the setting on and the table idle, `dumpsys alarm` / CPU stay flat — at most one
+   2 s timer after the last action while a clean is due, none otherwise.
