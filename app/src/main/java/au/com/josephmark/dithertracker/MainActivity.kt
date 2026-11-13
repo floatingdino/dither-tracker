@@ -10,6 +10,7 @@ import android.view.WindowInsetsController
 import android.view.WindowManager
 import au.com.josephmark.dithertracker.data.Persistence
 import au.com.josephmark.dithertracker.core.Action
+import au.com.josephmark.dithertracker.core.serial.AppSettings
 import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.eink.EinkConfig
 import au.com.josephmark.dithertracker.eink.ScreenCleaner
@@ -47,12 +48,17 @@ class MainActivity : Activity() {
         //                       "Screen clean" setting; 0 = off), to trigger it with a few taps (T19b)
         //   --ez vendorRefresh true  (debuggable builds only) full cleans use the Supernote vendor refresh
         //                       instead of the black flash (SupernoteFullRefresh; off by default)
+        //   --ei players N      (debuggable builds only) start a new game at N seats (2..6) and choose N in
+        //                       settings (T11 captures); applied before --es partners / --es lives
+        //   --es lives 40,0,12  (debuggable builds only) set each seat's life in order (T11 captures: a KO)
         val inverted = if (intent?.hasExtra("inverted") == true) {
             intent.getBooleanExtra("inverted", false)
         } else {
             SettingsHolder.shared.current.inverted
         }
+        applyDebugPlayers()
         applyDebugPartners()
+        applyDebugLives()
         applyDebugFx()
         applyEink()
         root = if (BuildConfig.DEBUG && intent?.getBooleanExtra("demo", false) == true) {
@@ -93,6 +99,30 @@ class MainActivity : Activity() {
             (debug && i?.getBooleanExtra("vendorRefresh", false) == true)
         val ctx = applicationContext
         EinkConfig.vendorFull = if (vendor) ScreenCleaner.FullRefresh { SupernoteFullRefresh.tryFullRefresh(ctx) } else null
+    }
+
+    /** Debug-only capture hook (T11): `--ei players N` starts a new game at N seats and selects N in settings. */
+    private fun applyDebugPlayers() {
+        if (!BuildConfig.DEBUG) return
+        val i = intent ?: return
+        if (!i.hasExtra("players")) return
+        val n = i.getIntExtra("players", 4)
+        if (n !in AppSettings.PLAYER_COUNT_RANGE) return
+        SettingsHolder.shared.update(SettingsHolder.shared.current.copy(playerCount = n))
+        val session = GameSession.shared
+        if (session.state.players.size != n) session.dispatch(Action.NewGameFor(n), System.currentTimeMillis())
+    }
+
+    /** Debug-only capture hook (T11): `--es lives 40,0,12` sets each seat's life, in seat order. */
+    private fun applyDebugLives() {
+        if (!BuildConfig.DEBUG) return
+        val spec = intent?.getStringExtra("lives") ?: return
+        val session = GameSession.shared
+        val values = spec.split(',').map { it.trim().toIntOrNull() }
+        for ((seat, v) in values.withIndex()) {
+            val p = session.state.players.getOrNull(seat) ?: break
+            if (v != null && p.life != v) session.dispatch(Action.SetLife(p.id, v), System.currentTimeMillis())
+        }
     }
 
     /** Debug-only QA hook: `--es partners 1,3` sets the partner flag on exactly those seats. */
