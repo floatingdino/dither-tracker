@@ -2,6 +2,7 @@ package au.com.josephmark.dithertracker.settings
 
 import au.com.josephmark.dithertracker.core.Counter
 import au.com.josephmark.dithertracker.core.serial.AppSettings
+import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.Icon
 import au.com.josephmark.dithertracker.play.PlayLayout
@@ -18,6 +19,18 @@ import au.com.josephmark.dithertracker.widgets.Segmented
  * exposing.
  */
 object SettingsTable {
+
+    /**
+     * Turn tracker and its timer (T17), one row: `[OFF][ON][GAME][TURN]` — off; the turn tab only; the
+     * tab with the game clock (minutes since the first player was picked); the tab with the minutes on
+     * the current turn. Stored as `AppSettings.turnTracker` + `turnTimer` ([turnsValue] / [withTurns]).
+     */
+    val TURNS = intArrayOf(TURNS_OFF, TURNS_ON, TURNS_GAME, TURNS_TURN)
+    val TURNS_LABELS = arrayOf("OFF", "ON", "GAME", "TURN")
+    const val TURNS_OFF = 0
+    const val TURNS_ON = 1
+    const val TURNS_GAME = 2
+    const val TURNS_TURN = 3
 
     /** Player count choices (T11): every count the layout engine seats; takes effect on the next new game. */
     val PLAYERS = intArrayOf(2, 3, 4, 5, 6)
@@ -52,12 +65,13 @@ object SettingsTable {
         check(COUNTER_LABELS.size == COUNTERS.size && COUNTER_ICONS.size == COUNTERS.size)
     }
 
-    /** The main page, top to bottom (T11 added Players). Add rows here. */
+    /** The main page, top to bottom (T11 added Players, T17 Turns). Add rows here. */
     fun main(): SettingsPage = SettingsPage(
         TITLE,
         arrayOf(
             players(),
             startingLife(),
+            turns(),
             scale(),
             ToggleRow("Invert", { it.app.inverted }, { s, v -> s.updateApp(s.app.copy(inverted = v)) }),
             ChoiceRow("Hold step", labels(HOLD_STEPS), HOLD_STEPS, { it.app.holdRepeatStep }, { s, v -> s.updateApp(s.app.copy(holdRepeatStep = v)) }),
@@ -74,6 +88,28 @@ object SettingsTable {
         { it.app.playerCount },
         { s, v -> s.updateApp(s.app.copy(playerCount = v)) },
     )
+
+    fun turns(): ChoiceRow = ChoiceRow(
+        "Turns", TURNS_LABELS, TURNS,
+        { turnsValue(it.app) },
+        { s, v -> s.updateApp(withTurns(s.app, v)) },
+    )
+
+    /** The [TURNS] choice [a] holds. */
+    fun turnsValue(a: AppSettings): Int = when {
+        !a.turnTracker -> TURNS_OFF
+        a.turnTimer == TurnTimer.GAME -> TURNS_GAME
+        a.turnTimer == TurnTimer.TURN -> TURNS_TURN
+        else -> TURNS_ON
+    }
+
+    /** [a] with the [TURNS] choice [v] (OFF keeps the timer choice off too). */
+    fun withTurns(a: AppSettings, v: Int): AppSettings = when (v) {
+        TURNS_OFF -> a.copy(turnTracker = false, turnTimer = TurnTimer.OFF)
+        TURNS_GAME -> a.copy(turnTracker = true, turnTimer = TurnTimer.GAME)
+        TURNS_TURN -> a.copy(turnTracker = true, turnTimer = TurnTimer.TURN)
+        else -> a.copy(turnTracker = true, turnTimer = TurnTimer.OFF)
+    }
 
     fun startingLife(): ChoiceRow = ChoiceRow(
         "Starting life", labels(STARTING_LIFE), STARTING_LIFE,

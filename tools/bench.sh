@@ -133,9 +133,9 @@ if has play; then
   mark dice;           tap 934 702; sleep 1; tap 702 702; sleep 1.5; tap 810 702; sleep 1.5; tap 1058 702; sleep 1.5; endmark
   mark dice_close;     tap 1182 702; sleep 1.5; endmark
   mark settings_open;  tap 934 702; sleep 1; tap 1050 818; sleep 1.5; endmark
-  mark dark_mode;      tap 934 646; sleep 1.5; tap 934 646; sleep 1.5; endmark   # "Invert" row on, then off
-  mark settings_page;  tap 934 1094; sleep 1.5; endmark                       # Counters page
-  mark settings_close; tap 414 182; sleep 1.5; tap 1458 1220; sleep 2; endmark # rotate, then its close X
+  mark dark_mode;      tap 934 702; sleep 1.5; tap 934 702; sleep 1.5; endmark   # "Invert" row on, then off
+  mark settings_page;  tap 934 1150; sleep 1.5; endmark                       # Counters page
+  mark settings_close; tap 358 126; sleep 1.5; tap 1514 1278; sleep 2; endmark # rotate, then its close X
   mark history;        tap 934 702; sleep 1; tap 818 586; sleep 1.5; tap 2 2; sleep 1.5; endmark
   mark ko;             hold 1100 1050 5000; sleep 7; endmark  # seat 2 -> <= 0: readout, KO flourish, dead tile
   mark revive;         tap 1400 1050; sleep 0.6; tap 1400 1050; sleep 1.5; endmark

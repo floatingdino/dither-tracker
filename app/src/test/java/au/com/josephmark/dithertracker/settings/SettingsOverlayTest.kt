@@ -2,6 +2,7 @@ package au.com.josephmark.dithertracker.settings
 
 import au.com.josephmark.dithertracker.core.Counter
 import au.com.josephmark.dithertracker.core.serial.AppSettings
+import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.IRect
@@ -176,12 +177,12 @@ class SettingsOverlayTest {
         val r = Rig(4)
         r.overlay.open(0)
         val m = WidgetMetrics(4)
-        // 9 rows (8 settings + the hint; T11 added Players), rowH 27 + 1-px dividers.
-        assertEquals(9, r.overlay.pages.maxOf { it.rows.size })
+        // 10 rows (9 settings + the hint; T11 added Players, T17 Turns), rowH 27 + 1-px dividers.
+        assertEquals(10, r.overlay.pages.maxOf { it.rows.size })
         assertEquals(r.card.side, r.card.bounds.width)
         assertTrue(r.card.side <= minOf(r.screen.width, r.screen.height) - 2 * m.size(SettingsCard.MARGIN))
         assertEquals(1, r.card.list.pageCount)
-        assertEquals(8, r.card.shownCount) // the hint is hidden until starting life or players change
+        assertEquals(9, r.card.shownCount) // the hint is hidden until starting life or players change
         assertFalse(r.card.list.hasFooter)
     }
 
@@ -259,11 +260,11 @@ class SettingsOverlayTest {
         assertEquals("the hint never moves a row", before, after)
         assertEquals(5, r.settings.current.playerCount)
         assertEquals(4, r.rig.session.state.players.size) // the table is untouched until NEW
-        assertEquals("Next game: 5 players", (r.card.shown[8]!!.widget as ListRow).value.toString())
+        assertEquals("Next game: 5 players", (r.card.shown[9]!!.widget as ListRow).value.toString())
         r.choose("Starting life", 1)
-        assertEquals("Next game: 5 players, 30 life", (r.card.shown[8]!!.widget as ListRow).value.toString())
+        assertEquals("Next game: 5 players, 30 life", (r.card.shown[9]!!.widget as ListRow).value.toString())
         r.choose("Players", 2)
-        assertEquals("Next game starts at 30", (r.card.shown[8]!!.widget as ListRow).value.toString())
+        assertEquals("Next game starts at 30", (r.card.shown[9]!!.widget as ListRow).value.toString())
     }
 
     @Test fun startingLifeIsASegmentedChoiceWrittenToTheGameAndHintedOnce() {
@@ -282,14 +283,14 @@ class SettingsOverlayTest {
         assertEquals(1, seg.selected)
         // Applies on the next game: the current lives are untouched; the quiet hint appears at the foot of the page.
         assertTrue(r.rig.session.state.players.all { it.life == 40 })
-        assertEquals(9, r.card.shownCount)
+        assertEquals(10, r.card.shownCount)
         // Last on the page, so no row moves under a finger.
-        assertTrue(r.card.shown[8] is HintRow)
-        assertEquals("Next game starts at 30", (r.card.shown[8]!!.widget as ListRow).value.toString())
+        assertTrue(r.card.shown[9] is HintRow)
+        assertEquals("Next game starts at 30", (r.card.shown[9]!!.widget as ListRow).value.toString())
         // Back to 40: no hint.
         r.choose("Starting life", 0)
         assertEquals(40, r.rig.session.state.settings.startingLife)
-        assertEquals(8, r.card.shownCount)
+        assertEquals(9, r.card.shownCount)
         // The game's settings persist with the game (a session change, which Persistence observes).
         r.choose("Starting life", 2)
         assertEquals(20, r.rig.session.state.settings.startingLife)
@@ -378,7 +379,29 @@ class SettingsOverlayTest {
                 else -> null
             }
         }
-        assertEquals(listOf("Players", "Starting life", "Scale", "Invert", "Hold step", "Keep awake", "Screen clean", "Counters"), labels)
+        assertEquals(listOf("Players", "Starting life", "Turns", "Scale", "Invert", "Hold step", "Keep awake", "Screen clean", "Counters"), labels)
+    }
+
+    @Test fun turnsIsOneChoiceForTheTrackerAndItsTimer() {
+        val r = Rig()
+        r.overlay.open(0)
+        val seg = (r.row("Turns") as ChoiceRow).segmented
+        assertArrayEquals(arrayOf("OFF", "ON", "GAME", "TURN"), seg.options)
+        assertEquals("on by default (it shows nothing until a first player is picked), timer off", 1, seg.selected)
+        r.choose("Turns", 2)
+        assertTrue(r.settings.current.turnTracker)
+        assertEquals(TurnTimer.GAME, r.settings.current.turnTimer)
+        r.choose("Turns", 3)
+        assertEquals(TurnTimer.TURN, r.settings.current.turnTimer)
+        r.choose("Turns", 0)
+        assertFalse(r.settings.current.turnTracker)
+        assertEquals(TurnTimer.OFF, r.settings.current.turnTimer)
+        assertEquals(0, seg.selected)
+        r.choose("Turns", 1)
+        assertEquals(AppSettings().copy(turnTracker = true, turnTimer = TurnTimer.OFF), r.settings.current.copy(scale = AppSettings().scale))
+        // Every combination reads back as one option (a stored "tracker off, timer on" reads OFF).
+        for (v in SettingsTable.TURNS) assertEquals(v, SettingsTable.turnsValue(SettingsTable.withTurns(AppSettings(), v)))
+        assertEquals(SettingsTable.TURNS_OFF, SettingsTable.turnsValue(AppSettings(turnTracker = false, turnTimer = TurnTimer.GAME)))
     }
 
     // ---- scale options -------------------------------------------------------------------------------
@@ -476,7 +499,7 @@ class SettingsOverlayTest {
         val m = WidgetMetrics(4)
         assertEquals(card.maxSide(m, r.l.grid.width, r.l.grid.height), card.side)
         assertTrue(card.list.hasFooter)
-        assertEquals(28, card.shownCount) // 8 + 20 (the hint is hidden)
+        assertEquals(29, card.shownCount) // 9 + 20 (the hint is hidden)
         val pages = card.list.pageCount
         assertTrue(pages >= 3)
         // ‹ is disabled on the first page; › walks to the last; rows there are live.
