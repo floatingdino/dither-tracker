@@ -23,12 +23,12 @@ class DiceLayoutTest {
     @Test fun nomadMetrics() {
         val l = layout(4)
         assertEquals(1, l.k)
-        assertEquals(153, l.panel.width)
+        assertEquals(157, l.panel.width)
         assertEquals(147, l.panel.height)
-        assertEquals(IRect(154, 99, 313, 252), l.panelOuter)
+        assertEquals(IRect(152, 99, 315, 252), l.panelOuter)
         assertEquals(27, l.fold.height)
         assertEquals(58, l.faces[0].height)
-        assertEquals(IRect(161, 191, 229, 247), l.heroBox[0]) // 68×56 two-digit num-l footprint
+        assertEquals(IRect(159, 191, 227, 247), l.heroBox[0]) // 68×56 two-digit num-l footprint
     }
 
     @Test fun centredOddAndPointSymmetricAtEveryScale() {
@@ -122,7 +122,7 @@ class DiceLayoutTest {
             assertTrue(art.box <= l.heroBox[0].width && art.box <= l.heroBox[0].height)
             assertTrue(art.mystery[0].width <= l.heroBox[0].width && art.mystery[0].height <= l.hero.capHeight * l.k)
             // Every label fits the text column.
-            for (label in listOf("d20", "d6", "coin", "HEADS", "TAILS")) {
+            for (label in listOf("d20", "d6", "coin", "HEADS", "TAILS", "nat 20")) {
                 assertTrue(l.ui.widthOf(label.length, l.k) <= l.textCol[0].width)
             }
         }

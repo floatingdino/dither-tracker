@@ -26,7 +26,7 @@ import au.com.josephmark.dithertracker.widgets.TextWrap
  * Sizes: glyphs at the chrome's glyph scale [k] (`play.tk`), spacing designed at S = 4 and converted
  * per S like `PlayLayout.Chrome` (constant physical size). The panel is sized from its content: each
  * face is exactly one hero numeral tall (+ [PAD_V]) and one two-digit hero + a [TEXT_W] text column
- * wide. At S = 4 that is 153×147 (159×153 with the rim), inside the free cross around the crossing:
+ * wide. At S = 4 that is 157×147 (163×153 with the rim), inside the free cross around the crossing:
  * clear of two-digit life totals, the readouts and every ± glyph (see `DiceLayoutTest`).
  *
  * The faces are point-symmetric about the crossing (each long side reads its own face upright), so
@@ -233,12 +233,12 @@ class DiceLayout(val play: PlayLayout) {
             else -> null
         }
 
-        /** Caption lines at most (12 `ui` glyphs a line at S = 4; core's longest quip takes 3). */
+        /** Caption lines at most (13 `ui` glyphs a line at S = 4; core's longest quips take 2). */
         const val MAX_LINES = 3
 
         // Design values at S = 4 (dither px), converted per S.
         const val RIM = 2
-        const val TEXT_W = 73
+        const val TEXT_W = 77
 
         /** The text column holds at least this many `ui` glyphs a line (core's longest word is 10). */
         const val MIN_CHARS = 12
@@ -248,7 +248,7 @@ class DiceLayout(val play: PlayLayout) {
         const val FOLD_H = 27
         const val FOLD_CUT = 2
         const val BTN_GAP = 3
-        const val BTN_MARGIN = 2
+        const val BTN_MARGIN = 1
         const val X_HALF = 5
         const val X_RUN = 1
         const val LINE_GAP = 3
