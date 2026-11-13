@@ -60,6 +60,8 @@ class CleanCadenceTest {
         assertTrue(cleans.isEmpty())
         clock.advance(1)
         assertEquals(listOf(FULL), cleans)
+        cadence.settled(CAUSE_TIMER) // the quiet timer's own entry point: no re-arm while the clean runs
+        assertFalse(clock.isArmed(1))
     }
 
     @Test fun activityRestartsTheQuietPeriodWithoutStacking() {

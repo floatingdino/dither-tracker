@@ -162,6 +162,7 @@ class CleanCadence(
         }
         val s = scope()
         if (host.traceOn) host.trace("eink clean ${if (s == FULL) "full" else "seat $s"} (count=$count)")
+        holdArm = true // this entry point's settle must not re-arm while the clean runs
         host.clean(s)
     }
 
