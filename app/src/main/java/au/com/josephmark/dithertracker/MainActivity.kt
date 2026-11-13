@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.view.WindowManager
 import au.com.josephmark.dithertracker.data.Persistence
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.data.SettingsHolder
@@ -85,8 +86,29 @@ class MainActivity : Activity() {
         }
     }
 
+    /** Keep-awake (T12): `FLAG_KEEP_SCREEN_ON` on the play window only while resumed and the setting is on. */
+    private val keepAwake = SettingsHolder.Listener { old, new ->
+        if (old.keepScreenAwake != new.keepScreenAwake) applyKeepAwake(new.keepScreenAwake)
+    }
+
+    private fun applyKeepAwake(on: Boolean) {
+        if (on && root is PlayView) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        SettingsHolder.shared.addListener(keepAwake)
+        applyKeepAwake(SettingsHolder.shared.current.keepScreenAwake)
+    }
+
     override fun onPause() {
         super.onPause()
+        SettingsHolder.shared.removeListener(keepAwake)
+        applyKeepAwake(false)
         // Home, sleep, swipe-away: write anything still waiting on the debounce before we can be killed.
         Persistence.flush()
     }

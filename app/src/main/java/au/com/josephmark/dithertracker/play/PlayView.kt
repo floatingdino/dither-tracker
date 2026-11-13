@@ -116,6 +116,26 @@ class PlayView(
         isClickable = false
     }
 
+    /**
+     * Live settings (T12): invert and the hold step apply at once; a scale change re-lays the whole
+     * screen out (posted, so it never runs inside the tap that changed it — layout cancels every touch).
+     */
+    private val settingsListener = SettingsHolder.Listener { old, new ->
+        if (old.inverted != new.inverted) setInverted(new.inverted)
+        if (old.holdRepeatStep != new.holdRepeatStep) stage.holdStep = new.holdRepeatStep
+        if (old.scale != new.scale) {
+            mainHandler.removeCallbacks(relayoutTask)
+            mainHandler.post(relayoutTask)
+        }
+    }
+
+    private val relayoutTask = Runnable {
+        if (width > 0 && height > 0) {
+            relayout(width, height)
+            invalidate()
+        }
+    }
+
     fun setInverted(on: Boolean) {
         if (r.inverted == on) return
         r.inverted = on
@@ -124,16 +144,23 @@ class PlayView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        stage.holdStep = stage.settings.current.holdRepeatStep
+        stage.settings.addListener(settingsListener)
         stage.attach()
     }
 
     override fun onDetachedFromWindow() {
         stage.detach()
+        stage.settings.removeListener(settingsListener)
+        mainHandler.removeCallbacks(relayoutTask)
         super.onDetachedFromWindow()
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        val s = PlayLayout.chooseScale(w, h, resources.displayMetrics.densityDpi)
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) = relayout(w, h)
+
+    /** Grid + layout for a [w]×[h] view at the scale the settings ask for (AUTO or a fixed S). */
+    private fun relayout(w: Int, h: Int) {
+        val s = PlayLayout.chooseScale(w, h, resources.displayMetrics.densityDpi, stage.settings.current.scale)
         val grid = DitherGrid(w, h, s)
         r.setGrid(grid)
         r.prewarm()
