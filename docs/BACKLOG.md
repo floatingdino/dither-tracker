@@ -85,7 +85,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T46 | done | T16 | **Dice results use the small numeral face** (Sam, 2026-11-14), not the hero numerals: re-compose the dice/coin panel around the bold small face (`num-m`), shrink the panel accordingly so it no longer clips 3-glyph life totals, fix the awkward caption wraps. Emulator 5566. | `tools` Kotlin package |
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | done | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
-| T42 | wip | T15 | **KO / winner tile: the quip replaces the life total** (Sam, 2026-11-14) — on a dead tile and on the winner's tile the quip takes the hero position at a large size instead of the (ringed, hollow) number; cause/final life becomes the small detail. Plus a copy exploration: death and victory lines in a classic 8/16-bit game-text voice (**verbatim** famous one-liners, per Sam — exact wording only, short lines). Dead tiles use a **light ordered dither, not crosshatch** (Sam: crosshatch is not part of the dither language) — change `Role.DEAD`. Also fix: the centre diamond and dividers must keep their outline against dead tiles' crosshatch. Emulator 5564. | `ko/`, `core/**/flavour/`, `design/copy/quips.md` |
+| T42 | done | T15 | **KO / winner tile: the quip replaces the life total** (Sam, 2026-11-14) — on a dead tile and on the winner's tile the quip takes the hero position at a large size instead of the (ringed, hollow) number; cause/final life becomes the small detail. Plus a copy exploration: death and victory lines in a classic 8/16-bit game-text voice (**verbatim** famous one-liners, per Sam — exact wording only, short lines). Dead tiles use a **light ordered dither, not crosshatch** (Sam: crosshatch is not part of the dither language) — change `Role.DEAD`. Also fix: the centre diamond and dividers must keep their outline against dead tiles' crosshatch. Emulator 5564. | `ko/`, `core/**/flavour/`, `design/copy/quips.md` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -163,6 +163,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - **Film the effects on the Nomad** (T28c): the filming checklist and gallery commands are in
   `app/src/main/java/au/com/josephmark/dithertracker/fx/README.md` (`--es fx all`, `--es fx <name>`,
   `--ef fxHold <scale>`): settle time per beat, residue after 50 loops, readability from the far seat.
+
+- **Review the retro quotes** (T42): 58 verbatim game lines shipped, ~40 spares, ~45 rejected with
+  reasons — `design/copy/retro-candidates.md` (ranked bench with sources) and the Sources table at the
+  end of `design/copy/quips.md`. Least sure: casing of "I feel asleep!!" and "Go home and be a family
+  man!"; kid-safety of "Barf!" and "Son of a submariner!"; one PC-game line.
 
 ## Tick log
 
@@ -484,3 +489,12 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   1-bit check (`design/captures/nomad-check-2026-11-14.png`). T12, T16, T18, T43, T44, T46 marked
   done. Dispatched T41 (1 px halo cut-outs, emulator 5562), T19b (automatic screen-clean cadence,
   emulator 5566), T21 (app icon). T42 still running; T11 (2-6 player layouts) waits for it.
+- 2026-11-14 — Tick 47: T42 reported with 5 commits; captures eyeballed
+  (`design/captures/t42-*.png`); the life-KO tile was already seen on the Nomad in tick 46. Dead tile:
+  D2 light dither with a paper gutter (dividers and diamond stay crisp), tombstone, the quip large in
+  ink on per-word paper boxes, cause chip; armed revive plate with a keyline. Winner tile: crown,
+  quip at hero size, life chip, tile stays live underneath. Copy: verbatim 8/16-bit lines verified
+  against disassemblies, released source and transcripts by a research sub-agent (which ignored
+  hidden text aimed at AI agents on some wiki pages); every KO/winner list is at least half retro.
+  658 tests pass. Marked done. Cleanup noted: `CROSSHATCH` tile is now unused. T11 (2-6 players)
+  waits for T41 to finish in the painters. Running: T41, T19b, T21.
