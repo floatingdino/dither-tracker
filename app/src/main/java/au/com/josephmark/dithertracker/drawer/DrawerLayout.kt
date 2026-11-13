@@ -78,10 +78,14 @@ class DrawerLayout(val play: PlayLayout) {
     val pm: Int = PM * tk
     val pmStroke: Int = PM_STROKE * tk
 
-    /** Card frame → glyph, − → icon ink, icon ink → value and value → +. */
+    /**
+     * Card frame → glyph, − → icon ink, icon ink → value, value → +. The − may sit closer to the icon
+     * than the value to the +: icon ink rarely reaches its outer columns, digits always do.
+     */
     val edgeGap: Int = PlayLayout.Chrome.size(EDGE_GAP, scale)
     val pmGap: Int = PlayLayout.Chrome.size(PM_GAP, scale)
     val valueGap: Int = PlayLayout.Chrome.size(VALUE_GAP, scale)
+    val plusGap: Int = PlayLayout.Chrome.size(PLUS_GAP, scale)
 
     /** Empty columns either side of a tray icon's ink, and its ink width. */
     val iconMargin: Int = ICON_MARGIN * tk
@@ -105,7 +109,7 @@ class DrawerLayout(val play: PlayLayout) {
      * bold 10-wide face makes `999` too wide at its own tracking; a value that does not fit closes
      * up to 1 px rather than clip or shrink the grid, see [valueTracking]).
      */
-    val stepperW: Int = 2 * (FRAME + edgeGap + pm) + pmGap + iconInkW + 2 * valueGap + numFont.widthOf(2, tk)
+    val stepperW: Int = 2 * (FRAME + edgeGap + pm) + pmGap + iconInkW + valueGap + plusGap + numFont.widthOf(2, tk)
     val wideW: Int = 2 * (FRAME + edgeGap) + iconInkW + valueGap + numFont.widthOf(3, tk, TIGHT_TRACKING)
     val contentW: Int = maxOf(stepperW, wideW)
 
@@ -337,7 +341,7 @@ class DrawerLayout(val play: PlayLayout) {
                 val ink = inL + pm + pmGap
                 pl.mapRect(s, ink - iconMargin, iconY, iconSize, iconSize, trayIcon[i])
                 val valX = ink + iconInkW + valueGap
-                pl.mapRect(s, valX, vy, inR - pm - valueGap - valX, vh, trayValue[i])
+                pl.mapRect(s, valX, vy, inR - pm - plusGap - valX, vh, trayValue[i])
                 // Wide: icon against the frame, the value takes the rest.
                 pl.mapRect(s, inL - iconMargin, iconY, iconSize, iconSize, trayIconWide[i])
                 val wideX = inL + iconInkW + valueGap
@@ -395,8 +399,9 @@ class DrawerLayout(val play: PlayLayout) {
         const val HALO = 1
         const val CELL_INSET = 1
         const val EDGE_GAP = 1
-        const val PM_GAP = 2
+        const val PM_GAP = 1
         const val VALUE_GAP = 1
+        const val PLUS_GAP = 2
 
         /** The cells' − / + glyphs (font px, × [tk]): 6 square, 2-px strokes (even, so they turn exactly). */
         const val PM = 6

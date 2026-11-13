@@ -185,8 +185,8 @@ class DrawerLayoutTest {
         assertEquals(6, d.pm); assertEquals(2, d.pmStroke)
         assertEquals(IRect(3, 309, 9, 311), d.trayMinus[i]) // 6 × 2, frame + 1 px gap to its left
         assertEquals(IRect(49, 307, 55, 313), d.trayPlus[i]) // 6 × 6, 1 px gap + frame to its right
-        assertEquals(IRect(10, 302, 26, 318), d.trayIcon[i]) // ink 11..25, 2 px after the −
-        assertEquals(IRect(26, 298, 48, 323), d.trayValue[i])
+        assertEquals(IRect(9, 302, 25, 318), d.trayIcon[i]) // ink 10..23, 1 px after the −
+        assertEquals(IRect(25, 298, 47, 323), d.trayValue[i]) // 22 wide, 2 px before the +
         assertEquals(IRect(2, 302, 18, 318), d.trayIconWide[i])
         assertEquals(IRect(18, 298, 55, 323), d.trayValueWide[i])
         assertEquals(56, d.stepperW); assertEquals(51, d.wideW)
