@@ -38,7 +38,21 @@ import au.com.josephmark.dithertracker.type.Fonts
  * Touch targets: every hit rect (each cell half, bar segments incl. their extension) is at
  * least [target] dither px (≈ 9 mm, [MIN_TOUCH_DEVICE_PX]) in its short dimension: columns are
  * `≥ 2 · target` wide and rows `≥ target` tall. The cell hit grid tiles the body exactly; the
- * visible card is the hit rect inset by [inset].
+ * visible card is the hit rect inset by [cellInset].
+ *
+ * Tray cell, player frame (T43: the halves' actions are drawn, like a tiny life total):
+ * ```
+ *  ┌──────────────────────────┐   stepper (a value that fits [trayValue]):
+ *  │ −  [icon]   12        +  │   − [trayMinus] · icon [trayIcon] · value [trayValue] · + [trayPlus]
+ *  └──────────────────────────┘
+ *  ┌──────────────────────────┐   wide (a value too long for the stepper, i.e. 3 digits at S = 4):
+ *  │[icon]  100               │   icon [trayIconWide] · value [trayValueWide]; no glyphs
+ *  └──────────────────────────┘
+ *     [icon]              +       zero: no card; the icon and a lone + on paper halos (− is inert)
+ * ```
+ * The − sits in the player's left half and the + in the right, whichever way up the seat is. Tray
+ * icons leave their outer columns empty ([ICON_MARGIN]), so the icon's footprint may run 1 px into
+ * the gaps either side of its ink ([iconInk]).
  */
 class DrawerLayout(val play: PlayLayout) {
 
@@ -56,7 +70,22 @@ class DrawerLayout(val play: PlayLayout) {
     val iconSize: Int = ICON * tk
     val inset: Int = PlayLayout.Chrome.size(INSET, scale)
     val pad: Int = PlayLayout.Chrome.size(PAD, scale)
-    val iconGap: Int = PlayLayout.Chrome.size(ICON_GAP, scale)
+
+    /** Hit rect → visible tray card, each side (the bar keeps [inset]). */
+    val cellInset: Int = PlayLayout.Chrome.size(CELL_INSET, scale)
+
+    /** The cells' − / + glyphs: [pm] square (the − is its middle [pmStroke] rows), [pmStroke]-px strokes. */
+    val pm: Int = PM * tk
+    val pmStroke: Int = PM_STROKE * tk
+
+    /** Card frame → glyph, − → icon ink, icon ink → value and value → +. */
+    val edgeGap: Int = PlayLayout.Chrome.size(EDGE_GAP, scale)
+    val pmGap: Int = PlayLayout.Chrome.size(PM_GAP, scale)
+    val valueGap: Int = PlayLayout.Chrome.size(VALUE_GAP, scale)
+
+    /** Empty columns either side of a tray icon's ink, and its ink width. */
+    val iconMargin: Int = ICON_MARGIN * tk
+    val iconInkW: Int = iconSize - 2 * iconMargin
     /** Paper between the readout and the number: the closed tile's ([PlayLayout.READOUT_GAP] per hero k, T37). */
     val readoutGap: Int = PlayLayout.READOUT_GAP * play.kMax
 
@@ -71,11 +100,14 @@ class DrawerLayout(val play: PlayLayout) {
     val contentH: Int = maxOf(iconSize, numFont.height(tk))
 
     /**
-     * Widest tray-cell content: icon, gap, three digits of num-m at [TIGHT_TRACKING] (T37: the bold
-     * 10-wide face makes `999` 2 px wider than a Nomad cell at the face's own tracking, so a value
-     * that does not fit its cell closes up to 1 px rather than clip or shrink the grid; see [valueTracking]).
+     * Widest tray-card content (frame included) the columns must hold: the stepper with two digits
+     * at the face's tracking, and the wide layout with three digits at [TIGHT_TRACKING] (T37: the
+     * bold 10-wide face makes `999` too wide at its own tracking; a value that does not fit closes
+     * up to 1 px rather than clip or shrink the grid, see [valueTracking]).
      */
-    val contentW: Int = iconSize + iconGap + numFont.widthOf(3, tk, TIGHT_TRACKING)
+    val stepperW: Int = 2 * (FRAME + edgeGap + pm) + pmGap + iconInkW + 2 * valueGap + numFont.widthOf(2, tk)
+    val wideW: Int = 2 * (FRAME + edgeGap) + iconInkW + valueGap + numFont.widthOf(3, tk, TIGHT_TRACKING)
+    val contentW: Int = maxOf(stepperW, wideW)
 
     val rowH: Int = maxOf(target, contentH + 2 * pad + 2 * inset)
     val cols: Int
@@ -140,9 +172,15 @@ class DrawerLayout(val play: PlayLayout) {
     val halfVis: Array<IRect> = Array(P * MS * 2) { IRect() }
     val halfHit: Array<IRect> = Array(P * MS * 2) { IRect() }
 
-    /** Tray cell interior: icon footprint and value rect. */
+    /** Tray cell interior, stepper (and zero) layout: − bar, + box, icon footprint, value rect. */
+    val trayMinus: Array<IRect> = Array(P * MS) { IRect() }
+    val trayPlus: Array<IRect> = Array(P * MS) { IRect() }
     val trayIcon: Array<IRect> = Array(P * MS) { IRect() }
     val trayValue: Array<IRect> = Array(P * MS) { IRect() }
+
+    /** Tray cell interior, wide layout (no glyphs): icon footprint and value rect. */
+    val trayIconWide: Array<IRect> = Array(P * MS) { IRect() }
+    val trayValueWide: Array<IRect> = Array(P * MS) { IRect() }
 
     init {
         val W = play.panelW
@@ -150,7 +188,7 @@ class DrawerLayout(val play: PlayLayout) {
 
         // Columns: each half of a cell ≥ target wide, content fits.
         var c = (W / (2 * target)).coerceIn(1, DrawerZones.MAX_COLS)
-        while (c > 1 && W / c - 2 * inset - 2 * pad < contentW) c--
+        while (c > 1 && W / c - 2 * cellInset < contentW) c--
         cols = c
         colX = IntArray(cols + 1) { it * W / cols }
 
@@ -268,7 +306,9 @@ class DrawerLayout(val play: PlayLayout) {
                 val g = slot
                 if (slot >= perPage) {
                     // Unused at this size: empty rects (never hit, never drawn).
-                    for (r in arrayOf(cellVis[i], cellHit[i], trayIcon[i], trayValue[i])) r.set(0, 0, 0, 0)
+                    for (r in arrayOf(cellVis[i], cellHit[i], trayMinus[i], trayPlus[i], trayIcon[i], trayValue[i], trayIconWide[i], trayValueWide[i])) {
+                        r.set(0, 0, 0, 0)
+                    }
                     for (h in 0..1) { halfVis[i * 2 + h].set(0, 0, 0, 0); halfHit[i * 2 + h].set(0, 0, 0, 0) }
                     continue
                 }
@@ -276,10 +316,10 @@ class DrawerLayout(val play: PlayLayout) {
                 val cw = colX[g % cols + 1] - cx
                 val cy = bodyTop + (g / cols) * rowH
                 pl.mapRect(s, cx, cy, cw, rowH, cellHit[i])
-                val vx = cx + inset
-                val vy = cy + inset
-                val vw = cw - 2 * inset
-                val vh = rowH - 2 * inset
+                val vx = cx + cellInset
+                val vy = cy + cellInset
+                val vw = cw - 2 * cellInset
+                val vh = rowH - 2 * cellInset
                 pl.mapRect(s, vx, vy, vw, vh, cellVis[i])
                 val mid = vx + vw / 2
                 pl.mapRect(s, vx, vy, mid - vx, vh, halfVis[i * 2])
@@ -287,13 +327,37 @@ class DrawerLayout(val play: PlayLayout) {
                 pl.mapRect(s, cx, cy, mid - cx, rowH, halfHit[i * 2])
                 pl.mapRect(s, mid, cy, cx + cw - mid, rowH, halfHit[i * 2 + 1])
 
-                val ix = vx + pad
-                val valX = ix + iconSize + iconGap
-                val valW = vx + vw - pad - valX
-                pl.mapRect(s, ix, vy + (vh - iconSize) / 2, iconSize, iconSize, trayIcon[i])
-                pl.mapRect(s, valX, vy, valW, vh, trayValue[i])
+                // Stepper: − · icon · value · +, the glyphs against the frame.
+                val inL = vx + FRAME + edgeGap
+                val inR = vx + vw - FRAME - edgeGap
+                val iconY = vy + (vh - iconSize) / 2
+                val pmY = vy + (vh - pm) / 2
+                pl.mapRect(s, inL, pmY + (pm - pmStroke) / 2, pm, pmStroke, trayMinus[i])
+                pl.mapRect(s, inR - pm, pmY, pm, pm, trayPlus[i])
+                val ink = inL + pm + pmGap
+                pl.mapRect(s, ink - iconMargin, iconY, iconSize, iconSize, trayIcon[i])
+                val valX = ink + iconInkW + valueGap
+                pl.mapRect(s, valX, vy, inR - pm - valueGap - valX, vh, trayValue[i])
+                // Wide: icon against the frame, the value takes the rest.
+                pl.mapRect(s, inL - iconMargin, iconY, iconSize, iconSize, trayIconWide[i])
+                val wideX = inL + iconInkW + valueGap
+                pl.mapRect(s, wideX, vy, inR - wideX, vh, trayValueWide[i])
             }
         }
+    }
+
+    /** Whether cell [i] (`seat * MAX_SLOTS + slot`) shows [value] as a stepper (− icon value +) rather than wide. */
+    fun showsSteps(i: Int, value: Int): Boolean =
+        numFont.widthOf(Font.intLength(value), tk, TIGHT_TRACKING) <= trayValue[i].width
+
+    /** The icon footprint and value rect cell [i] uses for [value]. */
+    fun iconRect(i: Int, value: Int): IRect = if (value == 0 || showsSteps(i, value)) trayIcon[i] else trayIconWide[i]
+    fun valueRect(i: Int, value: Int): IRect = if (showsSteps(i, value)) trayValue[i] else trayValueWide[i]
+
+    /** [r] (an icon footprint) narrowed to the icon's ink columns. */
+    fun iconInk(r: IRect, out: IRect): IRect {
+        out.set(r.left + iconMargin, r.top, r.right - iconMargin, r.bottom)
+        return out
     }
 
     /**
@@ -328,8 +392,21 @@ class DrawerLayout(val play: PlayLayout) {
         const val ICON = 16
         const val INSET = 2
         const val PAD = 2
-        const val ICON_GAP = 2
         const val HALO = 1
+        const val CELL_INSET = 1
+        const val EDGE_GAP = 1
+        const val PM_GAP = 2
+        const val VALUE_GAP = 1
+
+        /** The cells' − / + glyphs (font px, × [tk]): 6 square, 2-px strokes (even, so they turn exactly). */
+        const val PM = 6
+        const val PM_STROKE = 2
+
+        /** Empty columns either side of every tray icon's ink (font px; tested). */
+        const val ICON_MARGIN = 1
+
+        /** The card's ink frame (dither px). */
+        const val FRAME = 1
 
         /** Closest a tray value's digits ever sit (font px): 1 keeps the 3-px stems apart. */
         const val TIGHT_TRACKING = 1

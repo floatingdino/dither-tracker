@@ -18,10 +18,12 @@ import au.com.josephmark.dithertracker.type.TextRenderer
  *   the tab's three dots on a paper backing in the middle (= close); on the right the page chevron
  *   (opaque, paper square): `›` with a next page, `‹` on the last page of several;
  * - body: `DRAWER` (sparse) dither;
- * - cell: paper card. Non-zero values get a 1-px ink frame and the value in `num-m` (a 3-digit value
- *   closes its tracking to fit, [DrawerLayout.valueTracking]); at 0 the card
- *   is frameless and the value hidden, so active counters stand out. Poison at 8+ is a solid ink
- *   card with paper content (nearly lethal).
+ * - cell (T43): a non-zero value is a paper card with a 1-px ink frame reading `− icon value +` —
+ *   the halves' actions drawn at the edges, like a tiny life total. A value too long for that (3
+ *   digits at S = 4) drops the glyphs and spreads `icon value` over the card (closing its tracking
+ *   if it must, [DrawerLayout.valueTracking]). At 0 there is no card: the icon and a lone `+` sit on
+ *   small paper halos on the drawer texture (− does nothing at 0), so active counters stand out.
+ *   Poison at 8+ is a solid ink card with paper content (nearly lethal).
  */
 class DrawerPainter(private val r: DitherRenderer, private val text: TextRenderer, private val icons: IconPainter) {
 
@@ -54,23 +56,37 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
             if (item < 0) continue
             val v = DrawerItems.value(item, player)
             val warn = DrawerItems.isWarning(item, v)
+            val ir = l.iconRect(i, v)
             if (v != 0) {
                 // Active: a paper card with an ink frame (or a solid ink card when nearly lethal).
                 r.rect(vis, ink = warn)
-                if (!warn) r.frame(vis, 1, ink = true)
+                if (!warn) r.frame(vis, DrawerLayout.FRAME, ink = true)
+                if (l.showsSteps(i, v)) {
+                    r.rect(l.trayMinus[i], ink = !warn)
+                    plus(l, l.trayPlus[i], ink = !warn)
+                }
             } else {
-                // At 0 there is no card: the drawer texture shows through and only the icon sits on
-                // a small paper backing — quiet next to the active cards.
-                halo(l.trayIcon[i], l.halo)
+                // At 0 there is no card: the drawer texture shows through and only the icon and a
+                // lone + sit on small paper backings — quiet next to the active cards.
+                halo(ir, l.halo)
+                halo(l.trayPlus[i], l.halo)
+                plus(l, l.trayPlus[i], ink = true)
             }
-            icon(l.tk, iconFor(item), l.trayIcon[i], rot, invert = warn, opaque = false)
+            icon(l.tk, iconFor(item), ir, rot, invert = warn, opaque = false)
             if (v != 0) {
-                val vr = l.trayValue[i]
+                val vr = l.valueRect(i, v)
                 // The reading-direction width of the value rect (rotation is only ever 0 or 180 here).
                 val tr = l.valueTracking(v, vr.width)
                 text.drawIntIn(l.numFont, v, vr.left, vr.top, vr.width, vr.height, l.tk, rot, invert = warn, tracking = tr)
             }
         }
+    }
+
+    /** A + filling the square [box] (its bars are centred exactly, so it reads the same turned 180°). */
+    private fun plus(l: DrawerLayout, box: IRect, ink: Boolean) {
+        val o = (l.pm - l.pmStroke) / 2
+        r.rect(box.left, box.top + o, box.width, l.pmStroke, ink)
+        r.rect(box.left + o, box.top, l.pmStroke, box.height, ink)
     }
 
     /** Paper behind [rect] grown by [h] all round. */

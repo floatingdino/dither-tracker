@@ -44,7 +44,7 @@ class DrawerComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = Drawe
     private val host = object : DrawerController.Host {
         override val game: GameState get() = stage.session.state
         override val drawerCounters: List<Counter> get() = stage.settings.current.drawerCounters
-        override fun dispatch(seat: Int, action: Action) = stage.dispatch(seat, action)
+        override fun dispatch(seat: Int, action: Action, key: String?) = stage.dispatch(seat, action, key)
         override fun invalidate(rect: IRect) = stage.invalidate(rect)
         override fun cancelTouches(seat: Int, from: Int, until: Int) {
             stage.cancelTouches(this@DrawerComponent, seat, from, until)
@@ -120,7 +120,7 @@ class DrawerComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = Drawe
             local == DrawerZones.PREV || local == DrawerZones.NEXT -> d.barSeg[seat * 3 + 2]
             else -> {
                 val slot = DrawerZones.slotOf(local)
-                if (slot >= d.perPage) return false
+                if (slot >= d.perPage || !controller.isLive(seat, local)) return false // − at 0: inert, no press
                 d.halfVis[(seat * DrawerZones.MAX_SLOTS + slot) * 2 + DrawerZones.halfOf(local)]
             }
         }

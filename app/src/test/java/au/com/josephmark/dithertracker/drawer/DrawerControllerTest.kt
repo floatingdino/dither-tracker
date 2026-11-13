@@ -18,6 +18,8 @@ class DrawerControllerTest {
 
     private val session = GameSession.newGame(4)
     private val dispatched = ArrayList<Pair<Int, Action>>()
+    private val keys = ArrayList<String?>()
+    private var now = 0L
     private val invalidated = ArrayList<IRect>()
     private val cancelled = ArrayList<Pair<Int, IntRange>>()
     private var counters: List<Counter> = Counter.entries.toList()
@@ -25,9 +27,10 @@ class DrawerControllerTest {
     private val host = object : DrawerController.Host {
         override val game: GameState get() = session.state
         override val drawerCounters: List<Counter> get() = counters
-        override fun dispatch(seat: Int, action: Action) {
+        override fun dispatch(seat: Int, action: Action, key: String?) {
             dispatched += seat to action
-            session.dispatch(action, 0)
+            keys += key
+            session.dispatch(action, now, key)
         }
         override fun invalidate(rect: IRect) { invalidated += IRect(rect.left, rect.top, rect.right, rect.bottom) }
         override fun cancelTouches(seat: Int, from: Int, until: Int) { cancelled += seat to (from until until) }
@@ -136,9 +139,102 @@ class DrawerControllerTest {
         assertEquals(Action.ChangeCounter(id(3), Counter.POISON, -1), dispatched[2].second)
         assertTrue(dispatched.all { it.first == 3 })
         assertEquals(1, session.state.players[3].counters.poison)
-        // clamps at 0: further minus is a no-op in core
-        tapCell(3, 1, DrawerZones.MINUS); tapCell(3, 1, DrawerZones.MINUS)
+        tapCell(3, 1, DrawerZones.MINUS)
         assertEquals(0, session.state.players[3].counters.poison)
+        // − at 0 does nothing (T43): no action at all, not even a clamped one
+        val n = dispatched.size
+        assertFalse(tapCell(3, 1, DrawerZones.MINUS)); assertFalse(tapCell(3, 1, DrawerZones.MINUS))
+        assertEquals(n, dispatched.size)
+        assertEquals(0, session.state.players[3].counters.poison)
+    }
+
+    @Test fun minusIsInertAtZeroOnCountersAndTax() {
+        tap(2, DrawerZones.TAB)
+        for (slot in 0 until 3) {
+            assertFalse(c.isLive(2, cell(slot, DrawerZones.MINUS)))
+            assertTrue(c.isLive(2, cell(slot, DrawerZones.PLUS)))
+            assertFalse(c.repeats(2, cell(slot, DrawerZones.MINUS)))
+            assertFalse(tapCell(2, slot, DrawerZones.MINUS))
+            assertFalse(c.onRepeat(2, cell(slot, DrawerZones.MINUS)))
+        }
+        assertTrue(dispatched.isEmpty())
+        tapCell(2, 0, DrawerZones.PLUS); tapCell(2, 2, DrawerZones.PLUS) // tax 2, energy 1
+        assertTrue(c.isLive(2, cell(0, DrawerZones.MINUS))); assertTrue(c.isLive(2, cell(2, DrawerZones.MINUS)))
+        assertFalse(c.isLive(2, cell(1, DrawerZones.MINUS)))
+        assertTrue(tapCell(2, 2, DrawerZones.MINUS))
+        assertEquals(0, session.state.players[2].counters.energy)
+        assertFalse(c.isLive(2, cell(2, DrawerZones.MINUS)))
+        // the bar is always live; slots past the page's items never are
+        assertTrue(c.isLive(2, DrawerZones.TAB))
+        counters = listOf(Counter.POISON); c.onCountersChanged()
+        assertFalse(c.isLive(2, cell(2, DrawerZones.PLUS)))
+    }
+
+    @Test fun holdingMinusResetsACounterInOneUndoStep() {
+        tap(3, DrawerZones.TAB)
+        val minus = cell(4, DrawerZones.MINUS) // rads (tray: tax, poison, energy, experience, rads, …)
+        assertEquals(DrawerItems.item(DrawerItems.COUNTER, Counter.RAD.ordinal), c.itemAt(3, 4))
+        c.onRepeat(3, cell(4, DrawerZones.PLUS)) // 5
+        repeat(2) { tapCell(3, 4, DrawerZones.PLUS) } // 7, same undo step
+        assertEquals(7, session.state.players[3].counters.rad)
+        now += 100_000 // a later, separate burst: 8..12
+        repeat(5) { tapCell(3, 4, DrawerZones.PLUS) }
+        assertEquals(12, session.state.players[3].counters.rad)
+        invalidated.clear()
+        now += 500 // the hold, well within the coalesce window
+        assertTrue(c.repeats(3, minus))
+        assertTrue(c.onRepeat(3, minus))
+        assertEquals(Action.SetCounter(id(3), Counter.RAD, 0), dispatched.last().second)
+        assertNull(keys.last()) // never folded into the taps before it
+        assertEquals(0, session.state.players[3].counters.rad)
+        assertEquals(listOf(layout.cellVis[3 * DrawerZones.MAX_SLOTS + 4]), invalidated) // one redraw
+        // at 0 the hold stops: the next tick does nothing
+        val n = dispatched.size
+        assertFalse(c.repeats(3, minus)); assertFalse(c.onRepeat(3, minus))
+        assertEquals(n, dispatched.size)
+        // one undo brings the value back; the burst before it is its own step
+        session.undo()
+        assertEquals(12, session.state.players[3].counters.rad)
+        session.undo()
+        assertEquals(7, session.state.players[3].counters.rad)
+    }
+
+    @Test fun holdingMinusResetsCommanderTaxInOneUndoStep() {
+        tap(1, DrawerZones.TAB)
+        repeat(3) { tapCell(1, 0, DrawerZones.PLUS) } // tax 6 (cast three times)
+        assertEquals(6, session.state.players[1].commanderTax.primary)
+        val minus = cell(0, DrawerZones.MINUS)
+        assertTrue(c.repeats(1, minus)) // − holds (to reset) though + does not repeat on tax
+        assertFalse(c.repeats(1, cell(0, DrawerZones.PLUS)))
+        assertTrue(c.onRepeat(1, minus))
+        assertEquals(Action.ChangeCommanderTax(id(1), Commander.PRIMARY, -6), dispatched.last().second)
+        assertNull(keys.last())
+        assertEquals(0, session.state.players[1].commanderTax.primary)
+        assertFalse(c.repeats(1, minus))
+        session.undo()
+        assertEquals(6, session.state.players[1].commanderTax.primary)
+        // a tap on − still steps by 2
+        tapCell(1, 0, DrawerZones.MINUS)
+        assertEquals(4, session.state.players[1].commanderTax.primary)
+    }
+
+    @Test fun holdingPlusStillRepeatsAfterAReset() {
+        tap(0, DrawerZones.TAB)
+        val plus = cell(3, DrawerZones.PLUS) // experience
+        assertTrue(c.repeats(0, plus))
+        repeat(3) { assertTrue(c.onRepeat(0, plus)) }
+        assertEquals(15, session.state.players[0].counters.experience)
+        assertTrue(c.onRepeat(0, cell(3, DrawerZones.MINUS)))
+        assertEquals(0, session.state.players[0].counters.experience)
+        assertTrue(c.onRepeat(0, plus))
+        assertEquals(Action.ChangeCounter(id(0), Counter.EXPERIENCE, 5), dispatched.last().second)
+        assertEquals(5, session.state.players[0].counters.experience)
+    }
+
+    @Test fun resetActions() {
+        val p = session.state.players[0]
+        assertNull(DrawerItems.resetAction(DrawerItems.item(DrawerItems.COUNTER, Counter.STORM.ordinal), p))
+        assertNull(DrawerItems.resetAction(DrawerItems.item(DrawerItems.TAX, Commander.PRIMARY), p))
     }
 
     @Test fun taxStepsByTwoAndDoesNotRepeat() {

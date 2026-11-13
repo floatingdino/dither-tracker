@@ -4,6 +4,7 @@ import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Counter
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.Player
+import au.com.josephmark.dithertracker.core.coalesceKey
 import au.com.josephmark.dithertracker.dither.IRect
 
 /**
@@ -16,6 +17,11 @@ import au.com.josephmark.dithertracker.dither.IRect
  * - page / view switch: the drawer (bar chevrons + body);
  * - a value change: only the cells whose value changed (see [onStateChanged]); the life total's
  *   slot is the view's own diff.
+ *
+ * Cells (T43): a tap on − / + steps the value (tax by 2); − does nothing at 0. Holding + on a
+ * counter repeats +[DrawerItems.HOLD_STEP]; holding − (on a counter or a tax cell) resets it to 0 once
+ * at the hold delay — one action dispatched without a coalesce key, so it is its own undo step and
+ * undoing it restores the value — after which the hold stops repeating (the value is 0).
  */
 class DrawerController(val state: DrawerState, private val host: Host) {
 
@@ -26,8 +32,11 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         /** Counters shown in the tray, in order (`AppSettings.drawerCounters`). */
         val drawerCounters: List<Counter>
 
-        /** Applies [action] on behalf of [seat]'s drawer (the host attributes life changes to that seat's readout). */
-        fun dispatch(seat: Int, action: Action)
+        /**
+         * Applies [action] on behalf of [seat]'s drawer (the host attributes life changes to that
+         * seat's readout), folding into [key]'s open undo step (null: a step of its own).
+         */
+        fun dispatch(seat: Int, action: Action, key: String?)
 
         /** Redraw this dither rect. */
         fun invalidate(rect: IRect)
@@ -102,11 +111,25 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         if (l != null) host.invalidate(l.play.panels[s])
     }
 
-    /** Whether holding [seat]'s drawer [local] repeats (counter cells). */
+    /** Whether holding [seat]'s drawer [local] repeats: a counter's +, or any non-zero cell's − (reset). */
     fun repeats(seat: Int, local: Int): Boolean {
         if (!DrawerZones.isCell(local)) return false
         val item = itemAt(seat, DrawerZones.slotOf(local))
-        return item >= 0 && DrawerItems.repeats(item)
+        if (item < 0) return false
+        return if (DrawerZones.halfOf(local) == DrawerZones.MINUS) valueAt(seat, item) > 0 else DrawerItems.repeats(item)
+    }
+
+    /** Whether [seat]'s cell half [local] does anything now (− is inert at 0): no press feedback otherwise. */
+    fun isLive(seat: Int, local: Int): Boolean {
+        if (!DrawerZones.isCell(local)) return true
+        val item = itemAt(seat, DrawerZones.slotOf(local))
+        if (item < 0) return false
+        return DrawerZones.halfOf(local) == DrawerZones.PLUS || valueAt(seat, item) > 0
+    }
+
+    private fun valueAt(seat: Int, item: Int): Int {
+        val g = host.game
+        return if (seat in g.players.indices) DrawerItems.value(item, g.players[seat]) else 0
     }
 
     /** A tap (release) on [seat]'s drawer [local] ([DrawerZones]; not [DrawerZones.BUTTON]). Returns true if anything happened. */
@@ -127,8 +150,8 @@ class DrawerController(val state: DrawerState, private val host: Host) {
                 pageChanged(s)
             }
             DrawerZones.isCell(local) -> {
+                if (!isLive(s, local)) return false
                 val item = itemAt(s, DrawerZones.slotOf(local))
-                if (item < 0) return false
                 return apply(s, item, DrawerItems.tapDelta(item, DrawerZones.halfOf(local)))
             }
             else -> return false
@@ -136,18 +159,23 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         return true
     }
 
-    /** One hold repeat on [seat]'s drawer [local]. */
+    /** One hold repeat on [seat]'s drawer [local]: + steps by [DrawerItems.HOLD_STEP], − resets to 0. */
     fun onRepeat(seat: Int, local: Int): Boolean {
         if (!repeats(seat, local)) return false
         val item = itemAt(seat, DrawerZones.slotOf(local))
-        return apply(seat, item, DrawerItems.holdDelta(DrawerZones.halfOf(local)))
+        if (DrawerZones.halfOf(local) == DrawerZones.MINUS) {
+            val a = DrawerItems.resetAction(item, host.game.players[seat]) ?: return false
+            host.dispatch(seat, a, null)
+            return true
+        }
+        return apply(seat, item, DrawerItems.holdDelta(DrawerZones.PLUS))
     }
 
     private fun apply(seat: Int, item: Int, delta: Int): Boolean {
         val g = host.game
         if (seat !in g.players.indices) return false
         val a = DrawerItems.action(item, g.players[seat], delta) ?: return false
-        host.dispatch(seat, a)
+        host.dispatch(seat, a, a.coalesceKey)
         return true
     }
 

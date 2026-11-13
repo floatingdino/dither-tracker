@@ -117,10 +117,20 @@ class DrawerLayoutTest {
                     assertTrue(inside(ca, d.body[s]))
                     for (b in a + 1 until cells.size) assertFalse("$d cells $a $b", overlaps(ca, cells[b]))
                     val i = s * DrawerZones.MAX_SLOTS + a
-                    for (r in listOf(d.trayIcon[i], d.trayValue[i])) {
-                        assertTrue("$d content $r in $ca", inside(r, ca))
+                    // Inside the card's frame sideways (value boxes are card-tall: the digits centre in them;
+                    // the icon footprint's empty outer columns may touch the frame).
+                    val inner = IRect(ca.left + 1, ca.top, ca.right - 1, ca.bottom)
+                    val stepper = listOf(d.trayMinus[i], d.trayPlus[i], d.iconInk(d.trayIcon[i], IRect()), d.trayValue[i])
+                    val wide = listOf(d.iconInk(d.trayIconWide[i], IRect()), d.trayValueWide[i])
+                    for (set in listOf(stepper, wide)) {
+                        for (r in set) assertTrue("$d content $r in $ca", inside(r, inner))
+                        for (x in set.indices) for (y in x + 1 until set.size) assertFalse("$d ${set[x]} ${set[y]}", overlaps(set[x], set[y]))
                     }
-                    assertFalse(overlaps(d.trayIcon[i], d.trayValue[i]))
+                    assertTrue(inside(d.trayIcon[i], ca)); assertTrue(inside(d.trayIconWide[i], ca))
+                    // A zero cell's halos (icon footprint and + grown by `halo`) stay in the card.
+                    for (r in listOf(d.trayIcon[i], d.trayPlus[i])) {
+                        assertTrue("$d halo $r", inside(IRect(r.left - d.halo, r.top - d.halo, r.right + d.halo, r.bottom + d.halo), ca))
+                    }
                 }
             }
         }
@@ -135,30 +145,80 @@ class DrawerLayoutTest {
     }
 
     @Test fun everyCounterValueFitsItsCellWithoutClipping() {
-        // T37: the bold num-m is 10 wide; `999` at tracking 2 is 34 px against a 32-px value box at
-        // S = 4, so 3-digit values close to tracking 1 (and nothing else does).
+        // T43 at S = 4: a 56-px card holds `− icon 99 +` exactly (22-px value box, 2 digits at the
+        // face's tracking); 3 digits drop the glyphs for a 37-px box and close to tracking 1 (T37).
         val d4 = nomad[2]
-        val vr = d4.trayValue[3 * DrawerZones.MAX_SLOTS]
-        assertEquals(32, vr.width)
-        assertEquals(2, d4.valueTracking(7, vr.width)); assertEquals(2, d4.valueTracking(42, vr.width))
-        assertEquals(1, d4.valueTracking(100, vr.width)); assertEquals(1, d4.valueTracking(999, vr.width))
-        assertEquals(32, d4.numFont.measureInt(999, 1, 1))
+        val i0 = 3 * DrawerZones.MAX_SLOTS
+        assertEquals(22, d4.trayValue[i0].width)
+        assertEquals(37, d4.trayValueWide[i0].width)
+        assertTrue(d4.showsSteps(i0, 7)); assertTrue(d4.showsSteps(i0, 42)); assertTrue(d4.showsSteps(i0, 99))
+        assertFalse(d4.showsSteps(i0, 100)); assertFalse(d4.showsSteps(i0, 999))
+        assertEquals(2, d4.valueTracking(42, d4.valueRect(i0, 42).width))
+        assertEquals(2, d4.valueTracking(100, d4.valueRect(i0, 100).width))
+        assertEquals(2, d4.valueTracking(999, d4.valueRect(i0, 999).width)) // 34 ≤ 37: no closing up at S = 4 any more
         for (d in layouts()) {
             if (!d.comfortable) continue
             for (s in 0 until 4) for (slot in 0 until d.perPage) {
                 val i = s * DrawerZones.MAX_SLOTS + slot
-                val v = d.trayValue[i]
-                val icon = d.trayIcon[i]
-                assertFalse("$d", overlaps(icon, v))
-                assertTrue("$d", inside(v, d.cellVis[i]))
-                for (value in intArrayOf(0, 9, 10, 99, 100, 999)) {
+                for (value in intArrayOf(1, 9, 10, 98, 99, 100, 998, 999)) {
+                    val v = d.valueRect(i, value)
                     val t = d.valueTracking(value, v.width)
                     assertTrue("$d $value", t >= DrawerLayout.TIGHT_TRACKING)
                     assertTrue("$d $value", d.numFont.measureInt(value, d.tk, t) <= v.width)
-                    if (value < 100) assertEquals("$d $value", d.numFont.tracking, t)
+                    // 1- and 2-digit values always get the stepper and the face's own tracking.
+                    if (value < 100) { assertTrue("$d $value", d.showsSteps(i, value)); assertEquals("$d $value", d.numFont.tracking, t) }
+                    assertTrue(d.numFont.height(d.tk) <= v.height)
+                    assertFalse("$d", overlaps(d.iconInk(d.iconRect(i, value), IRect()), v))
                 }
-                assertTrue(d.numFont.height(d.tk) <= v.height)
+                // zero cells keep the stepper's icon position (the icon does not jump on the first tap)
+                assertEquals(d.trayIcon[i], d.iconRect(i, 0))
             }
+        }
+    }
+
+    @Test fun nomadCellMetricsAtScale4() {
+        // Player frame of the bottom-left seat's first cell: hit 58 × 27 from (0, 297); card inset 1.
+        val d = nomad[2]
+        val i = 3 * DrawerZones.MAX_SLOTS
+        assertEquals(IRect(0, 297, 58, 324), d.cellHit[i])
+        assertEquals(IRect(1, 298, 57, 323), d.cellVis[i]) // 56 × 25
+        assertEquals(6, d.pm); assertEquals(2, d.pmStroke)
+        assertEquals(IRect(3, 309, 9, 311), d.trayMinus[i]) // 6 × 2, frame + 1 px gap to its left
+        assertEquals(IRect(49, 307, 55, 313), d.trayPlus[i]) // 6 × 6, 1 px gap + frame to its right
+        assertEquals(IRect(10, 302, 26, 318), d.trayIcon[i]) // ink 11..25, 2 px after the −
+        assertEquals(IRect(26, 298, 48, 323), d.trayValue[i])
+        assertEquals(IRect(2, 302, 18, 318), d.trayIconWide[i])
+        assertEquals(IRect(18, 298, 55, 323), d.trayValueWide[i])
+        assertEquals(56, d.stepperW); assertEquals(51, d.wideW)
+        // − and + share a centre line with each other and the value box.
+        assertEquals(d.trayMinus[i].top + d.trayMinus[i].bottom, d.trayPlus[i].top + d.trayPlus[i].bottom)
+        assertEquals(d.trayPlus[i].top + d.trayPlus[i].bottom, d.trayValue[i].top + d.trayValue[i].bottom - 1)
+    }
+
+    @Test fun glyphsSitInTheirHalvesWhicheverWayUpTheSeatIs() {
+        for (d in layouts()) {
+            if (!d.comfortable) continue
+            for (s in 0 until 4) for (slot in 0 until d.perPage) {
+                val i = s * DrawerZones.MAX_SLOTS + slot
+                val minusHalf = d.halfVis[i * 2 + DrawerZones.MINUS]
+                val plusHalf = d.halfVis[i * 2 + DrawerZones.PLUS]
+                assertTrue("$d $s $slot", inside(d.trayMinus[i], minusHalf))
+                assertTrue("$d $s $slot", inside(d.trayPlus[i], plusHalf))
+                assertTrue("$d $s $slot", inside(d.trayMinus[i], d.halfHit[i * 2 + DrawerZones.MINUS]))
+                assertTrue("$d $s $slot", inside(d.trayPlus[i], d.halfHit[i * 2 + DrawerZones.PLUS]))
+                // Strokes never under 2 dither px, and glyphs at least 6 (≈ 2 mm at S = 4).
+                assertTrue(d.pmStroke >= 2); assertEquals(d.pmStroke, d.trayMinus[i].height); assertEquals(d.pm, d.trayPlus[i].width)
+                // The player's left is the screen's right on a turned seat.
+                if (d.play.rotation[s] == 180) assertTrue(d.trayMinus[i].left > d.trayPlus[i].left)
+                else assertTrue(d.trayMinus[i].left < d.trayPlus[i].left)
+            }
+        }
+    }
+
+    @Test fun trayIconsLeaveTheirOuterColumnsEmpty() {
+        // DrawerLayout.ICON_MARGIN: the stepper packs the − and the value against the icon's ink.
+        for (icon in DrawerItems.TRAY_ICONS) for (y in 0 until icon.height) for (m in 0 until DrawerLayout.ICON_MARGIN) {
+            assertFalse("$icon", icon.isInk(m, y)); assertFalse("$icon", icon.isInk(icon.width - 1 - m, y))
         }
     }
 
@@ -181,6 +241,13 @@ class DrawerLayoutTest {
             for ((up, rot) in listOf(3 to 0, 2 to 1)) {
                 for (arr in listOf(d.drawer, d.bar, d.numberSlot, d.readoutSlot)) {
                     assertEquals(rel(arr[up], pl.panels[up]), mirror(arr[rot], pl.panels[rot]))
+                }
+                for (slot in 0 until d.perPage) {
+                    val a = up * DrawerZones.MAX_SLOTS + slot
+                    val b = rot * DrawerZones.MAX_SLOTS + slot
+                    for (arr in listOf(d.trayMinus, d.trayPlus, d.trayIcon, d.trayValue, d.trayIconWide, d.trayValueWide)) {
+                        assertEquals(rel(arr[a], pl.panels[up]), mirror(arr[b], pl.panels[rot]))
+                    }
                 }
             }
         }

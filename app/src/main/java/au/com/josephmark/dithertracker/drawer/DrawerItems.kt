@@ -27,7 +27,7 @@ object DrawerItems {
     /** Commander tax steps by 2 (each recast costs two more). */
     const val TAX_STEP = 2
 
-    /** Hold-to-repeat amount for counters and commander damage (life uses the life hold step). */
+    /** Hold-to-repeat amount on a counter's + (life uses the life hold step; holding − resets, T43). */
     const val HOLD_STEP = 5
 
     /** Poison at or above this gets the inverted "nearly lethal" peek (lethal is 10, T32). */
@@ -62,7 +62,7 @@ object DrawerItems {
     fun isWarning(item: Int, value: Int): Boolean =
         kind(item) == COUNTER && arg(item) == Counter.POISON.ordinal && value >= POISON_WARN
 
-    /** Whether holding the cell repeats (counters; tax is tapped once per cast). */
+    /** Whether holding the cell's + repeats (counters; tax is tapped once per cast). */
     fun repeats(item: Int): Boolean = kind(item) == COUNTER
 
     /** Signed change for a tap on [item]'s half ([DrawerZones.MINUS]/[DrawerZones.PLUS]). */
@@ -71,7 +71,7 @@ object DrawerItems {
         return if (half == DrawerZones.PLUS) step else -step
     }
 
-    /** Signed change for one hold repeat. */
+    /** Signed change for one hold repeat (only + repeats; a held − resets, see [resetAction]). */
     fun holdDelta(half: Int): Int = if (half == DrawerZones.PLUS) HOLD_STEP else -HOLD_STEP
 
     /** The core action for changing [item] of [player] by [delta]. */
@@ -79,6 +79,20 @@ object DrawerItems {
         COUNTER -> Action.ChangeCounter(player.id, counters[arg(item)], delta)
         TAX -> Action.ChangeCommanderTax(player.id, arg(item), delta)
         else -> null
+    }
+
+    /**
+     * The core action taking [item] of [player] back to 0 in one step (holding −, T43): `SetCounter`
+     * for a counter; tax has no setter, so it is the change by −value. Null when already 0.
+     */
+    fun resetAction(item: Int, player: Player): Action? {
+        val v = value(item, player)
+        if (v == 0) return null
+        return when (kind(item)) {
+            COUNTER -> Action.SetCounter(player.id, counters[arg(item)], 0)
+            TAX -> Action.ChangeCommanderTax(player.id, arg(item), -v)
+            else -> null
+        }
     }
 
     private val COUNTER_ICONS = arrayOf(
