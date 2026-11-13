@@ -60,9 +60,14 @@ internal class GemPainter {
         val fx = g.facetX[s]
         val fy = g.facetY[s]
         val rf = g.rf
-        for (dy in -rf..rf) {
-            val hw = rf - Math.abs(dy)
-            if (enabled) r.rect(fx - hw, fy + dy, 2 * hw + 1, 1, ink = false) else r.fill(Role.DISABLED, fx - hw, fy + dy, 2 * hw + 1, 1)
+        diamond(r, fx, fy, rf, rf, ink = false)
+        if (!enabled) {
+            // The hatch inside a 1-px paper edge, so the facet's staircase still reads against the gutters.
+            val h = rf - 1
+            for (dy in -h..h) {
+                val hw = h - Math.abs(dy)
+                r.fill(Role.DISABLED, fx - hw, fy + dy, 2 * hw + 1, 1)
+            }
         }
         val item = GemLayout.ITEMS[s] ?: return
         val k = g.k
