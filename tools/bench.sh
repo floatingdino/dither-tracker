@@ -24,7 +24,7 @@ A=${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}
 P=${PKG:-au.com.josephmark.dithertracker} # PKG: another applicationId (e.g. a release build installed beside the debug one)
 ACT=$P/au.com.josephmark.dithertracker.MainActivity
 APK=${APK:-app/build/outputs/apk/debug/app-debug.apk}
-PARTS=${PARTS:-start play fx mem idle bg}
+PARTS=${PARTS:-start play clean fx mem idle bg}
 IDLE_SECS=${IDLE_SECS:-120}
 HERE=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$OUT"
@@ -136,6 +136,16 @@ if has play; then
   mark idle_tail;      sleep 5; endmark
   $A logcat -d -s PlayView:D > "$OUT/logcat-play.txt"
   $A logcat -d -s StrictMode:D > "$OUT/strictmode-play.txt" || true
+fi
+
+# ---- e-ink clean cadence (debug builds: --ei cleanEvery 3 makes it due after three counted changes) --
+if has clean; then
+  launch --ez trace true --ei cleanEvery 3
+  sleep 5
+  $A logcat -c
+  mark clean_seat; for i in 1 2 3; do tap 700 1050; sleep 0.6; done; sleep 9; endmark  # one seat: seat clean
+  mark clean_full; tap 700 1050; sleep 0.6; tap 1650 1050; sleep 0.6; tap 1700 350; sleep 9; endmark # spread: full
+  $A logcat -d -s PlayView:D > "$OUT/logcat-clean.txt"
 fi
 
 # ---- effects: every shipped effect through the debug gallery (debug builds) --------------------------

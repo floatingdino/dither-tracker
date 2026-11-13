@@ -131,6 +131,11 @@ def main():
             print("\n### gfxinfo per section (whole frame incl. RenderThread)\n\n| section | frames | p50 ms | p90 ms | janky |\n|---|---:|---:|---:|---:|")
             for s, g in rows:
                 print(f"| {s} | {g[0]} | {g[1]} | {g[2]} | {g[3]} |")
+    order, data = sections(os.path.join(d, "logcat-clean.txt"), MARK)
+    if order:
+        table("E-ink clean cadence (cleanEvery 3)", order, data)
+        p = os.path.join(d, "logcat-clean.txt")
+        print("\n```\n" + "".join(l for l in open(p, errors="replace") if " eink" in l or "MARK" in l).strip() + "\n```")
     order, data = sections(os.path.join(d, "logcat-fx.txt"), FX)
     if order:
         table("Effects (debug gallery, all four seats at once)", order, data)
