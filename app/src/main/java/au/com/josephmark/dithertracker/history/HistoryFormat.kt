@@ -31,13 +31,14 @@ object HistoryFormat {
     /** How far either side of a linked life entry its damage entry may sit (one action logs ≤ 4 events). */
     const val FOLD_WINDOW = 4
 
-    // Copy (SPEC "Tone": short, a smidge combative). All fit the `ui` face.
+    // Copy (SPEC "Tone": short, a smidge combative, but plainer than the KO tile's quips, which say
+    // the funny thing already). All fit the `ui` face.
     const val CLAIMS = "claims"
     const val LOSES = "loses"
-    const val KO_LIFE = "beefed it"
-    const val KO_POISON = "poisoned"
-    const val KO_COMMANDER = "ate 21"
-    const val KO_MANUAL = "conceded"
+    const val KO_LIFE = "out of life"
+    const val KO_POISON = "poisoned out"
+    const val KO_COMMANDER = "took 21"
+    const val KO_MANUAL = "scooped"
     const val REVIVED = "back in"
     const val NEW_LOOK = "new look"
     const val PARTNER_IN = "partner in"

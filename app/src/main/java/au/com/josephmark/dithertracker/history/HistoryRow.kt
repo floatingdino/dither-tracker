@@ -128,6 +128,7 @@ class HistoryRow {
         val num = m.num
         val k = m.k
         val gap = m.gap
+        val ag = arrowGap(m)
         val arrowY = top + (h - arrowH) / 2
         // Right cluster, laid out right → left: value, arrow, delta, note.
         var x = right
@@ -138,8 +139,8 @@ class HistoryRow {
         }
         if (hasDelta) {
             if (hasValue) {
-                arrowRect.setXywh(x - gap - arrowW, arrowY, arrowW, arrowH)
-                x = arrowRect.left - gap
+                arrowRect.setXywh(x - ag - arrowW, arrowY, arrowW, arrowH)
+                x = arrowRect.left - ag
             }
             val w = num.widthOf(deltaText.length, k)
             deltaRect.set(x - w, top, x, top + h)
@@ -170,7 +171,7 @@ class HistoryRow {
             return
         }
         // A pair: share the room, lending what the shorter name doesn't need to the other.
-        val names = room - arrowW - 2 * gap
+        val names = room - arrowW - 2 * ag
         if (names <= 0) return
         val nat1 = m.ui.widthOf(who.length, k)
         val nat2 = m.ui.widthOf(w2.length, k)
@@ -179,8 +180,8 @@ class HistoryRow {
         whoChars = TextFit.fit(who, m.ui, k, a1)
         val used1 = m.ui.widthOf(whoChars, k)
         whoRect.set(nameLeft, top, nameLeft + used1, top + h)
-        pairArrow.setXywh(whoRect.right + gap, arrowY, arrowW, arrowH)
-        val x2 = pairArrow.right + gap
+        pairArrow.setXywh(whoRect.right + ag, arrowY, arrowW, arrowH)
+        val x2 = pairArrow.right + ag
         who2Chars = TextFit.fit(w2, m.ui, k, nameRight - x2)
         who2Rect.set(x2, top, x2 + m.ui.widthOf(who2Chars, k), top + h)
     }
@@ -217,6 +218,9 @@ class HistoryRow {
 
         /** Name glyphs a note never squeezes out. */
         const val MIN_NAME = 4
+
+        /** Paper either side of an arrow: 1.5 × the kit's gap (6 px at S = 4) so `+3 → 3` doesn't clump. */
+        fun arrowGap(m: WidgetMetrics): Int = m.gap + m.gap / 2
 
         const val TURN = "TURN "
         const val PREGAME = "PREGAME"
