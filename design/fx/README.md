@@ -27,7 +27,7 @@ labelled with flips per beat. Rebuild it with `python3 design/fx/sheet.py` (it r
 | `sunrise` | big heal | tile | 233×175 | 2 | 286 / 1166 / 1094 | options |
 | `vines` | big heal | tile | 233×175 | 3 | 306 / 674 / 864 / 116 | options |
 | `ko-shatter` | KO | tile | 233×175 | 2 | 1541 / 1399 / (dead tile) | options |
-| `fizzle` | KO (compact seat) | `centre 0 -2` | 80×76 | 3 | 498 / 485 / 420 / (dead tile) | round one |
+| `fizzle` | KO (compact seat) | `centre 0 -2` | 80×76 | 3 | 404 / 416 / 489 / (dead tile) | round one |
 | `winner` | last standing | tile | 233×175 | 3 | 1112 / 774 / 1666 / 100 | options |
 
 For scale: a plain number change `37`→`36` flips 938 dither px. What each one looks like and its
@@ -99,8 +99,10 @@ and for 1-, 2- and 3-digit totals, and matches `render2.py`'s placement pixel fo
 - **sprout** (heal): a seedling pokes up between the digits and unfurls two leaves. The cheapest
   effect. Subtle; grow the leaves 1 art px if it reads too small.
 - **fizzle** (KO, compact seats): the numeral dissolves through D4 → D8 → D12 knock-out with puffs
-  rising, then the dead tile draws. Its dither is baked into the frame (frame-local phase), so it
-  can sit out of phase with the checker shadow by a pixel. Check D12 for smear.
+  rising, then the dead tile draws. Each beat's dissolve is one tile layer over the box (`tile 1 D4
+  paper`, `2 D8`, `3 D12`), so the pattern comes from the global screen phase at draw time (T48;
+  it used to be baked into the frame at frame-local phase and sat off the global phase). Check D12
+  for smear.
 
 Round-one rules still hold for every effect: comic beats each held ~250–400 ms, a sparse frame
 before the erase, no text, shapes that read upside down, a 1 px paper halo where marks cross ink.

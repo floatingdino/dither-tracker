@@ -205,16 +205,23 @@ def load_effect(name):
         rows = [r for r in open(os.path.join(d, f'frame-{i}.txt')).read().split('\n') if r]
         frames.append(rows)
         i += 1
-    meta = {}
+    meta = {'tiles': {}}
     for line in open(os.path.join(d, 'meta.txt')):
-        parts = line.split()
-        if parts and not line.startswith('#'):
+        parts = line.split('#')[0].split()
+        if parts and parts[0] == 'tile':
+            meta['tiles'][parts[1]] = (load_tile(parts[2]), parts[3])
+        elif parts:
             meta[parts[0]] = parts[1:]
     a = meta['anchor']
     ref, dx, dy = (a[0], int(a[1]), int(a[2])) if len(a) == 3 else ('centre', int(a[0]), int(a[1]))
     for f in frames:
         assert len(f) == len(frames[0]) and all(len(r) == len(f[0]) for r in f), name
     return frames, (ref, dx, dy), meta
+
+
+def load_tile(name):
+    path = os.path.join(HERE, '..', 'patterns', name + '.txt')
+    return [r for r in open(path).read().split('\n') if r]
 
 
 def list_effects():
@@ -226,11 +233,12 @@ REFS = {'centre': (0, 0), 'tl': (-1, -1), 'tr': (1, -1), 'bl': (-1, 1), 'br': (1
         'top': (0, -1), 'bottom': (0, 1), 'left': (-1, 0), 'right': (1, 0)}
 
 
-def stamp(c, frame, cx, cy, anchor, rot=False, number='37'):
+def stamp(c, frame, cx, cy, anchor, rot=False, number='37', tiles=None):
     """Composite frame with its centre at ref point of the number box + (dx, dy).
 
     ref is a point of the life total's ink box (centre, tl, tr, bl, br, top, bottom, left, right),
-    so corner-anchored effects follow the box for 1-, 2- and 3-digit totals."""
+    so corner-anchored effects follow the box for 1-, 2- and 3-digit totals. Digits are tile layers
+    ([tiles]: digit -> (tile rows, ink|paper|fill)), sampled at the canvas's (global) phase."""
     fh, fw = len(frame), len(frame[0])
     ref, dx, dy = anchor
     tw, th = text_size(number, None)
@@ -244,19 +252,27 @@ def stamp(c, frame, cx, cy, anchor, rot=False, number='37'):
             px, py = x0 + x, y0 + y
             if rot:
                 px, py = 2 * cx - 1 - px, 2 * cy - 1 - py
+            if v.isdigit():
+                t, mode = tiles[v]
+                on = t[py % len(t)][px % len(t[0])] == '#'
+                if mode == 'fill':
+                    c.set(px, py, on)
+                elif on:
+                    c.set(px, py, mode == 'ink')
+                continue
             c.set(px, py, v == '#')
 
 
 def flips(name, glyphs, number='37'):
     """Changed dither px per transition: base->f1, f1->f2, ..., last->base."""
-    frames, anchor, _ = load_effect(name)
+    frames, anchor, meta = load_effect(name)
     W = H = 160
     base = Bits(W, H)
     draw_number(base, number, W // 2, H // 2, glyphs)
     seq = [base]
     for f in frames:
         b = base.copy()
-        stamp(b, f, W // 2, H // 2, anchor, number=number)
+        stamp(b, f, W // 2, H // 2, anchor, number=number, tiles=meta['tiles'])
         seq.append(b)
     if len(frames) and any(ch != '.' for r in frames[-1] for ch in r):
         seq.append(base)  # the runtime always ends by redrawing the clean number
@@ -282,7 +298,7 @@ def strip(name, glyphs, number):
         cx, cy = ox + CELL_W // 2, CELL_H // 2
         draw_number(c, number, cx, cy, glyphs)
         if i:
-            stamp(c, frames[i - 1], cx, cy, anchor, number=number)
+            stamp(c, frames[i - 1], cx, cy, anchor, number=number, tiles=meta['tiles'])
         dotted_rect(c, ox, 0, CELL_W, CELL_H)
         label(c, 'base' if i == 0 else f'f{i}', ox + 3, CELL_H + 3)
     return c
@@ -316,7 +332,7 @@ def context(name, k, glyphs, number):
         r = rows[y * S + 1]
         for x in range(c.w):
             c.p[y][x] = r[x * S + 1] < 128
-    frames, anchor, _ = load_effect(name)
+    frames, anchor, meta = load_effect(name)
     pw, ph = c.w // 2, c.h // 2
     # seats: (panel x0, y0, rotated)
     for px0, py0, rot in ((0, ph, False), (pw, 0, True)):
@@ -331,7 +347,7 @@ def context(name, k, glyphs, number):
         cx, cy = (x0 + x1 + 1) // 2, (y0 + y1 + 1) // 2
         c.fill(x0, y0, x1 - x0 + 1, y1 - y0 + 1, False)
         draw_number(c, number, cx, cy, glyphs, rot=rot)
-        stamp(c, frames[k - 1], cx, cy, anchor, rot=rot, number=number)
+        stamp(c, frames[k - 1], cx, cy, anchor, rot=rot, number=number, tiles=meta['tiles'])
     return c
 
 

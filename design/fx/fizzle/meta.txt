@@ -3,10 +3,14 @@ size 80 76
 frames 4
 role ko
 anchor centre 0 -2
+tile 1 D4 paper
+tile 2 D8 paper
+tile 3 D12 paper
 hold_ms 300 300 300 0
 ink_px 4 8 8 0
-knockout_px 1140 2280 3420 0
-flips 231 239 243 689   # total 1402 dither px = 22432 device px, over sample "37"
+knockout_px 0 0 0 0
+tile_px 4560 4560 4560 0
+flips 719 727 731 2153   # total 4330 dither px = 69280 device px, over sample "37"
 # anchor: frame centre = <ref point of the life-total ink box> + (dx, dy), dither px,
 #   seat-upright coords (y down); ref in centre|tl|tr|bl|br|top|bottom|left|right.
 # hold_ms: per frame, last frame (empty) = 0: it is the end state, the clean number.

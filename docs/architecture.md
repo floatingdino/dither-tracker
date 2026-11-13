@@ -178,8 +178,9 @@ render that is not the exact complement of the normal one, and an effect frame t
 outside the seat panels. Failing shots are written to `app/build/purity/<screen>-S<s>/`;
 `PURITY_DUMP=<dir>` (with `--no-daemon`) writes every shot. `PurityChecksTest` plants each violation.
 Purity and the S-grid hold by construction here (two values, integer dither coordinates); what the
-JVM cannot see is Skia: blending, filtering, the in-place DIFFERENCE invert, shader phase. Known
-exception, reported not fixed: `fizzle`'s dissolve is baked at frame-local phase (`KNOWN_OFF_PHASE`).
+JVM cannot see is Skia: blending, filtering, the in-place DIFFERENCE invert, shader phase.
+`KNOWN_OFF_PHASE` lists effects allowed to skip the phase scan; it is empty (T48 moved `fizzle`'s
+dissolve to tile layers).
 
 **Device** — `ANDROID_SERIAL=emulator-<port> tools/check_purity.sh <outdir>` (~6 min on the
 emulator): installs the debug APK, runs `capture_scenarios.sh` (T34's 19 states, then the gem, NEW

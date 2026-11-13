@@ -5,7 +5,8 @@ Usage: python3 design/fx/author.py [name ...]      (default: all effects)
 
 The frame-N.txt files are the deliverable; this script is how they were drawn. Hand edits to the
 .txt files are fine, but re-running this script for that effect overwrites them.
-Symbols: '#' draw black, 'o' draw white (knock-out), '.' transparent.
+Symbols: '#' draw black, 'o' draw white (knock-out), '.' transparent, '1'-'9' a tile layer declared
+in TILES (sampled at the global screen phase at draw time, never baked into the frame).
 """
 import math
 import os
@@ -103,6 +104,12 @@ class G:
                 fx, fy = x + self.w // 2 + phase[0], y + self.h // 2 + phase[1]
                 if t[fy % th][fx % tw] == '#':
                     self.put(x, y, ch)
+
+    def fill(self, mask, ch):
+        """Put ch wherever mask(x, y): a region, e.g. a tile-layer digit (its pattern is global)."""
+        for x, y in self.cells():
+            if mask(x, y):
+                self.put(x, y, ch)
 
     def paste(self, art, cx, cy, mapping=None):
         """Paste ASCII art (list of strings) centred at (cx, cy)."""
@@ -459,14 +466,16 @@ def sprout():
 @effect
 def fizzle():
     """KO (optional): the numeral dissolves into dither and puffs away; then the dead panel draws."""
+    # T48: the dissolve is a tile layer per beat (TILES: 1 = D4, 2 = D8, 3 = D12 paper), so its
+    # pattern comes from the global screen phase at draw time (SPEC rule 3), not from the frame.
     W, H = 80, 76
     box = lambda x, y: -38 <= x < 38 and -30 <= y < 30
     frames = []
-    for t, wisps in (('D4', [(-20, -33)]),
-                     ('D8', [(-14, -35), (14, -34)]),
-                     ('D12', [(-8, -37), (20, -37)])):
+    for d, wisps in (('1', [(-20, -33)]),
+                     ('2', [(-14, -35), (14, -34)]),
+                     ('3', [(-8, -37), (20, -37)])):
         g = G(W, H)
-        g.pattern(t, box, 'o')
+        g.fill(box, d)
         for x, y in wisps:
             g.paste(['##', '##'], x, y)
         frames.append(g)
@@ -490,6 +499,8 @@ def write(name, frames, anchor, holds, doc):
         f.write(f'frames {len(frames)}\n')
         f.write(f'role {ROLES[name]}\n')
         f.write(f'anchor {ref} {dx} {dy}\n')
+        for dg, (t, mode) in sorted(TILES.get(name, {}).items()):
+            f.write(f'tile {dg} {t} {mode}\n')
         f.write('hold_ms ' + ' '.join(str(h) for h in holds) + '\n')
     glyphs = render.load_glyphs()
     fl = render.flips(name, glyphs)
@@ -498,6 +509,9 @@ def write(name, frames, anchor, holds, doc):
     with open(os.path.join(d, 'meta.txt'), 'a') as f:
         f.write('ink_px ' + ' '.join(map(str, ink)) + '\n')
         f.write('knockout_px ' + ' '.join(map(str, ko)) + '\n')
+        if TILES.get(name):
+            tp = [sum(ch.isdigit() for r in g.rows() for ch in r) for g in frames]
+            f.write('tile_px ' + ' '.join(map(str, tp)) + '\n')
         f.write('flips ' + ' '.join(map(str, fl)) + f'   # total {sum(fl)} dither px'
                 f' = {sum(fl) * 16} device px, over sample "37"\n')
         f.write('# anchor: frame centre = <ref point of the life-total ink box> + (dx, dy), dither px,\n'
@@ -511,6 +525,8 @@ def write(name, frames, anchor, holds, doc):
 # design/fx/ are now the round-two refits (from options/author2.py); claw, wham and zap are retired.
 # Re-authoring those names here would overwrite the shipped frames, so it is refused.
 ROLES = {'heart': 'heal', 'sprout': 'heal', 'fizzle': 'ko'}
+# Tile layers per effect: digit -> (design/patterns tile, ink|paper|fill).
+TILES = {'fizzle': {'1': ('D4', 'paper'), '2': ('D8', 'paper'), '3': ('D12', 'paper')}}
 
 
 def main():

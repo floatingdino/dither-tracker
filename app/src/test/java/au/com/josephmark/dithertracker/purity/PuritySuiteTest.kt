@@ -49,11 +49,10 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
 
         /**
          * Known, reported violations the suite tolerates (each is a finding to fix at its source, then
-         * delete here). `fizzle`: its D4/D8/D12 dissolve is baked into the frame art at frame-local
-         * phase (`design/fx/README.md`), so it sits off the global phase by a pixel wherever the
-         * anchor lands on an odd dither px — rule 3. Its frames skip the phase check only.
+         * delete here); their frames skip the phase check only. Empty: `fizzle` (T48) was the last,
+         * its dissolve now a tile layer sampled at global phase.
          */
-        val KNOWN_OFF_PHASE = setOf("fizzle")
+        val KNOWN_OFF_PHASE = emptySet<String>()
 
         /** `PURITY_DUMP=<dir>` in the test JVM's environment: also write every shot there, for review. */
         private val dump: String? = System.getenv("PURITY_DUMP")
