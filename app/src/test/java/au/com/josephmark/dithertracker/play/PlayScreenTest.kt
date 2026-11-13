@@ -46,9 +46,9 @@ class PlayScreenTest {
             // the tab is the drawer tab's zone (pre-T34: reserved for the drawer)
             assertEquals("tab:$s", rig.hit(l.tab[s].left + 2, l.tab[s].top + 2))
         }
-        // The diamond swallows touches until the menu exists (pre-T34: reserved).
-        assertEquals("none", rig.hit(l.diamondCx, l.diamondCy))
-        assertEquals("none", rig.hit(l.diamondCx + 5, l.diamondCy - 5))
+        // The diamond opens the menu (T09; pre-T09 a block).
+        assertEquals("menu", rig.hit(l.diamondCx, l.diamondCy))
+        assertEquals("menu", rig.hit(l.diamondCx + 5, l.diamondCy - 5))
         assertEquals("none", rig.hit(l.dividerV.left, 50))
         assertEquals("none", rig.hit(50, l.dividerH.top))
         assertEquals("none", rig.hit(467, 50)) // spare column
@@ -112,8 +112,8 @@ class PlayScreenTest {
         assertEquals("drawer:3:${DrawerZones.PREV}", rig.hit(n[0], n[1]))
         st.setPaging(3, 3, d.perPage)
         assertEquals("drawer:3:${DrawerZones.TAB}", rig.hit(n[0], n[1]))
-        // the diamond still swallows
-        assertEquals("none", rig.hit(d.play.diamondCx, d.play.diamondCy))
+        // the diamond is still the menu's
+        assertEquals("menu", rig.hit(d.play.diamondCx, d.play.diamondCy))
     }
 
     @Test fun emptyCellsAndClosedDrawers() {
@@ -158,7 +158,7 @@ class PlayScreenTest {
             val n = mid(l.numberSlot[s])
             assertTrue(rig.hit(n[0], n[1]).startsWith("life:$s:"))
         }
-        assertEquals("none", rig.hit(l.diamondCx, l.diamondCy))
+        assertEquals("menu", rig.hit(l.diamondCx, l.diamondCy))
 
         // Target 3 (upright, BL).
         rig.cmd.mode.press(3)

@@ -77,12 +77,19 @@ class PlayInputTest {
     }
 
     @Test fun reservedAreasAndMarginsDoNothing() {
-        input.down(0, layout.diamondCx, layout.diamondCy, 0)
         input.down(2, layout.dividerV.left, 10, 0)
         input.down(3, -5, -5, 0)
         assertTrue(events.isEmpty())
-        input.up(0); input.up(2); input.up(3)
+        input.up(2); input.up(3)
         assertTrue(events.isEmpty())
+    }
+
+    @Test fun theDiamondIsTheMenuButton() { // T09 (a reserved block before)
+        input.down(0, layout.diamondCx, layout.diamondCy, 0)
+        val z = rig.stage.zoneId(rig.menu, Stage.SCREEN, 0)
+        assertEquals(listOf("press$z"), events)
+        input.up(0)
+        assertEquals(listOf("press$z", "tap$z", "release$z"), events)
     }
 
     @Test fun theTabIsADrawerZone() {

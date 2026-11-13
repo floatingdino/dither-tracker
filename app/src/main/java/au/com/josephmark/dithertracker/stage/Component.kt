@@ -178,6 +178,9 @@ object Events {
     /** The effect on [seat] finished (or was cancelled): draw the dead treatment now if still KO. */
     const val KO_RELEASE = 4
 
+    /** The centre diamond was tapped: open the table menu (T09; seat = [Stage.SCREEN]). */
+    const val MENU_OPEN = 5
+
     /**
      * [seat]'s pending-delta group just committed (idle timeout, or committed by another action) and
      * its core undo group closed (T28c: effects trigger on it, never per tap). Sent by the readout for

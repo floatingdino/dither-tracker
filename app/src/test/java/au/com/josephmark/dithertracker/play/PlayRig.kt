@@ -19,7 +19,7 @@ import kotlin.random.Random
  * The real Play screen ([PlayScreen] on a [Stage]) without Android: a fake platform (fake clock for
  * timers, recorded invalidations), laid out on [w]×[h] at scale [s]. Hits are reported as short keys
  * so tests read like the screen: `life:3:1`, `drawer:3:<local>`, `tab:2`, `cmd:1:<local>`, `close`,
- * `none`.
+ * `menu` (the diamond), `none`.
  */
 class PlayRig(w: Int = 1872, h: Int = 1404, s: Int = 4, val session: GameSession = GameSession.newGame(4)) {
     val platform = StageTest.FakePlatform()
@@ -52,6 +52,7 @@ class PlayRig(w: Int = 1872, h: Int = 1404, s: Int = 4, val session: GameSession
             tab -> "tab:$seat"
             cmd -> "cmd:$seat:$local"
             close -> "close"
+            menu -> "menu"
             else -> "?"
         }
     }
