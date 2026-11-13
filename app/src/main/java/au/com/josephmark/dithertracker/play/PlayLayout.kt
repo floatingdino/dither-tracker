@@ -2,23 +2,30 @@ package au.com.josephmark.dithertracker.play
 
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.IRect
+import au.com.josephmark.dithertracker.layout.Arrangement
+import au.com.josephmark.dithertracker.layout.Arrangements
+import au.com.josephmark.dithertracker.layout.Seating
 import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.type.Fonts
 import au.com.josephmark.dithertracker.type.TextLayout
 
 /**
- * Pure layout maths for the 4-player landscape Play screen (no Android types; JVM-tested).
- * Every coordinate is in dither px on [grid] (grid origin = global pattern phase origin).
+ * Pure layout maths for the Play screen, 2–6 players, landscape or portrait (no Android types;
+ * JVM-tested). Every coordinate is in dither px on [grid] (grid origin = global pattern phase origin).
  *
- * Structure:
- * - The grid is split into a 2×2 block of equal panels with a 1-dither-px dotted divider between
- *   them: `panelW = (gridW − 1) / 2`, `panelH = (gridH − 1) / 2`. Any dither px left over (odd
- *   remainders) become extra margin, split like [DitherGrid] does (odd one right/bottom).
- * - Seats run clockwise from top-left: 0 TL, 1 TR, 2 BR, 3 BL. The top row (0, 1) is rotated 180°
- *   to face the far side of the table.
+ * Structure (T11; T06 for the 2×2):
+ * - The seats come from an [Arrangement] placed by [Seating]: every seat gets the **same tile**,
+ *   [panelW] × [panelH] in the player's frame; a seat at a short end has it turned sideways on the
+ *   screen (rotation 90 / 270). The tiles are separated by 1-dither-px dotted [dividers]; leftover
+ *   dither px are margin. For 4 players: a 2×2 block, `panelW = (gridW − 1) / 2`,
+ *   `panelH = (gridH − 1) / 2`, seats clockwise from top-left (0 TL, 1 TR, 2 BR, 3 BL), the top row
+ *   rotated 180° — exactly the T06 layout. Diagrams per count: `design/layouts/README.md`.
  * - Each panel is laid out once in the *player's* frame (upright: x to the player's right, y
  *   towards the player) and mapped to the screen with [TextLayout.mapX]/[TextLayout.mapY], so a
- *   rotated panel is the exact 180° image of an upright one.
+ *   rotated panel is the exact turned image of an upright one, whichever of 0/90/180/270 it is.
+ * - The centre diamond sits where the arrangement says ([diamondCx], [diamondCy]): a far corner of
+ *   some tiles, and for some counts the middle of one tile's far edge. Content near the far edge (the
+ *   readout, the open drawer's number block, the KO emblem) keeps clear of it through [farReach].
  *
  * Panel content in the player's frame, left to right: edge, `−` glyph, gap, number slot, gap, `+`
  * glyph, edge. The number slot is exactly wide enough for [MAX_CHARS] glyphs (`−999`, `9999` — the
@@ -38,9 +45,15 @@ import au.com.josephmark.dithertracker.type.TextLayout
  *   way up the panel is).
  * On the Nomad (1872×1404) that gives k = 2 at S = 2 (panel 467 wide: 392 ≤ 467, k = 3 needs 572),
  * k = 1 at S = 3 and 4 (311 / 233 wide ≥ 212), and *nothing* at S = 5 and 6 (186 / 155 < 212): the
- * face has no smaller integer size, so those layouts fall back to k = 1, are not [comfortable], and
- * [chooseScale] never picks them; the ± glyphs are hidden ([pmVisible] false) when they would touch
- * the number. Falls back to k = 1 the same way on any tiny screen.
+ * face has no smaller integer size, so those layouts fall back to k = 1; the ± glyphs are hidden
+ * ([pmVisible] false) when they would touch the number. Falls back to k = 1 the same way on any tiny
+ * screen.
+ *
+ * **Narrow tier (T11, 5 and 6 players).** A tile too narrow for ± beside `−999` at k = 1 but wide
+ * enough for the number alone with [EDGE_NARROW] each side (and tall enough for the full vertical
+ * stack) is still [comfortable]: the ± glyphs are not drawn (the halves still work), and features
+ * that need the side room degrade on their own (peek corners off, two drawer columns, partner ±
+ * hidden). [tier] reports which; [chooseScale] keeps the Nomad's S = 4 at every count.
  *
  * Chrome (tab, diamond, their glyphs) is sized by [Chrome.forScale]: designed in dither px at S = 4
  * and converted through device px, so its *physical* size stays roughly constant across S (a
@@ -49,14 +62,8 @@ import au.com.josephmark.dithertracker.type.TextLayout
 class PlayLayout private constructor(
     val grid: DitherGrid,
     val font: Font,
-    val panelW: Int,
-    val panelH: Int,
-    /** Top-left of the 2×2 block inside the grid (leftover dither px). */
-    val originX: Int,
-    val originY: Int,
-    val kMax: Int,
-    /** Glyph scale of the ± glyphs (face [pmFont]); equal to [kMax] since T27. */
-    val pmK: Int,
+    /** Where the seats are (T11): the arrangement on this grid. */
+    val seating: Seating,
     /** Face of the ± zone glyphs (half-size sticker `+`/`−`, T27). */
     val pmFont: Font,
     /** Tab / diamond sizes for this S. */
@@ -64,7 +71,24 @@ class PlayLayout private constructor(
     /** Face of the pending-delta readout. */
     val readoutFont: Font,
 ) {
-    val playerCount: Int get() = PLAYERS
+    /** Seats on this layout (2..6). Per-seat arrays here and in every component's layout are this long. */
+    val playerCount: Int = seating.players
+
+    val arrangement: Arrangement get() = seating.arrangement
+
+    /** The player-frame tile, identical for every seat (a sideways seat's panel is it turned). */
+    val panelW: Int = seating.frameW
+    val panelH: Int = seating.frameH
+
+    /** Top-left of the seats' bounding box inside the grid (leftover dither px before it). */
+    val originX: Int
+    val originY: Int
+
+    /** Glyph scale of the hero numerals: the largest that fits ([maxK]), stepped down if the readout cannot clear the diamond. */
+    val kMax: Int
+
+    /** Glyph scale of the ± glyphs (face [pmFont]); equal to [kMax] since T27. */
+    val pmK: Int
 
     /**
      * False when even k = 1 breaks the spacing minimums, or there is no room for the [underRow]
@@ -72,28 +96,45 @@ class PlayLayout private constructor(
      */
     val comfortable: Boolean
 
-    /** False when the ± glyphs would touch the number (only on layouts that are not [comfortable]): they are not drawn. */
+    /** [TIER_FULL], [TIER_NARROW] or [TIER_NONE] (not [comfortable]). */
+    val tier: Int
+
+    /** False when the ± glyphs would touch the number (narrow tiles and uncomfortable layouts): they are not drawn. */
     val pmVisible: Boolean
 
-    /** Screen rect of each panel (divider excluded). */
-    val panels: Array<IRect> = Array(PLAYERS) { IRect() }
+    private val P = playerCount
 
-    /** Rotation (degrees clockwise) of each seat's content: 180 for the top row. */
-    val rotation: IntArray = IntArray(PLAYERS) { if (it == 0 || it == 1) 180 else 0 }
+    /** Screen rect of each panel (divider excluded). */
+    val panels: Array<IRect> = Array(P) { IRect().apply { val p = seating.panels[it]; set(p.left, p.top, p.right, p.bottom) } }
+
+    /** Rotation (degrees clockwise) of each seat's content: 180 far band, 0 near band, 90 / 270 the ends. */
+    val rotation: IntArray = seating.rotation.copyOf()
+
+    /** Rotations in use on this layout (distinct, ascending): what components prewarm their rotated glyphs for. */
+    val rotations: IntArray = rotation.distinct().sorted().toIntArray()
+
+    /** The table area each seat owns (an end seat's runs the bands' full height): the seat glyph's lattice (`seat/`). */
+    val cells: Array<IRect> = Array(P) { IRect().apply { val p = seating.cells[it]; set(p.left, p.top, p.right, p.bottom) } }
+
+    /**
+     * The diamond's bounding box where it overlaps each seat's tile, in that seat's **player frame**
+     * (empty when it does not touch the tile). See [farReach].
+     */
+    val diamondFrame: Array<IRect> = Array(P) { IRect() }
 
     /** Screen footprints of the `−` and `+` glyphs. */
-    val minusGlyph: Array<IRect> = Array(PLAYERS) { IRect() }
-    val plusGlyph: Array<IRect> = Array(PLAYERS) { IRect() }
+    val minusGlyph: Array<IRect> = Array(P) { IRect() }
+    val plusGlyph: Array<IRect> = Array(P) { IRect() }
 
     /** Screen rect the life total is drawn in (fits [MAX_CHARS] at [kMax]); invalidate this on a life change. */
-    val numberSlot: Array<IRect> = Array(PLAYERS) { IRect() }
+    val numberSlot: Array<IRect> = Array(P) { IRect() }
 
     /**
      * Pending-delta readout (T07): screen rect fitting [READOUT_CHARS] of [readoutFont] at [readoutK],
      * centred above the number in the player's frame. Invalidate exactly this rect when the readout
      * changes or clears.
      */
-    val readoutSlot: Array<IRect> = Array(PLAYERS) { IRect() }
+    val readoutSlot: Array<IRect> = Array(P) { IRect() }
 
     /** Glyph scale of the readout (`num-m` at the hero's k: 1× beside the sticker, T37). */
     val readoutK: Int
@@ -115,7 +156,7 @@ class PlayLayout private constructor(
      * [V_MIN] clear of both), one icon tall plus a paper rim. (Counter peeks lived here until T38.) The commander
      * mode labels (T30) live here. Empty (zero size) when the band is too short for it.
      */
-    val underRow: Array<IRect> = Array(PLAYERS) { IRect() }
+    val underRow: Array<IRect> = Array(P) { IRect() }
 
     /** Player-frame x / y / w / h of [underRow] (identical for every seat). */
     val underX: Int
@@ -124,25 +165,28 @@ class PlayLayout private constructor(
     val underH: Int
 
     /** Drawer tab: visual rect and (larger) hit rect (the `drawer.DrawerTab` component's zone). */
-    val tab: Array<IRect> = Array(PLAYERS) { IRect() }
-    val tabHit: Array<IRect> = Array(PLAYERS) { IRect() }
+    val tab: Array<IRect> = Array(P) { IRect() }
+    val tabHit: Array<IRect> = Array(P) { IRect() }
 
     /** Tab glyph (`...`): three dots, screen rects. Index `seat * 3 + i`. */
-    val tabDots: Array<IRect> = Array(PLAYERS * 3) { IRect() }
+    val tabDots: Array<IRect> = Array(P * 3) { IRect() }
 
     /** Paper backing behind each seat's three dots (one rect: the dots plus [Chrome.dotHalo] all round). */
-    val tabDotsBacking: Array<IRect> = Array(PLAYERS) { IRect() }
+    val tabDotsBacking: Array<IRect> = Array(P) { IRect() }
 
     /** Life halves, index [zone]`(seat, side)`: the player's left (`−`) or right (`+`) half of the panel. */
-    val zones: Array<IRect> = Array(PLAYERS * 2) { IRect() }
+    val zones: Array<IRect> = Array(P * 2) { IRect() }
 
-    /** Dotted dividers. */
-    val dividerV = IRect()
-    val dividerH = IRect()
+    /** Dotted dividers (1 dither px wide or tall), every one: drawn by `chrome.Dividers`. */
+    val dividers: Array<IRect> = Array(seating.dividers.size) { val d = seating.dividers[it]; IRect(d.left, d.top, d.right, d.bottom) }
+
+    /** The first vertical and the first horizontal divider (empty if none): the 2×2's two lines. */
+    val dividerV: IRect = dividers.firstOrNull { it.width == 1 && it.height > 1 } ?: IRect()
+    val dividerH: IRect = dividers.firstOrNull { it.height == 1 && it.width > 1 } ?: IRect()
 
     /** Centre diamond (menu button, T09): centre pixel, half-extent, tip half-width. */
-    val diamondCx: Int get() = originX + panelW
-    val diamondCy: Int get() = originY + panelH
+    val diamondCx: Int = seating.diamondX
+    val diamondCy: Int = seating.diamondY
     val diamondHalf: Int
     val diamondTip: Int
 
@@ -155,18 +199,44 @@ class PlayLayout private constructor(
 
     init {
         val c = chrome
-        val w2 = 2 * panelW + 1
-        val h2 = 2 * panelH + 1
-        dividerV.setXywh(originX + panelW, originY, 1, h2)
-        dividerH.setXywh(originX, originY + panelH, w2, 1)
-        panels[0].setXywh(originX, originY, panelW, panelH)
-        panels[1].setXywh(originX + panelW + 1, originY, panelW, panelH)
-        panels[2].setXywh(originX + panelW + 1, originY + panelH + 1, panelW, panelH)
-        panels[3].setXywh(originX, originY + panelH + 1, panelW, panelH)
+        var ox = Int.MAX_VALUE
+        var oy = Int.MAX_VALUE
+        for (p in panels) { ox = minOf(ox, p.left); oy = minOf(oy, p.top) }
+        originX = ox
+        originY = oy
 
         // Diamond first: the readout keeps clear of it.
         diamondHalf = maxOf(1, minOf(c.diamondR - c.diamondCut, panelW, panelH))
         diamondTip = minOf(c.diamondCut, diamondHalf)
+        diamond.set(diamondCx - diamondHalf, diamondCy - diamondHalf, diamondCx + diamondHalf + 1, diamondCy + diamondHalf + 1)
+        for (s in 0 until P) toFrame(s, diamond, diamondFrame[s])
+
+        // Readout (T37): the small numerals at the hero's own glyph scale (k = 1 beside a k = 1
+        // sticker, so the same physical size at every S), attached to the number: its box sits
+        // [READOUT_GAP]·k above the number slot's top (the hero's cap top), never closer than V_MIN to
+        // the far edge. Stepped down only if its width would reach the diamond corner (GAP_MIN beyond
+        // its reach) on either side, or its height would not fit above the number. T11: where the
+        // diamond sits in the middle of a far edge, the readout must also clear its [farReach]
+        // (V_MIN below it); failing every readout scale, the hero steps down a k. It also steps down
+        // while the under row would not fit (a wide, short tile: 2 players at S = 2).
+        var k = maxK(font, pmFont, panelW, panelH, c.tabH)
+        var rk: Int
+        var roY: Int
+        var blocked: Boolean
+        while (true) {
+            val sy = (panelH - font.height(k)) / 2
+            rk = k
+            val clearW = panelW - 2 * (diamondHalf + GAP_MIN)
+            while (rk > 1 && (readoutFont.height(rk) + 2 * V_MIN > sy || readoutFont.widthOf(READOUT_CHARS, rk) > clearW || readoutBlocked(k, rk, sy))) rk--
+            roY = readoutTop(k, rk, sy)
+            blocked = readoutBlocked(k, rk, sy)
+            if ((!blocked && underFits(font, k, panelH, c, tk, halo)) || k == 1) break
+            k--
+        }
+        kMax = k
+        pmK = pmK(k)
+        readoutK = rk
+        readoutY = roY
 
         // Player-frame layout, identical for every seat.
         val pmW = pmFont.glyphWidth * pmK
@@ -179,20 +249,9 @@ class PlayLayout private constructor(
         val pmY = pmCapAlignedY(slotY, kMax)
         pmVisible = pmX >= 0 && pmX + pmW <= side
 
-        // Readout (T37): the small numerals at the hero's own glyph scale (k = 1 beside a k = 1
-        // sticker, so the same physical size at every S), attached to the number: its box sits
-        // [READOUT_GAP]·k above the number slot's top (the hero's cap top), never closer than V_MIN to
-        // the far edge. Stepped down only if its width would reach the diamond corner (GAP_MIN beyond
-        // its reach) on either side, or its height would not fit above the number.
-        var rk = kMax
-        val clearW = panelW - 2 * (diamondHalf + GAP_MIN)
-        while (rk > 1 && (readoutFont.height(rk) + 2 * V_MIN > slotY || readoutFont.widthOf(READOUT_CHARS, rk) > clearW)) rk--
-        readoutK = rk
         val roW = readoutFont.widthOf(READOUT_CHARS, rk)
         val roH = readoutFont.height(rk)
         val roX = (panelW - roW) / 2
-        val roY = maxOf(V_MIN, slotY - READOUT_GAP * kMax - roH)
-        readoutY = roY
 
         val tabW = minOf(c.tabW, panelW)
         val tabH = minOf(c.tabH, panelH)
@@ -218,15 +277,24 @@ class PlayLayout private constructor(
             underH = 0; underY = 0; underX = 0; underW = 0
         }
         // The under row is required too: the partner slot icons live there.
-        comfortable = fits(font, pmFont, kMax, panelW, panelH, c.tabH) && underH > 0
+        tier = when {
+            underH <= 0 || blocked -> TIER_NONE
+            fits(font, pmFont, kMax, panelW, panelH, c.tabH) -> TIER_FULL
+            fitsNarrow(font, kMax, panelW, panelH, c.tabH) -> TIER_NARROW
+            else -> TIER_NONE
+        }
+        comfortable = tier != TIER_NONE
 
-        for (s in 0 until PLAYERS) {
+        // The tab's hit pad, kept inside the tile (only a tile narrower than the padded tab clips it).
+        val hitL = maxOf(0, tabX - c.tabHitPad)
+        val hitR = minOf(panelW, tabX + tabW + c.tabHitPad)
+        for (s in 0 until P) {
             map(s, pmX, pmY, pmW, pmH, minusGlyph[s])
             map(s, panelW - pmX - pmW, pmY, pmW, pmH, plusGlyph[s])
             map(s, side, slotY, slotW, slotH, numberSlot[s])
             map(s, roX, roY, roW, roH, readoutSlot[s])
             map(s, tabX, tabY, tabW, tabH, tab[s])
-            map(s, tabX - c.tabHitPad, tabY - c.tabHitPad, tabW + 2 * c.tabHitPad, tabH + c.tabHitPad, tabHit[s])
+            map(s, hitL, tabY - c.tabHitPad, hitR - hitL, tabH + c.tabHitPad, tabHit[s])
             for (i in 0 until 3) map(s, dotX + i * (c.dot + c.dotGap), dotY, c.dot, c.dot, tabDots[s * 3 + i])
             map(s, dotX - c.dotHalo, dotY - c.dotHalo, dotsW + 2 * c.dotHalo, c.dot + 2 * c.dotHalo, tabDotsBacking[s])
             map(s, 0, 0, half, panelH, zones[zone(s, MINUS)])
@@ -234,8 +302,7 @@ class PlayLayout private constructor(
             map(s, underX, underY, underW, underH, underRow[s])
         }
 
-        // Diamond: a stepped diamond, |dx| + |dy| ≤ R with the four tips cut flat.
-        diamond.set(diamondCx - diamondHalf, diamondCy - diamondHalf, diamondCx + diamondHalf + 1, diamondCy + diamondHalf + 1)
+        // Diamond: a stepped diamond, |dx| + |dy| ≤ R with the four tips cut flat (its box is set above).
         val barTop = diamondCy - c.barH / 2
         for (i in 0 until 3) menuBars[i].setXywh(diamondCx + (i - 1) * c.barPitch - c.barW / 2, barTop, c.barW, c.barH)
         menuBarsBacking.set(
@@ -249,6 +316,48 @@ class PlayLayout private constructor(
         val a = if (dy < 0) -dy else dy
         if (a > diamondHalf) return -1
         return minOf(diamondHalf + diamondTip - a, diamondHalf)
+    }
+
+    /**
+     * How deep (player-frame y, from the far edge) the diamond reaches into any seat's tile across
+     * player-frame columns `[x0, x1)`: the bottom of every [diamondFrame] box overlapping them, 0 if
+     * none. The same for every seat because the tile is (content laid out once must clear it
+     * wherever the diamond is: a far corner for a 2×2, the middle of a far edge for some counts).
+     */
+    fun farReach(x0: Int, x1: Int): Int {
+        var r = 0
+        for (d in diamondFrame) if (!d.isEmpty && d.left < x1 && x0 < d.right) r = maxOf(r, d.bottom)
+        return r
+    }
+
+    /** Player-frame top of the readout box at readout scale [rk] above a number at [k] whose slot top is [slotY]. */
+    private fun readoutTop(k: Int, rk: Int, slotY: Int): Int = maxOf(V_MIN, slotY - READOUT_GAP * k - readoutFont.height(rk))
+
+    /** Whether that readout box comes within V_MIN (down) / GAP_MIN (across) of the diamond. */
+    private fun readoutBlocked(k: Int, rk: Int, slotY: Int): Boolean {
+        val w = readoutFont.widthOf(READOUT_CHARS, rk)
+        val x = (panelW - w) / 2
+        val reach = farReach(x - GAP_MIN, x + w + GAP_MIN)
+        return reach > 0 && readoutTop(k, rk, slotY) < reach + V_MIN
+    }
+
+    /** Writes the part of screen rect [r] inside seat [s]'s panel, in that seat's player frame (empty if none). */
+    fun toFrame(s: Int, r: IRect, out: IRect): IRect {
+        val p = panels[s]
+        val l = maxOf(r.left, p.left)
+        val t = maxOf(r.top, p.top)
+        val rr = minOf(r.right, p.right)
+        val b = minOf(r.bottom, p.bottom)
+        if (rr <= l || b <= t) return out.set(0, 0, 0, 0)
+        val inv = (360 - rotation[s]) % 360
+        val w = rr - l
+        val h = b - t
+        return out.setXywh(
+            TextLayout.mapX(inv, p.width, p.height, l - p.left, t - p.top, w, h),
+            TextLayout.mapY(inv, p.width, p.height, l - p.left, t - p.top, w, h),
+            TextLayout.footprintW(inv, w, h),
+            TextLayout.footprintH(inv, w, h),
+        )
     }
 
     /** Top of the number slot in the player's frame (drawer closed). */
@@ -351,9 +460,9 @@ class PlayLayout private constructor(
     }
 
     override fun toString(): String =
-        "PlayLayout(grid ${grid.width}x${grid.height} S=${grid.scale}, origin $originX,$originY, panel ${panelW}x$panelH, " +
+        "PlayLayout(${arrangement.id} grid ${grid.width}x${grid.height} S=${grid.scale}, origin $originX,$originY, panel ${panelW}x$panelH, " +
             "kMax $kMax, pmK $pmK${if (pmVisible) "" else " (hidden)"}, readoutK $readoutK, " +
-            "under row $underX,$underY ${underW}x$underH, ${if (comfortable) "" else "UNCOMFORTABLE, "}$chrome)"
+            "under row $underX,$underY ${underW}x$underH, ${when (tier) { TIER_FULL -> ""; TIER_NARROW -> "NARROW, "; else -> "UNCOMFORTABLE, " }}$chrome)"
 
     /**
      * Sizes of the drawer tab and centre diamond for one S, in dither px. Designed at [BASE_SCALE]
@@ -433,7 +542,19 @@ class PlayLayout private constructor(
     }
 
     companion object {
+        /** The default player count (a fresh install; the T06 2×2). */
         const val PLAYERS = 4
+
+        /** Most seats any layout has: per-seat capacity of components that are built once (zones, timers). */
+        const val MAX_PLAYERS = Arrangements.MAX_PLAYERS
+
+        /** [tier]: ± beside the number; ± not drawn (narrow tiles, T11); not comfortable. */
+        const val TIER_FULL = 2
+        const val TIER_NARROW = 1
+        const val TIER_NONE = 0
+
+        /** Paper each side of the number slot on a narrow tile (T11). */
+        const val EDGE_NARROW = 4
 
         /** Widest life total: `−999` / `9999` (core `Limits` life range). */
         const val MAX_CHARS = 4
@@ -467,30 +588,58 @@ class PlayLayout private constructor(
         /** Index into [zones] of [seat]'s life half [side] ([MINUS] / [PLUS]). */
         fun zone(seat: Int, side: Int): Int = seat * 2 + side
 
+        /**
+         * The layout for [players] seats (2..6) on [grid]: [layoutId] picks an alternate arrangement
+         * ([Arrangements.of]; empty = the default for the count). Portrait grids get the table turned.
+         */
         fun compute(
             grid: DitherGrid,
+            players: Int = PLAYERS,
+            layoutId: String = "",
             font: Font = Fonts.NUM_L,
             readoutFont: Font = Fonts.NUM_M,
             pmFont: Font = Fonts.NUM_L_PM,
         ): PlayLayout {
-            val panelW = maxOf(1, (grid.width - 1) / 2)
-            val panelH = maxOf(1, (grid.height - 1) / 2)
-            val spareX = maxOf(0, grid.width - (2 * panelW + 1))
-            val spareY = maxOf(0, grid.height - (2 * panelH + 1))
             val chrome = Chrome.forScale(grid.scale)
-            val k = maxK(font, pmFont, panelW, panelH, chrome.tabH)
-            return PlayLayout(grid, font, panelW, panelH, spareX / 2, spareY / 2, k, pmK(k), pmFont, chrome, readoutFont)
+            val a = Arrangements.of(players, layoutId)
+            val seating = Seating(a, grid.width, grid.height) { fw, fh -> tierOf(font, pmFont, chrome, grid.scale, fw, fh) }
+            return PlayLayout(grid, font, seating, pmFont, chrome, readoutFont)
         }
 
         /**
          * The scale S for the Play screen: [DitherGrid.chooseScale] (the user's override wins), then
-         * stepped down (not below [DitherGrid.MIN_SCALE]) while the layout would not be [comfortable].
+         * stepped down (not below [DitherGrid.MIN_SCALE]) while the layout for [players] would not be [comfortable].
          */
-        fun chooseScale(deviceW: Int, deviceH: Int, densityDpi: Int, override: Int = DitherGrid.AUTO): Int {
+        fun chooseScale(deviceW: Int, deviceH: Int, densityDpi: Int, override: Int = DitherGrid.AUTO, players: Int = PLAYERS, layoutId: String = ""): Int {
             var s = DitherGrid.chooseScale(deviceW, deviceH, densityDpi, override)
             if (override != DitherGrid.AUTO) return s
-            while (s > DitherGrid.MIN_SCALE && !compute(DitherGrid(deviceW, deviceH, s)).comfortable) s--
+            while (s > DitherGrid.MIN_SCALE && !compute(DitherGrid(deviceW, deviceH, s), players, layoutId).comfortable) s--
             return s
+        }
+
+        /**
+         * The comfort tier of a [fw]×[fh] tile at scale [s] (what [Seating] maximises): [TIER_FULL] when
+         * ± fit beside the number at its largest k and the under row fits, [TIER_NARROW] when the number
+         * alone fits at k = 1 with the under row, else [TIER_NONE]. Ignores the diamond (placed later).
+         */
+        fun tierOf(font: Font, pmFont: Font, chrome: Chrome, s: Int, fw: Int, fh: Int): Int {
+            val tk = maxOf(1, Chrome.size(1, s))
+            val halo = Chrome.size(HALO, s)
+            var k = maxK(font, pmFont, fw, fh, chrome.tabH)
+            while (k > 1 && !underFits(font, k, fh, chrome, tk, halo)) k--
+            return when {
+                fits(font, pmFont, k, fw, fh, chrome.tabH) && underFits(font, k, fh, chrome, tk, halo) -> TIER_FULL
+                fitsNarrow(font, 1, fw, fh, chrome.tabH) && underFits(font, 1, fh, chrome, tk, halo) -> TIER_NARROW
+                else -> TIER_NONE
+            }
+        }
+
+        /** Whether the under-number row (an icon plus its halo) fits between a number at [k] and the tab band. */
+        internal fun underFits(font: Font, k: Int, fh: Int, c: Chrome, tk: Int, halo: Int): Boolean {
+            val slotH = font.height(k)
+            val slotY = (fh - slotH) / 2
+            val tabY = fh - minOf(c.tabH, fh)
+            return (tabY - c.tabHitPad - V_MIN) - (slotY + slotH + V_MIN) >= ICON * tk + 2 * halo
         }
 
         /** Glyph scale of the ± for a number at [k]: the same k (their face is already half-size, T27). */
@@ -502,6 +651,10 @@ class PlayLayout private constructor(
             for (k in 1..Font.MAX_K) if (fits(font, pmFont, k, panelW, panelH, tabH)) best = k else break
             return best
         }
+
+        /** The narrow tier's fit: [MAX_CHARS] at [k] with [EDGE_NARROW] each side, the full vertical stack. */
+        fun fitsNarrow(font: Font, k: Int, panelW: Int, panelH: Int, tabH: Int): Boolean =
+            2 * EDGE_NARROW + font.widthOf(MAX_CHARS, k) <= panelW && font.height(k) + 2 * (tabH + V_MIN) <= panelH
 
         fun fits(font: Font, pmFont: Font, k: Int, panelW: Int, panelH: Int, tabH: Int): Boolean {
             val w = 2 * EDGE_MIN + 2 * pmFont.glyphWidth * pmK(k) + 2 * GAP_MIN + font.widthOf(MAX_CHARS, k)

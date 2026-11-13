@@ -7,7 +7,10 @@ import au.com.josephmark.dithertracker.stage.Frame
 import au.com.josephmark.dithertracker.stage.Kind
 import au.com.josephmark.dithertracker.stage.Layer
 
-/** The dotted dividers between the four panels (1 dither px, 1 on / 1 off). Display only. */
+/**
+ * The dotted dividers between the panels (1 dither px, 1 on / 1 off, globally phased so segments
+ * meet cleanly): every one in [PlayLayout.dividers], whatever the player count (T11). Display only.
+ */
 class Dividers : Component(Layer.BACKDROP, Kind.BACKDROP) {
 
     private var l: PlayLayout? = null
@@ -18,7 +21,11 @@ class Dividers : Component(Layer.BACKDROP, Kind.BACKDROP) {
 
     override fun draw(f: Frame, seat: Int) {
         val l = l ?: return
-        if (f.hit(l.dividerV)) f.r.dottedV(l.dividerV.left, l.dividerV.top, l.dividerV.height)
-        if (f.hit(l.dividerH)) f.r.dottedH(l.dividerH.left, l.dividerH.top, l.dividerH.width)
+        val ds = l.dividers
+        for (i in ds.indices) {
+            val d = ds[i]
+            if (!f.hit(d)) continue
+            if (d.width == 1) f.r.dottedV(d.left, d.top, d.height) else f.r.dottedH(d.left, d.top, d.width)
+        }
     }
 }

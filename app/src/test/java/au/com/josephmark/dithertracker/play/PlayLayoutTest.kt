@@ -176,8 +176,8 @@ class PlayLayoutTest {
 
     @Test fun nomadAutoScaleIs4() {
         assertEquals(4, PlayLayout.chooseScale(1872, 1404, 300))
-        // Portrait (not used: the app is landscape-locked) is too narrow for the sticker at S = 4.
-        assertEquals(3, PlayLayout.chooseScale(1404, 1872, 300))
+        // Portrait (not used: the app is landscape-locked) turns the table (T11): the same tiles, S = 4.
+        assertEquals(4, PlayLayout.chooseScale(1404, 1872, 300))
     }
 
     @Test fun tinyScreensStillProduceALayout() {
