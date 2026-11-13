@@ -22,6 +22,7 @@ import au.com.josephmark.dithertracker.toggles.BadgesComponent
 import au.com.josephmark.dithertracker.toggles.DayNightMark
 import au.com.josephmark.dithertracker.tools.DiceOverlay
 import au.com.josephmark.dithertracker.tools.FirstPlayer
+import au.com.josephmark.dithertracker.turns.TurnTab
 import kotlin.random.Random
 
 /**
@@ -49,6 +50,7 @@ object PlayScreen {
 
         // ---- TILE_CHROME (per seat, over the tile layer's press inversion) ----------------------------
         stage.add(DrawerTab(drawer))              // closed tab (Kind.CHROME)
+        stage.add(TurnTab())                      // T17: the active seat's turn tab on its far edge; tap passes, hold corrects (Kind.STATUS)
 
         // ---- SCREEN --------------------------------------------------------------------------------
         stage.add(MenuDiamond())                  // centre diamond + menu bars; opens the menu (Kind.CHROME)

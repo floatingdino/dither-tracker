@@ -365,6 +365,9 @@ class Stage(
         } finally { exit() }
     }
 
+    /** Wall-clock ms (the platform's clock; the fake clock in tests): what core timestamps and the turn clock (T17) use. */
+    fun now(): Long = platform.now()
+
     /** The origin of the state change being dispatched now ([Origin] or a seat). */
     var origin: Int = Origin.EXTERNAL
         private set

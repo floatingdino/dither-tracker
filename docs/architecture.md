@@ -41,7 +41,8 @@ life/ readout/ drawer/ peeks/ toggles/ commander/ chrome/   Features (components
 Services a component may use: `stage.session` (read `state`), `stage.settings`,
 `stage.changeLife(seat, d)`, `stage.dispatch(origin, action, key)`, `stage.invalidate(rect)`,
 `stage.cancelTouches(this, seat, from, until)`, `stage.isPressed`, `visible(seat)`, `stage.send`,
-`stage.setCover`, `stage.readouts`, `stage.holdStep`, `timers`.
+`stage.setCover`, `stage.covered(kind, seat)`, `stage.readouts`, `stage.holdStep`, `stage.now()` (wall
+clock, the fake clock in tests), `timers`.
 
 **Rule:** a component never references another feature's component class. Talk through the game
 state, `TileSlots`, `Readouts`, `Events` and `Cover`s. Two components of *one* feature may share that
@@ -69,7 +70,8 @@ Hit-testing is the reverse: at each touch-down the stage collects every visible 
 (layer order, then registration order, then declaration order) and the **last** containing rect wins.
 A `block` rect returns "nothing" (no press, nothing below). Current `TILE` order:
 `LifeComponent` (halves) < `CommanderTile` < `ReadoutComponent` < `PeeksComponent` < `BadgesComponent` (T14, no
-zones) < `DrawerComponent` (block, cells, bar) — then `DrawerTab`, then `MenuDiamond` (block) / `DayNightMark`
+zones) < `DrawerComponent` (block, cells, bar) — then `DrawerTab` < `TurnTab` (T17, `TILE_CHROME`, `Kind.STATUS`:
+the active seat's turn tab), then `MenuDiamond` (block) / `DayNightMark`
 (T14, no zones: draws day/night over the diamond) / `CommanderClose`.
 
 ## Zone ids
