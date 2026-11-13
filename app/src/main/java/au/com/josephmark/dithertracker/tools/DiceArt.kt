@@ -5,34 +5,30 @@ import au.com.josephmark.dithertracker.type.Fonts
 
 /**
  * The panel's procedural 1-bit art, as stable [MonoImage]s (the renderer caches one mask per
- * instance, so build these once per layout and draw them every frame without allocating):
+ * instance, so build these once per layout and draw them every frame without allocating). [k] is the
+ * result's glyph scale (`DiceLayout.resultK`); everything matches the `num-m` result's height:
  *
- * - [coin]: a "sticker" coin the size of a hero numeral — an ink disc with a paper milled ring and
- *   the face's letter (H / T, the `ui` glyph enlarged) knocked out — and [coinShadow], its drop
- *   shadow mask (filled with `Role.SHADOW`, 3 px down-right of the disc behind a 1-px paper keyline,
- *   the `num-l` convention), so the coin sits in the same family as the numbers.
- * - [mystery]: the reveal beat's "?" (the `ui` glyph enlarged to the hero's height), a mask filled
+ * - [coin]: a "sticker" coin as tall as a result numeral — an ink disc with a paper milled ring and
+ *   the face's letter (H / T, the `ui` glyph enlarged) knocked out. No drop shadow, like the `num-m`
+ *   numerals it stands in for (T46).
+ * - [mystery]: the reveal beat's "?" (the `ui` glyph enlarged to the result's height), a mask filled
  *   with the shadow checker — the result "knocked back" to dither for one keyframe.
  *
- * Every image comes in the two face rotations: index 0 upright, 1 turned 180° (a point reflection of
- * the whole box, so a shadow still falls down-right in that reader's frame).
+ * Every image comes in the two face rotations: index 0 upright, 1 turned 180°.
  */
 class DiceArt(val k: Int) {
-    /** Coin disc diameter, shadow offset and keyline (dither px). */
-    val diameter: Int = Fonts.NUM_L.capHeight * k
-    val shadowOffset: Int = SHADOW * k
-    val box: Int = diameter + shadowOffset
+    /** Coin disc diameter (dither px): the result's cap height. */
+    val diameter: Int = Fonts.NUM_M.capHeight * k
+    val box: Int = diameter
 
     /** `coin[face * 2 + rot]`: face 0 heads, 1 tails; rot 0 upright, 1 turned. */
     val coin: Array<MonoImage> = Array(4) { i -> Turn(Coin(k, if (i / 2 == 0) 'H' else 'T'), i % 2 == 1) }
-    val coinShadow: Array<MonoImage> = Array(2) { i -> Turn(CoinShadow(k), i == 1) }
 
     /** The "?" mask, upright and turned. */
-    val mysteryK: Int = maxOf(1, (Fonts.NUM_L.capHeight * k) / Fonts.UI.capHeight)
+    val mysteryK: Int = maxOf(1, (Fonts.NUM_M.capHeight * k) / Fonts.UI.capHeight)
     val mystery: Array<MonoImage> = Array(2) { i -> Turn(Cap(Fonts.UI.glyph('?').scaled(mysteryK), Fonts.UI.capHeight * mysteryK), i == 1) }
 
     fun coin(heads: Boolean, rotation: Int): MonoImage = coin[(if (heads) 0 else 2) + (if (rotation == 180) 1 else 0)]
-    fun coinShadow(rotation: Int): MonoImage = coinShadow[if (rotation == 180) 1 else 0]
     fun mystery(rotation: Int): MonoImage = mystery[if (rotation == 180) 1 else 0]
 
     private inner class Coin(k: Int, letter: Char) : MonoImage {
@@ -59,23 +55,6 @@ class DiceArt(val k: Int) {
         }
     }
 
-    private inner class CoinShadow(k: Int) : MonoImage {
-        override val width = box
-        override val height = box
-        private val d = diameter
-        private val key = KEYLINE * k
-
-        override fun isInk(x: Int, y: Int): Boolean {
-            // Inside the disc moved down-right, outside the disc grown by the keyline.
-            val sx = x - shadowOffset
-            val sy = y - shadowOffset
-            if (sx < 0 || sy < 0 || sx >= d || sy >= d || dist2(sx, sy, d) > d.toLong() * d) return false
-            val g = d + 2 * key
-            val q = dist2(x + key, y + key, g)
-            return q > g.toLong() * g
-        }
-    }
-
     /** [src]'s top [h] rows (drops a glyph's empty descender band). */
     private class Cap(private val src: MonoImage, h: Int) : MonoImage {
         override val width = src.width
@@ -92,16 +71,12 @@ class DiceArt(val k: Int) {
     }
 
     companion object {
-        /** Shadow offset and keyline, per k (the `num-l` convention: 3 px down-right, 1-px paper keyline). */
-        const val SHADOW = 3
-        const val KEYLINE = 1
-
-        /** Milled ring: inset from the rim and width, per k. */
-        const val RING_INSET = 3
+        /** Milled ring: inset from the rim and width, per k (the 14-px disc at k = 1: 1 px each). */
+        const val RING_INSET = 1
         const val RING_W = 1
 
-        /** The coin letter's `ui` scale, per k (H/T 20×28 at k = 1). */
-        const val LETTER_K = 4
+        /** The coin letter's `ui` scale, per k (H/T 5×7 in the 14-px disc at k = 1, 10×14 at k = 2). */
+        const val LETTER_K = 1
 
         /**
          * Squared distance, ×4, of pixel (x, y)'s centre from the centre of a [d]-px disc: compare with

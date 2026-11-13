@@ -22,8 +22,8 @@ internal class DicePainter {
     private val tmp = IRect()
 
     /**
-     * The whole panel for [state]'s current result. [art] matches the layout's k. While the state is
-     * in its beat the hero shows the dither "?" and the caption is held back.
+     * The whole panel for [state]'s current result. [art] matches the layout's result scale. While the
+     * state is in its beat the result shows the dither "?" and the caption is held back.
      */
     fun draw(f: Frame, l: DiceLayout, art: DiceArt, state: DiceState, labelText: CharSequence) {
         if (!f.hit(l.panelOuter)) return
@@ -41,7 +41,7 @@ internal class DicePainter {
         for (face in 0 until 2) {
             if (!f.hit(l.faces[face])) continue
             val rot = l.rotation(face)
-            hero(f, l, art, state, face, rot, beat)
+            result(f, l, art, state, face, rot, beat)
             f.text.draw(l.ui, labelText, l.label[face].left, l.label[face].top, l.k, rot)
             r.rect(l.underline[face], ink = true)
             if (beat) continue
@@ -69,8 +69,8 @@ internal class DicePainter {
         f.icons.icon(l.k, Icon.DICE, tmp, 0, invert = true, opaque = false)
     }
 
-    private fun hero(f: Frame, l: DiceLayout, art: DiceArt, state: DiceState, face: Int, rot: Int, beat: Boolean) {
-        val box = l.heroBox[face]
+    private fun result(f: Frame, l: DiceLayout, art: DiceArt, state: DiceState, face: Int, rot: Int, beat: Boolean) {
+        val box = l.resultBox[face]
         val r = f.r
         if (beat) {
             val m = art.mystery(rot)
@@ -79,19 +79,17 @@ internal class DicePainter {
         }
         if (state.tool.isCoin) {
             val heads = Tool.coinFace(state.value) == CoinFace.HEADS
-            val x = box.left + (box.width - art.box) / 2
-            val y = box.top + (box.height - art.box) / 2
-            r.fillMask(art.coinShadow(rot), x, y, Role.SHADOW)
-            r.blit(art.coin(heads, rot), x, y)
+            val c = art.coin(heads, rot)
+            r.blit(c, box.left + (box.width - c.width) / 2, centredTop(l, box, c.height, rot))
             return
         }
-        f.text.drawIntIn(l.hero, state.value, box.left, box.top, box.width, box.height, l.k, rot)
+        f.text.drawIntIn(l.result, state.value, box.left, box.top, box.width, box.height, l.resultK, rot, shadow = false)
     }
 
-    /** Top of an [h]-tall cap-band mask centred on the hero's cap band in [box] (turned with [rot]). */
+    /** Top of an [h]-tall cap-band mask centred on the result's cap band in [box] (turned with [rot]). */
     private fun centredTop(l: DiceLayout, box: IRect, h: Int, rot: Int): Int {
-        val capTop = l.hero.capTop * l.k
-        val capH = l.hero.capHeight * l.k
+        val capTop = l.result.capTop * l.resultK
+        val capH = l.result.capHeight * l.resultK
         val upright = capTop + (capH - h) / 2
         return if (rot == 180) box.bottom - upright - h else box.top + upright
     }

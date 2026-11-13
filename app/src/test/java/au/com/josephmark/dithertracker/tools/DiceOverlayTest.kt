@@ -87,7 +87,7 @@ class DiceOverlayTest {
         // The diamond's corners are not the diamond (the fold row there swallows).
         assertEquals("none", r.hit(l.foldRect.left, l.foldRect.top))
         // Faces and rim swallow; outside dismisses, even over a life total.
-        assertEquals("none", r.hit(l.heroBox[0].left + 3, l.heroBox[0].top + 3))
+        assertEquals("none", r.hit(l.resultBox[0].left + 3, l.resultBox[0].top + 3))
         assertEquals("none", r.hit(l.panelOuter.left, l.panelOuter.top))
         assertEquals("dice:${DiceOverlay.DISMISS}", r.hit(l.panelOuter.left - 1, l.cy))
         val n = PlayRig.mid(r.rig.l.numberSlot[2])

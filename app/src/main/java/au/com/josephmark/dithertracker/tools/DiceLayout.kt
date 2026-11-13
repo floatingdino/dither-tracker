@@ -5,41 +5,44 @@ import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.PlayLayout.Chrome
 import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.type.Fonts
-import au.com.josephmark.dithertracker.widgets.TextWrap
 
 /**
- * Pure geometry of the dice / coin panel (T16, `design/menu/concept-1-gem-dice.png`): a two-faced
- * "tent" on the crossing, a sibling of the gem's restart confirm (`menu.GemLayout`). Dither px on
- * the play grid; no Android types.
+ * Pure geometry of the dice / coin panel (T16, re-composed in T46): a compact two-faced "tent" on
+ * the crossing, a sibling of the gem's restart confirm (`menu.GemLayout`). Dither px on the play
+ * grid; no Android types.
  *
  * ```
- *  ┌──────────────────────────────┐  upper face: the lower face turned 180° about the crossing
- *  │ caption ˙ʇɐɥʇ  ┃ result (180°) │  (read from the N edge)
- *  ├──────────────────────────────┤
- *  │ [d20][d6]  ◆  [coin][ × ]     │  fold row: two-faced buttons, the roll-again diamond on the crossing
- *  ├──────────────────────────────┤
- *  │ result   ┃ d20              │  lower face (read from the S edge): the hero number (`num-l`
- *  │ (num-l)  ┃ caption, wrapped │  with its shadow) or the coin, then the die label and the quip
- *  └──────────────────────────────┘
+ *  ┌────────────────────────────┐  upper face: the lower face turned 180° about the crossing
+ *  │ ʎɐɯ noʎ ʇɐɥʍ        ┃  (180°) │  (read from the N edge)
+ *  ├────────────────────────────┤
+ *  │ [d20][d6]  ◆  [coin][ × ]  │  fold row: two-faced buttons, the roll-again diamond on the crossing
+ *  ├────────────────────────────┤
+ *  │  17  ┃ d20                  │  lower face (read from S): the result in the small bold numerals
+ *  │      ┃ caption, balanced    │  (`num-m` at [resultK], no shadow) or the coin, then the die label
+ *  └────────────────────────────┘  and the quip in ≤ [MAX_LINES] balanced lines
  * ```
  *
- * Sizes: glyphs at the chrome's glyph scale [k] (`play.tk`), spacing designed at S = 4 and converted
- * per S like `PlayLayout.Chrome` (constant physical size). The panel is sized from its content: each
- * face is exactly one hero numeral tall (+ [PAD_V]) and one two-digit hero + a [TEXT_W] text column
- * wide. At S = 4 that is 157×147 (163×153 with the rim), inside the free cross around the crossing:
- * clear of two-digit life totals, the readouts and every ± glyph (see `DiceLayoutTest`).
+ * Sizes: the result at [resultK] = [RESULT_K] × the chrome's glyph scale ([k], `play.tk`), the text
+ * at [k]; spacing designed at S = 4 and converted per S like `PlayLayout.Chrome` (constant physical
+ * size). Each face is exactly as tall as the taller of the result and the text block (label,
+ * underline, two caption lines) + [PAD_V], and as wide as the result + a [TEXT_CHARS]-glyph column,
+ * or the fold row if that is wider. At S = 4 that is 147×101 (153×107 with the rim): clear of every
+ * life total up to four glyphs, the readouts and every ± glyph (see `DiceLayoutTest`).
  *
  * The faces are point-symmetric about the crossing (each long side reads its own face upright), so
  * the panel is centred on [cx], [cy] with odd width and height and every upper-face rect is
  * [reflect]ed from its lower-face twin.
  */
-class DiceLayout(val play: PlayLayout) {
+class DiceLayout(val play: PlayLayout, resultScale: Int = RESULT_K) {
     val scale: Int = play.grid.scale
 
-    /** Glyph scale of everything on the panel (hero, ui, icons). */
+    /** Glyph scale of the text, buttons and icons. */
     val k: Int = play.tk
 
-    val hero: Font = Fonts.NUM_L
+    /** Glyph scale of the result (and the coin and the "?" beat, which match its height). */
+    val resultK: Int = resultScale * k
+
+    val result: Font = Fonts.NUM_M
     val ui: Font = Fonts.UI
 
     val cx: Int = play.diamondCx
@@ -57,9 +60,24 @@ class DiceLayout(val play: PlayLayout) {
     /** Rotation of face i's content. */
     fun rotation(face: Int): Int = if (face == 0) 0 else 180
 
-    /** Per face: the hero box (a two-digit `num-l` footprint) and the text column beside it. */
-    val heroBox: Array<IRect> = Array(2) { IRect() }
+    /**
+     * Per face: the result box (the result is centred in it: at least a two-digit [result] footprint)
+     * and the caption column beside it.
+     */
+    val resultBox: Array<IRect> = Array(2) { IRect() }
     val textCol: Array<IRect> = Array(2) { IRect() }
+
+    /**
+     * The two compositions. **Beside** (a big result, `RESULT_K` = 2): the result on the left, the
+     * label over the caption in the column beside it. **Stacked** (a small result, 1×): the label
+     * sits under the result like a badge — [stackCol] — and the caption has the column to itself,
+     * which makes the faces shorter. Stacked is used whenever that badge is no taller than the
+     * label-over-caption block.
+     */
+    val stacked: Boolean
+
+    /** Per face, stacked only: the result-and-label column (empty when beside). */
+    val stackCol: Array<IRect> = Array(2) { IRect() }
 
     /** Fold buttons (visual) and their touch rects (full fold height, gaps split), by [BUTTONS] index. */
     val button: Array<IRect> = Array(BUTTONS) { IRect() }
@@ -82,20 +100,26 @@ class DiceLayout(val play: PlayLayout) {
     val labelGap: Int = Chrome.size(LABEL_GAP, scale)
 
     init {
-        val heroW = hero.widthOf(2, k)
-        val heroH = hero.height(k)
+        val resH = result.height(resultK)
+        val capH = ui.capHeight * k
+        val stackH = resH + labelGap + capH + underlineGap + 1
+        stacked = stackH <= textBlockHeight(MAX_LINES)
+        val resW = if (stacked) maxOf(result.widthOf(2, resultK), ui.widthOf(LABEL_CHARS, k)) else result.widthOf(2, resultK)
+        val textH = if (stacked) maxOf(stackH, captionHeight(MAX_LINES)) else maxOf(resH, textBlockHeight(MAX_LINES))
         val b = 1
-        val faceH = heroH + 2 * padV
+        // The pad also keeps the last caption line's descenders inside the face (S ≥ 5).
+        val padY = maxOf(padV, (ui.height(1) - ui.capTop - ui.capHeight) * k)
+        val faceH = textH + 2 * padY
         val foldH = odd(maxOf(Chrome.size(FOLD_H, scale), play.target))
         val gap = Chrome.size(BTN_GAP, scale)
         val margin = Chrome.size(BTN_MARGIN, scale)
         val r = foldH / 2 + 1
-        // Wide enough for the text column ([TEXT_W], never under [MIN_CHARS] glyphs) and for four
-        // fingertip-sized fold buttons (hit = button + gap ≥ target) beside the diamond.
-        val textW = maxOf(Chrome.size(TEXT_W, scale), ui.widthOf(MIN_CHARS, k))
+        // Wide enough for a [TEXT_CHARS]-glyph caption column and for four fingertip-sized fold
+        // buttons (hit = button + gap ≥ target) beside the diamond; the caption takes any slack.
+        val textW = ui.widthOf(TEXT_CHARS, k)
         val bwMin = play.target - gap
         val foldW = 2 * (margin + 2 * bwMin + 2 * gap + r) + 1
-        val faceW = odd(maxOf(padH + heroW + colGap + textW + padH, foldW))
+        val faceW = odd(maxOf(padH + resW + colGap + textW + padH, foldW))
         val w = faceW + 2 * b
         val h = b + faceH + b + foldH + b + faceH + b
         val x0 = cx - w / 2
@@ -108,9 +132,15 @@ class DiceLayout(val play: PlayLayout) {
         faces[0].setXywh(x0 + b, foldTop + foldH + b, faceW, faceH)
         reflect(faces[0], faces[1])
         val f = faces[0]
-        heroBox[0].setXywh(f.left + padH, f.top + padV, heroW, heroH)
-        textCol[0].set(heroBox[0].right + colGap, f.top, f.right - padH, f.bottom)
-        reflect(heroBox[0], heroBox[1])
+        if (stacked) {
+            stackCol[0].setXywh(f.left + padH, f.top + (faceH - stackH) / 2, resW, stackH)
+            resultBox[0].setXywh(stackCol[0].left, stackCol[0].top, resW, resH)
+            reflect(stackCol[0], stackCol[1])
+        } else {
+            resultBox[0].setXywh(f.left + padH, f.top + (faceH - resH) / 2, resW, resH)
+        }
+        textCol[0].set(f.left + padH + resW + colGap, f.top, f.right - padH, f.bottom)
+        reflect(resultBox[0], resultBox[1])
         reflect(textCol[0], textCol[1])
 
         // Fold row: [d20][d6] ◆ [coin][×], the diamond on the crossing (as on the confirm).
@@ -168,11 +198,22 @@ class DiceLayout(val play: PlayLayout) {
     var truncated = false
         private set
 
-    private val wrap = TextWrap(MAX_LINES)
+    private val wrap = BalancedWrap(MAX_LINES)
+
+    /** Cap-band height of the label, its underline and [n] caption lines (the beside block). */
+    fun textBlockHeight(n: Int): Int {
+        val capH = ui.capHeight * k
+        return capH + underlineGap + 1 + (if (n > 0) labelGap + captionHeight(n) else 0)
+    }
+
+    /** Cap-band height of [n] caption lines. */
+    fun captionHeight(n: Int): Int = if (n <= 0) 0 else n * ui.capHeight * k + (n - 1) * lineGap
 
     /**
-     * Lays out [labelText] (underlined) over [caption] (wrapped, ≤ [MAX_LINES]) in each face's text
-     * column, the block centred vertically. Allocation-free.
+     * Lays out [labelText] (underlined) and [caption] (balanced, ≤ [MAX_LINES] lines) in each face:
+     * beside, the label over the caption in the text column, the block centred vertically; stacked,
+     * the label centred under the result and the caption alone, centred, in the text column.
+     * Allocation-free.
      */
     fun arrange(labelText: CharSequence, caption: CharSequence) {
         val col = textCol[0]
@@ -182,12 +223,21 @@ class DiceLayout(val play: PlayLayout) {
         val capH = ui.capHeight * k
         val capTop = ui.capTop * k
         val th = ui.height(k)
-        val blockH = capH + underlineGap + 1 + (if (n > 0) labelGap + n * capH + (n - 1) * lineGap else 0)
-        var y = col.top + (col.height - blockH) / 2 // cap top of the label
         val lw = ui.widthOf(labelText.length, k)
-        label[0].setXywh(col.left, y - capTop, lw, th)
-        underline[0].setXywh(col.left, y + capH + underlineGap, lw, 1)
-        y += capH + underlineGap + 1 + labelGap
+        var y: Int // cap top of the next caption line
+        if (stacked) {
+            val sc = stackCol[0]
+            val ly = resultBox[0].bottom + labelGap // the label's cap top
+            val lx = sc.left + (sc.width - lw) / 2
+            label[0].setXywh(lx, ly - capTop, lw, th)
+            underline[0].setXywh(lx, ly + capH + underlineGap, lw, 1)
+            y = col.top + (col.height - captionHeight(n)) / 2
+        } else {
+            y = col.top + (col.height - textBlockHeight(n)) / 2
+            label[0].setXywh(col.left, y - capTop, lw, th)
+            underline[0].setXywh(col.left, y + capH + underlineGap, lw, 1)
+            y += capH + underlineGap + 1 + labelGap
+        }
         for (i in 0 until MAX_LINES) {
             if (i < n) {
                 lineStart[i] = wrap.start[i]
@@ -208,7 +258,7 @@ class DiceLayout(val play: PlayLayout) {
 
     override fun toString(): String =
         "DiceLayout(S=$scale k=$k panel=$panel outer=$panelOuter fold=$fold faces=${faces[0]}/${faces[1]} " +
-            "hero=${heroBox[0]} text=${textCol[0]} buttons=${button.joinToString()} diamond R$foldR/$foldHalf)"
+            "result=${resultBox[0]} text=${textCol[0]} buttons=${button.joinToString()} diamond R$foldR/$foldHalf)"
 
     companion object {
         /** Fold-row buttons, left to right on screen. */
@@ -233,18 +283,26 @@ class DiceLayout(val play: PlayLayout) {
             else -> null
         }
 
-        /** Caption lines at most (13 `ui` glyphs a line at S = 4; core's longest quips take 2). */
-        const val MAX_LINES = 3
+        /**
+         * The result's `num-m` scale per chrome glyph scale: 2 → 28 px tall at S = 4 (~5 mm on the
+         * Nomad), read at a glance from across the table; 1 is the readouts' size (T46).
+         */
+        const val RESULT_K = 2
+
+        /** Caption lines at most: core's dice and coin quips all balance into two (`DiceLayoutTest`). */
+        const val MAX_LINES = 2
+
+        /** The longest face label ("nat 20", "HEADS"), in `ui` glyphs. */
+        const val LABEL_CHARS = 6
+
+        /** The text column holds at least this many `ui` glyphs a line (core's longest balanced line is 14). */
+        const val TEXT_CHARS = 15
 
         // Design values at S = 4 (dither px), converted per S.
         const val RIM = 2
-        const val TEXT_W = 77
-
-        /** The text column holds at least this many `ui` glyphs a line (core's longest word is 10). */
-        const val MIN_CHARS = 12
-        const val PAD_H = 3
-        const val PAD_V = 1
-        const val COL_GAP = 4
+        const val PAD_H = 4
+        const val PAD_V = 2
+        const val COL_GAP = 5
         const val FOLD_H = 27
         const val FOLD_CUT = 2
         const val BTN_GAP = 3

@@ -21,7 +21,7 @@ import kotlin.random.Random
 
 /**
  * The dice / coin panel (T16): the menu's DICE tip opens it on a fresh d20 roll. A two-faced tent on
- * the crossing ([DiceLayout]) — each long side reads its own face: the result in the sticker hero
+ * the crossing ([DiceLayout]) — each long side reads its own face: the result in the bold small
  * numerals (or the sticker coin), the die label and a quip. The fold row rolls a **d20**, a **d6** or
  * the **coin** at once (the current tool is solid), the centre diamond (`dice` knocked out) rolls the
  * current tool again, and **×** closes.
@@ -70,7 +70,7 @@ class DiceOverlay(
     override fun onLayout(play: PlayLayout, tiles: TileSlots) {
         val l = DiceLayout(play)
         layout = l
-        if (art?.k != l.k) art = DiceArt(l.k)
+        if (art?.k != l.resultK) art = DiceArt(l.resultK)
         screen.set(0, 0, play.grid.width, play.grid.height)
         if (state.isOpen) arrange(l)
     }
@@ -79,14 +79,13 @@ class DiceOverlay(
         val l = layout ?: return
         val a = art ?: return
         for (rot in ROTATIONS) {
-            f.text.draw(l.hero, DIGITS, 0, 0, l.k, rot)
+            f.text.draw(l.result, DIGITS, 0, 0, l.resultK, rot, shadow = false)
             for (t in Tool.entries) f.text.draw(l.ui, t.label, 0, 0, l.k, rot)
             f.text.draw(l.ui, HEADS, 0, 0, l.k, rot)
             f.text.draw(l.ui, TAILS, 0, 0, l.k, rot)
             f.text.draw(l.ui, NAT_20, 0, 0, l.k, rot)
             for (kind in KINDS) for (line in flavour.lines(kind)) f.text.draw(l.ui, line, 0, 0, l.k, rot)
             f.r.fillMask(a.mystery(rot), 0, 0, Role.SHADOW)
-            f.r.fillMask(a.coinShadow(rot), 0, 0, Role.SHADOW)
             f.r.blit(a.coin(true, rot), 0, 0)
             f.r.blit(a.coin(false, rot), 0, 0)
         }
