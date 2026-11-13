@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.drawer
 
 import au.com.josephmark.dithertracker.commander.CommanderMode
+import au.com.josephmark.dithertracker.dither.HaloGlyph
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.type.Font
@@ -164,7 +165,7 @@ class DrawerLayout(val play: PlayLayout) {
     /** The page chevron in the bar's right segment (› next, or ‹ back to the first page). */
     val pageIcon: Array<IRect> = Array(P) { IRect() }
 
-    /** Close glyph on the bar: three dots (`seat * 3 + i`) on one paper backing. */
+    /** Close glyph on the bar: three dots (`seat * 3 + i`); [dotsBacking] is their old square backing's extent. */
     val dots: Array<IRect> = Array(P * 3) { IRect() }
     val dotsBacking: Array<IRect> = Array(P) { IRect() }
 
@@ -349,6 +350,9 @@ class DrawerLayout(val play: PlayLayout) {
             }
         }
     }
+
+    /** The bar's close glyph per seat: [dots] as one mask on its [halo]-px cut-out (T41; drawn instead of [dotsBacking]). */
+    val dotsGlyph: Array<HaloGlyph> = Array(P) { HaloGlyph.of(dots, it * 3, 3, halo) }
 
     /** Whether cell [i] (`seat * MAX_SLOTS + slot`) shows [value] as a stepper (− icon value +) rather than wide. */
     fun showsSteps(i: Int, value: Int): Boolean =

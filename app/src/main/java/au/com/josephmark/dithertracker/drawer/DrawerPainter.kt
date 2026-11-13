@@ -14,15 +14,16 @@ import au.com.josephmark.dithertracker.type.TextRenderer
  * icon at the current glyph scale (see [prewarm]).
  *
  * Look:
- * - bar: `TAB` dither; on the left the commander button (solid ink card, imp icon in paper, T30);
- *   the tab's three dots on a paper backing in the middle (= close); on the right the page chevron
- *   (opaque, paper square): `›` with a next page, `‹` on the last page of several;
+ * - bar: `TAB` dither; on the left the commander button (solid ink card, imp icon in paper, T30 — on
+ *   solid ink, so no halo); the tab's three dots on their paper cut-out in the middle (= close); on the
+ *   right the page chevron on its cut-out: `›` with a next page, `‹` on the last page of several
+ *   (T41: glyphs on dither sit on a 1-px halo in their own shape, not a paper square);
  * - body: `DRAWER` (sparse) dither;
  * - cell (T43): a non-zero value is a paper card with a 1-px ink frame reading `− icon value +` —
  *   the halves' actions drawn at the edges, like a tiny life total. A value too long for that (3
  *   digits at S = 4) drops the glyphs and spreads `icon value` over the card (closing its tracking
  *   if it must, [DrawerLayout.valueTracking]). At 0 there is no card and no − or +: only the icon, on a
- *   small paper halo on the drawer texture (the right half still adds one), so active counters
+ *   1-px paper cut-out on the drawer texture (the right half still adds one), so active counters
  *   stand out.
  *   Poison at 8+ is a solid ink card with paper content (nearly lethal).
  */
@@ -37,12 +38,11 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
 
         // Bar.
         r.fill(Role.TAB, l.bar[seat])
-        r.rect(l.dotsBacking[seat], ink = false)
-        for (i in 0 until 3) r.rect(l.dots[seat * 3 + i], ink = true)
+        l.dotsGlyph[seat].draw(r)
         r.rect(l.cmdVis[seat], ink = true)
         icon(l.tk, Icon.COMMANDER, l.cmdIcon[seat], rot, invert = true, opaque = false)
-        if (st.hasNext(seat)) icon(l.tk, Icon.CHEVRON_RIGHT, l.pageIcon[seat], rot, invert = false, opaque = true)
-        else if (st.hasPrev(seat)) icon(l.tk, Icon.CHEVRON_LEFT, l.pageIcon[seat], rot, invert = false, opaque = true)
+        if (st.hasNext(seat)) icon(l.tk, Icon.CHEVRON_RIGHT, l.pageIcon[seat], rot, invert = false, halo = true)
+        else if (st.hasPrev(seat)) icon(l.tk, Icon.CHEVRON_LEFT, l.pageIcon[seat], rot, invert = false, halo = true)
 
         // Body.
         r.fill(Role.DRAWER, l.body[seat])
@@ -66,13 +66,11 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
                     r.rect(l.trayMinus[i], ink = !warn)
                     plus(l, l.trayPlus[i], ink = !warn)
                 }
-            } else {
-                // At 0 there is no card and no − or +: the drawer texture shows through and only the
-                // icon sits on a small paper backing — quiet next to the active cards. (Tapping the
-                // right half still adds one; the + appears with the card.)
-                halo(ir, l.halo)
             }
-            icon(l.tk, iconFor(item), ir, rot, invert = warn, opaque = false)
+            // At 0 there is no card and no − or +: the drawer texture shows through and only the icon
+            // sits on its paper cut-out — quiet next to the active cards. (Tapping the right half still
+            // adds one; the + appears with the card.)
+            icon(l.tk, iconFor(item), ir, rot, invert = warn, halo = v == 0)
             if (v != 0) {
                 val vr = l.valueRect(i, v)
                 // The reading-direction width of the value rect (rotation is only ever 0 or 180 here).
@@ -89,15 +87,14 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
         r.rect(box.left + o, box.top, l.pmStroke, box.height, ink)
     }
 
-    /** Paper behind [rect] grown by [h] all round. */
-    fun halo(rect: IRect, h: Int) = icons.halo(rect, h)
-
-    /** Blits [icon] at glyph scale [k] with its footprint's top-left at [at]. */
-    fun icon(k: Int, icon: Icon, at: IRect, rot: Int, invert: Boolean, opaque: Boolean) = icons.icon(k, icon, at, rot, invert, opaque)
+    /** Blits [icon] at glyph scale [k] with its footprint's top-left at [at] ([halo]: on its paper cut-out). */
+    fun icon(k: Int, icon: Icon, at: IRect, rot: Int, invert: Boolean, opaque: Boolean = false, halo: Boolean = false) =
+        icons.icon(k, icon, at, rot, invert, opaque, halo)
 
     /** Builds every icon mask and ui glyph the drawer can draw at [l]'s scale (call off the draw path). */
     fun prewarm(l: DrawerLayout) {
         icons.prewarm(WARM_ICONS, l.tk)
+        for (d in l.dotsGlyph) d.prewarm(r)
         for (rot in intArrayOf(0, 180)) text.draw(l.numFont, "0123456789+-", 0, 0, l.tk, rot)
     }
 
