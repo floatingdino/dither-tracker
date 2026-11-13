@@ -68,7 +68,7 @@ object DrawerItems {
             out[offset + n++] = item(COUNTER, shown[i].ordinal)
         }
         if (withToggles) {
-            for (t in toggles) if (n < MAX_ITEMS) out[offset + n++] = item(TOGGLE, t.ordinal)
+            for (i in toggles.indices) if (n < MAX_ITEMS) out[offset + n++] = item(TOGGLE, toggles[i].ordinal) // index loop: no iterator per refresh
             if (n < MAX_ITEMS) out[offset + n++] = item(DAY_NIGHT, 0)
         }
         return n
