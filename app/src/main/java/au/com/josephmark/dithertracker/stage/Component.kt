@@ -183,5 +183,5 @@ object Events {
      * its core undo group closed (T28c: effects trigger on it, never per tap). Sent by the readout for
      * every group, life or commander damage; the net change is not carried (diff the game state).
      */
-    const val READOUT_COMMITTED = 5
+    const val READOUT_COMMITTED = 6
 }
