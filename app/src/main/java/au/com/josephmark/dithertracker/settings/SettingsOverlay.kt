@@ -23,7 +23,7 @@ import au.com.josephmark.dithertracker.widgets.WidgetMetrics
 /**
  * The settings overlay (T12): the gem's SETUP facet opens a square [SettingsCard] in the middle of
  * the table, facing the side that asked (0 or 180; a two-faced `GemLayout.FOLD` facet → 0, the S side). The card's
- * rotate button turns it a quarter clockwise (S → W → N → E), so any seat can bring it round; its
+ * rotate button turns it a quarter clockwise (reader S → E → N → W: to the right-hand neighbour), so any seat can bring it round; its
  * close returns to the play screen.
  *
  * **Cover:** while open, `Cover(ALL_BELOW_OVERLAY − BACKDROP)` on every seat and the screen — life
@@ -72,7 +72,7 @@ class SettingsOverlay private constructor(b: Built) :
     var isOpen = false
         private set
 
-    /** Clockwise rotation of the card: 0 (reads from S), 90 (W), 180 (N), 270 (E). */
+    /** Clockwise rotation of the card: 0 (reads from S), 90 (E), 180 (N), 270 (W). */
     var rotation = 0
         private set
 

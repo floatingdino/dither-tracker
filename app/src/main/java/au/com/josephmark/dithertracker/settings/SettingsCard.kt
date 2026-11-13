@@ -15,7 +15,7 @@ import au.com.josephmark.dithertracker.widgets.WidgetMetrics
 /**
  * Pure layout of the settings card (no Android types; JVM-tested): a **square** card centred on the
  * screen, so it occupies the same footprint whichever of the four sides it faces, drawn through one
- * [WidgetFrame] at rotation 0 / 90 / 180 / 270 (reader at S / W / N / E).
+ * [WidgetFrame] at rotation 0 / 90 / 180 / 270 (reader at S / E / N / W).
  *
  * Local structure (the reader's frame), outside in:
  * - a 1-stroke ink outline and a [BAND]-wide [Role.TAB] rim (the mock's dithered frame);
