@@ -165,4 +165,16 @@ object Events {
 
     /** [seat]'s player asked to be the commander-damage target (the drawer bar's imp button). */
     const val COMMANDER_TARGET = 2
+
+    /**
+     * Hold off [seat]'s dead treatment (T15): an effect (T28c's KO flourish) is about to play over the
+     * live tile. Send it from `onStateChanged` when the seat's KO flips on (the effects slot is
+     * registered before the KO slot, so no frame shows the dead tile first); sent later, the dead
+     * treatment is taken down until [KO_RELEASE]. The KO component releases by itself after
+     * `KoComponent.HOLD_MAX_MS` and on any touch-down on the seat. Default (nobody holds): immediate.
+     */
+    const val KO_HOLD = 3
+
+    /** The effect on [seat] finished (or was cancelled): draw the dead treatment now if still KO. */
+    const val KO_RELEASE = 4
 }

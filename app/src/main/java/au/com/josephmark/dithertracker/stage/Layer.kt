@@ -60,6 +60,13 @@ object Kind {
     /** Full overlays (menu, settings, history, confirm prompts). */
     const val OVERLAY = 1 shl 6
 
+    /**
+     * A seat's game status drawn over everything else on its tile (the KO treatment, T15): stays
+     * through modes that hide [CONTENT] (a dead player stays dead in commander mode); hidden only by
+     * full overlays.
+     */
+    const val STATUS = 1 shl 7
+
     /** Everything except [OVERLAY]: what a full-screen overlay hides beneath it. */
-    const val ALL_BELOW_OVERLAY = BACKDROP or CONTENT or READOUT or CHROME or MODE or EFFECT
+    const val ALL_BELOW_OVERLAY = BACKDROP or CONTENT or READOUT or CHROME or MODE or EFFECT or STATUS
 }
