@@ -13,6 +13,11 @@ import android.view.WindowInsetsController
 import android.view.WindowManager
 import au.com.josephmark.dithertracker.data.Persistence
 import au.com.josephmark.dithertracker.core.Action
+import au.com.josephmark.dithertracker.core.Commander
+import au.com.josephmark.dithertracker.core.Counter
+import au.com.josephmark.dithertracker.core.DayNight
+import au.com.josephmark.dithertracker.core.Player
+import au.com.josephmark.dithertracker.core.Toggle
 import au.com.josephmark.dithertracker.core.serial.AppSettings
 import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.eink.EinkConfig
@@ -65,6 +70,7 @@ class MainActivity : Activity() {
         applyDebugPlayers()
         applyDebugPartners()
         applyDebugLives()
+        applyDebugToggles()
         applyDebugFx()
         applyEink()
         root = if (BuildConfig.DEBUG && intent?.getBooleanExtra("demo", false) == true) {
@@ -148,6 +154,33 @@ class MainActivity : Activity() {
         for (p in session.state.players) {
             val want = p.seat in seats
             if (p.partner != want) session.dispatch(Action.SetPartner(p.id, want), System.currentTimeMillis())
+        }
+    }
+
+    /**
+     * Debug-only capture hook (T14): `--es toggles m,ib,,r` gives each seat (in seat order) its toggles —
+     * m monarch, i initiative, b city's blessing, r ring-bearer; `--es daynight day|night`;
+     * `--es poison 3,0,9` / `--es tax 2,0,4` set those values per seat (for peeks beside the badges).
+     */
+    private fun applyDebugToggles() {
+        if (!BuildConfig.DEBUG) return
+        val i = intent ?: return
+        val session = GameSession.shared
+        fun d(a: Action) = session.dispatch(a, System.currentTimeMillis())
+        fun perSeat(key: String, f: (Player, String) -> Unit) {
+            val spec = i.getStringExtra(key) ?: return
+            for ((seat, v) in spec.split(',').withIndex()) f(session.state.players.getOrNull(seat) ?: break, v.trim())
+        }
+        perSeat("toggles") { p, v ->
+            for ((c, t) in listOf('m' to Toggle.MONARCH, 'i' to Toggle.INITIATIVE, 'b' to Toggle.CITYS_BLESSING, 'r' to Toggle.RING_BEARER)) {
+                if (c in v) d(Action.SetToggle(p.id, t, true))
+            }
+        }
+        perSeat("poison") { p, v -> v.toIntOrNull()?.let { d(Action.SetCounter(p.id, Counter.POISON, it)) } }
+        perSeat("tax") { p, v -> v.toIntOrNull()?.let { d(Action.ChangeCommanderTax(p.id, Commander.PRIMARY, it - p.commanderTax.primary)) } }
+        when (i.getStringExtra("daynight")) {
+            "day" -> d(Action.SetDayNight(DayNight.DAY))
+            "night" -> d(Action.SetDayNight(DayNight.NIGHT))
         }
     }
 
