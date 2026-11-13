@@ -83,8 +83,24 @@ class GameSession(history: History) {
         dispatch(action, timestamp, lifeKeys[seat])
     }
 
-    /** Closes the open coalescing group (T07: when the pending-delta readout commits). */
+    /** Closes every open coalescing group. */
     fun endGroup() = set(history.endGroup())
+
+    /** Closes the coalescing group with [key] only (core groups undo per key, T29). */
+    fun endGroup(key: String) = set(history.endGroup(key))
+
+    /**
+     * Closes [seat]'s life group (T07: when that seat's pending-delta readout commits), using the
+     * cached key — no allocation. Other seats' and drawer groups stay open.
+     */
+    fun endLifeGroup(seat: Int) {
+        val players = state.players
+        if (seat !in players.indices) return
+        ensureCache(players.size)
+        val id = players[seat].id
+        if (cachedIds[seat] != id) rebuild(seat, id)
+        lifeKeys[seat]?.let { endGroup(it) }
+    }
 
     fun undo() = set(history.undo())
     fun redo() = set(history.redo())

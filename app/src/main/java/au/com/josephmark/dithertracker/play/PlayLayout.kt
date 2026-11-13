@@ -188,6 +188,12 @@ class PlayLayout private constructor(
         return minOf(diamondHalf + diamondTip - a, diamondHalf)
     }
 
+    /** Top of the number slot in the player's frame (drawer closed). */
+    val numberSlotY: Int get() = (panelH - font.height(kMax)) / 2
+
+    /** Maps a player-frame rect of seat [s] to the screen (also used by the drawer layout, T08). */
+    fun mapRect(s: Int, lx: Int, ly: Int, w: Int, h: Int, out: IRect) = map(s, lx, ly, w, h, out)
+
     /** Maps a player-frame rect of seat [s] to the screen. */
     private fun map(s: Int, lx: Int, ly: Int, w: Int, h: Int, out: IRect) {
         val r = rotation[s]
@@ -200,10 +206,10 @@ class PlayLayout private constructor(
         )
     }
 
-    /** Largest glyph scale ≤ [kMax] at which [chars] glyphs fit the number slot. */
-    fun numberK(chars: Int): Int {
-        val slotW = font.widthOf(MAX_CHARS, kMax)
-        var k = kMax
+    /** Largest glyph scale ≤ [kTop] at which [chars] glyphs fit a number slot sized for [kTop]. */
+    fun numberK(chars: Int, kTop: Int = kMax): Int {
+        val slotW = font.widthOf(MAX_CHARS, kTop)
+        var k = kTop
         while (k > 1 && font.widthOf(chars, k) > slotW) k--
         return k
     }
@@ -213,15 +219,20 @@ class PlayLayout private constructor(
      * the player's reading direction, cap band centred across it. Writes [out] and returns the glyph
      * scale k to draw with. Draw it with `TextRenderer.drawInt(font, value, out.left, out.top, k, rotation[seat])`.
      */
-    fun numberFootprint(seat: Int, value: Int, out: IRect): Int {
+    fun numberFootprint(seat: Int, value: Int, out: IRect): Int = numberFootprintAt(seat, value, kMax, numberSlotY, out)
+
+    /**
+     * [numberFootprint] for a number slot sized for glyph scale [kTop] whose top is at player-frame
+     * y [slotY] (the drawer re-derives both when it is open, T08).
+     */
+    fun numberFootprintAt(seat: Int, value: Int, kTop: Int, slotY: Int, out: IRect): Int {
         val len = Font.intLength(value)
-        val k = numberK(len)
+        val k = numberK(len, kTop)
         val tw = font.widthOf(len, k)
         val th = font.height(k)
-        val slotW = font.widthOf(MAX_CHARS, kMax)
-        val slotH = font.height(kMax)
+        val slotW = font.widthOf(MAX_CHARS, kTop)
+        val slotH = font.height(kTop)
         val side = (panelW - slotW) / 2
-        val slotY = (panelH - slotH) / 2
         val lx = side + TextLayout.centre(slotW, tw)
         val ly = slotY + TextLayout.centre(slotH, font.capHeight * k) - font.capTop * k
         map(seat, lx, ly, tw, th, out)
@@ -233,17 +244,20 @@ class PlayLayout private constructor(
      * way as [numberFootprint]. Returns the glyph scale; draw with
      * `TextRenderer.drawInt(readoutFont, delta, out.left, out.top, k, rotation[seat], signed = true)`.
      */
-    fun readoutFootprint(seat: Int, delta: Int, out: IRect): Int {
+    fun readoutFootprint(seat: Int, delta: Int, out: IRect): Int =
+        readoutFootprintAt(seat, delta, readoutK, TextLayout.centre(numberSlotY, readoutFont.height(readoutK)), out)
+
+    /** [readoutFootprint] for a readout slot sized for [kTop] whose top is at player-frame y [slotY]. */
+    fun readoutFootprintAt(seat: Int, delta: Int, kTop: Int, slotY: Int, out: IRect): Int {
         val f = readoutFont
         val len = Font.intLength(delta, signed = true)
-        val slotW = f.widthOf(READOUT_CHARS, readoutK)
-        val slotH = f.height(readoutK)
-        var k = readoutK
+        val slotW = f.widthOf(READOUT_CHARS, kTop)
+        val slotH = f.height(kTop)
+        var k = kTop
         while (k > 1 && f.widthOf(len, k) > slotW) k--
         val tw = f.widthOf(len, k)
         val th = f.height(k)
         val slotX = (panelW - slotW) / 2
-        val slotY = TextLayout.centre((panelH - font.height(kMax)) / 2, slotH)
         val lx = slotX + TextLayout.centre(slotW, tw)
         val ly = slotY + TextLayout.centre(slotH, f.capHeight * k) - f.capTop * k
         map(seat, lx, ly, tw, th, out)

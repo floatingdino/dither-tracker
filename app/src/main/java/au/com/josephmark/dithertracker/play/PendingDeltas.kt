@@ -10,8 +10,8 @@ package au.com.josephmark.dithertracker.play
  * group commits: the readout disappears and [Sink.onGroupCommitted] lets the owner close the core
  * undo group.
  *
- * Seats are fully independent — four players tapping at once each see their own running delta,
- * whatever core's single open undo group is doing (see the T07 report).
+ * Seats are fully independent — four players tapping at once each see their own running delta, and
+ * each seat's commit closes only that seat's core undo group (core groups per key since T29).
  *
  * The readout shows [delta] when it is non-zero; a group that nets to zero shows nothing (but stays
  * open, so a following tap continues it). [Sink.onReadoutChanged] fires exactly when the text shown

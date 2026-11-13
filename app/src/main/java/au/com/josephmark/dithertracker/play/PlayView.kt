@@ -12,58 +12,71 @@ import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import au.com.josephmark.dithertracker.core.Action
-import au.com.josephmark.dithertracker.core.coalesceKey
+import au.com.josephmark.dithertracker.core.Counter
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.Player
+import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.DitherRenderer
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.Role
+import au.com.josephmark.dithertracker.drawer.DrawerController
+import au.com.josephmark.dithertracker.drawer.DrawerLayout
+import au.com.josephmark.dithertracker.drawer.DrawerPainter
+import au.com.josephmark.dithertracker.drawer.DrawerState
+import au.com.josephmark.dithertracker.drawer.DrawerZones
 import au.com.josephmark.dithertracker.type.TextRenderer
 
 /**
- * The 4-player Play screen: one opaque custom View, all geometry from [PlayLayout].
+ * The 4-player Play screen: one opaque custom View, geometry from [PlayLayout] and (T08)
+ * [DrawerLayout]; drawer behaviour in [DrawerController], drawer drawing in [DrawerPainter].
  *
  * Drawing: everything goes through [DitherRenderer] in root coordinates (this View fills the
  * window at (0,0)); rotated seats use blit rotation via [TextRenderer], never `Canvas.rotate`.
  * `onDraw` culls by the canvas clip, so under software rendering a dirty rect costs only its own
- * pixels; under HWUI (the default) the clip is the whole view and the whole display list (~60 ops)
- * is re-recorded — measured on the Nomad, see the T06 report.
+ * pixels; under HWUI (the default) the whole display list is re-recorded.
  *
- * Invalidation: a life change invalidates only that seat's number slot (and its readout slot); a
- * press/release only the pressed zone. Seats are diffed by `Player` reference. One frame per user
- * action: the life step, its readout and the press inversion are invalidated in the same event, so
- * they land in the same frame. Frames per interaction (T07):
- * - tap: 1 on down (inversion + number + readout), 1 on up (restore);
- * - hold: those two, plus 1 per repeat (number + readout);
+ * Touch: [PlayInput] binds pointers to zones ([DrawerZones]: life halves, drawer tab/bar/header/cell
+ * halves). Touch-down inverts the zone; a lift applies one step (tap); holding applies the hold step
+ * after the delay and then every [PlayInput.repeatMillis]; a cancel applies nothing.
+ *
+ * Frames per interaction:
+ * - life tap: 1 on down (inversion), 1 on up (number + readout + restore);
+ * - life hold: the down frame, 1 per repeat (number + readout), 1 on up (restore);
+ * - drawer tab tap: 1 on down (tab inverted), 1 on up (whole panel: drawer opens/closes, number moves);
+ * - counter / damage / tax tap: 1 on down (cell half inverted), 1 on up (cell value + restore; with
+ *   linked commander damage also the life total and readout in the same frame);
+ * - chevron / header tap: 1 on down, 1 on up (drawer redrawn);
  * - readout commit (3 s idle on that seat): 1, readout rect only.
- *
- * Timing (hold delay/cadence, readout idle commit) lives in the pure [PlayInput] and [PendingDeltas];
- * this View only supplies main-thread [HandlerScheduler]s.
  */
 @SuppressLint("ViewConstructor")
 class PlayView(context: Context, private val session: GameSession) :
-    View(context), GameSession.Listener, PlayInput.Sink, PendingDeltas.Sink {
+    View(context), GameSession.Listener, PlayInput.Sink, PendingDeltas.Sink, PlayInput.ZoneMap,
+    DrawerController.Host, SettingsHolder.Listener {
 
     private val r = DitherRenderer()
     private val text = TextRenderer(r)
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val holdTimers = HandlerScheduler(mainHandler, PlayLayout.PLAYERS * 2)
+    private val holdTimers = HandlerScheduler(mainHandler, DrawerZones.COUNT)
     private val readoutTimers = HandlerScheduler(mainHandler, PlayLayout.PLAYERS)
-    private val input = PlayInput(this, holdTimers).also { holdTimers.target = it }
+    private val input = PlayInput(this, holdTimers, DrawerZones.COUNT).also { holdTimers.target = it }
     private val pending = PendingDeltas(
         PlayLayout.PLAYERS, readoutTimers, this, session.history.coalesceWindowMillis,
     ).also { readoutTimers.target = it }
 
-    /** Seat whose life change is being applied by this View's own tap/repeat, else -1. */
+    private val drawers = DrawerState(PlayLayout.PLAYERS)
+    private val drawer = DrawerController(drawers, this)
+    private val painter = DrawerPainter(r, text)
+    private val settings = SettingsHolder.shared
+
+    /** Seat whose change is being applied by this View's own tap/repeat/drawer, else -1. */
     private var applyingSeat = -1
 
-    /** Life per hold-repeat step (wire `AppSettings.holdRepeatStep` here, T12); ≤ 0 disables hold. */
-    var holdStep: Int
-        get() = input.holdStep
-        set(value) { input.holdStep = value }
+    /** Life per hold-repeat step (`AppSettings.holdRepeatStep`, T12); ≤ 0 disables hold on life. */
+    var holdStep: Int = PlayInput.DEFAULT_HOLD_STEP
 
     private var layout: PlayLayout? = null
+    private var dl: DrawerLayout? = null
 
     // Scratch, reused: no allocation in onDraw / touch paths.
     private val clipDev = Rect()
@@ -71,6 +84,7 @@ class PlayView(context: Context, private val session: GameSession) :
     private val clip = IRect()
     private val fp = IRect()
     private val dev = IRect()
+    private val fb = IRect()
 
     /** Debug (`--ez trace true`): logs every onDraw's clip and duration. Allocates; off by default. */
     var trace = false
@@ -89,6 +103,8 @@ class PlayView(context: Context, private val session: GameSession) :
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         session.listener = this
+        settings.addListener(this)
+        drawer.refreshAll()
         invalidate() // state may have changed while detached
     }
 
@@ -97,6 +113,7 @@ class PlayView(context: Context, private val session: GameSession) :
         pending.commitAll()
         holdTimers.cancelAll()
         readoutTimers.cancelAll()
+        settings.removeListener(this)
         if (session.listener === this) session.listener = null
         super.onDetachedFromWindow()
     }
@@ -107,42 +124,55 @@ class PlayView(context: Context, private val session: GameSession) :
         r.setGrid(grid)
         r.prewarm()
         val l = PlayLayout.compute(grid)
+        val d = DrawerLayout(l)
         layout = l
-        input.layout = l
-        prewarmGlyphs(l)
-        if (trace) Log.d(TAG, "layout $l")
+        dl = d
+        input.zones = this // re-binding cancels every touch
+        drawer.layout = d
+        prewarmGlyphs(l, d)
+        if (trace) Log.d(TAG, "layout $l\n$d")
     }
 
     /**
-     * Builds the renderer's scaled glyph masks for every character the Play screen can show, at every
-     * k it can use, by drawing them once into a throwaway 1×1 canvas — so the first time a digit
-     * appears mid-game, onDraw doesn't allocate or build a bitmap.
+     * Builds the renderer's scaled glyph/icon masks for everything the Play screen can show, by
+     * drawing them once into a throwaway 1×1 canvas — so nothing is built or allocated in onDraw.
      */
-    private fun prewarmGlyphs(l: PlayLayout) {
+    private fun prewarmGlyphs(l: PlayLayout, d: DrawerLayout) {
         val scratch = Canvas(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
         r.begin(scratch)
         for (k in 1..l.kMax) text.draw(l.font, WARM_CHARS, 0, 0, k)
         text.draw(l.font, WARM_CHARS, 0, 0, l.pmK)
+        text.draw(l.font, WARM_CHARS, 0, 0, PlayLayout.pmK(d.numberK))
         for (k in 1..l.readoutK) text.draw(l.readoutFont, WARM_CHARS, 0, 0, k)
+        painter.prewarm(d)
     }
 
     // ---- state ----------------------------------------------------------------------------
 
     override fun onStateChanged(old: GameState, new: GameState) {
         val l = layout ?: return
+        val d = dl ?: return
         val np = new.players
         if (np.size != l.playerCount || old.players.size != np.size) {
+            drawer.refreshAll()
             invalidate(); return
         }
-        // A change this View didn't make (undo, restore, drawer, menu…) is "another kind of action":
+        // A change this View didn't make (undo, restore, menu…) is "another kind of action":
         // it commits every open readout group first.
         val own = applyingSeat
         if (own < 0) pending.commitAll()
         for (i in np.indices) {
             if (np[i] === old.players[i]) continue
-            invalidateDither(l.numberSlot[i])
+            if (np[i].life != old.players[i].life) {
+                invalidateDither(if (drawers.isOpen(i)) d.numberSlot[i] else l.numberSlot[i])
+            }
             if (i == own) pending.add(i, np[i].life - old.players[i].life)
         }
+        drawer.onStateChanged(old, new)
+    }
+
+    override fun onSettingsChanged(old: au.com.josephmark.dithertracker.core.serial.AppSettings, new: au.com.josephmark.dithertracker.core.serial.AppSettings) {
+        if (old.drawerCounters != new.drawerCounters) drawer.onCountersChanged()
     }
 
     /** Applies a life step for [seat], attributing the resulting state change to the readout. */
@@ -155,23 +185,48 @@ class PlayView(context: Context, private val session: GameSession) :
         }
     }
 
+    // ---- DrawerController.Host --------------------------------------------------------------
+
+    override val game: GameState get() = session.state
+
+    override val drawerCounters: List<Counter> get() = settings.current.drawerCounters
+
+    /**
+     * Drawer actions are this View's own: a life change they cause (linked commander damage) goes
+     * into that seat's pending-delta readout, and they don't commit other seats' readouts.
+     */
+    override fun dispatch(seat: Int, action: Action) {
+        applyingSeat = seat
+        try {
+            session.dispatch(action, System.currentTimeMillis())
+        } finally {
+            applyingSeat = -1
+        }
+    }
+
+    override fun invalidate(rect: IRect) = invalidateDither(rect)
+
+    override fun cancelTouches(from: Int, until: Int) = input.cancelZones(from, until)
+
     // ---- pending-delta readout ------------------------------------------------------------
 
     override fun onReadoutChanged(seat: Int) {
-        layout?.let { invalidateDither(it.readoutSlot[seat]) }
+        val l = layout ?: return
+        val d = dl ?: return
+        invalidateDither(if (drawers.isOpen(seat)) d.readoutSlot[seat] else l.readoutSlot[seat])
     }
 
     override fun onGroupCommitted(seat: Int) {
-        // Close core's undo group only if it is still this seat's: core has one open group, and a tap
-        // on another seat (or any other action) has already closed it. Allocates a key string once
-        // per commit — not per tap.
-        val players = session.state.players
-        if (seat !in players.indices) return
-        val open = session.history.openGroup ?: return
-        if (open == Action.ChangeLife(players[seat].id, 1).coalesceKey) session.endGroup()
+        // Core groups undo per coalesce key (T29): close just this seat's life group.
+        session.endLifeGroup(seat)
     }
 
     // ---- input ----------------------------------------------------------------------------
+
+    override fun hitTest(gx: Int, gy: Int): Int = dl?.hitTest(gx, gy, drawers) ?: PlayLayout.NONE
+
+    override fun repeats(zone: Int): Boolean =
+        if (DrawerZones.isLife(zone)) holdStep > 0 else drawer.repeats(zone)
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -193,22 +248,32 @@ class PlayView(context: Context, private val session: GameSession) :
         return true
     }
 
-    override fun onZoneTap(zone: Int, eventTimeMillis: Long) {
-        applyLife(PlayLayout.zoneSeat(zone), PlayLayout.zoneDelta(zone))
-        if (trace) Log.d(TAG, "tap zone $zone → seat ${PlayLayout.zoneSeat(zone)} life ${session.state.players[PlayLayout.zoneSeat(zone)].life}")
+    override fun onZoneTap(zone: Int) {
+        if (DrawerZones.isLife(zone)) {
+            applyLife(PlayLayout.zoneSeat(zone), PlayLayout.zoneDelta(zone))
+        } else {
+            drawer.onTap(zone)
+        }
+        if (trace) Log.d(TAG, "tap zone $zone")
     }
 
-    override fun onZoneRepeat(zone: Int, delta: Int) {
-        applyLife(PlayLayout.zoneSeat(zone), delta)
-        if (trace) Log.d(TAG, "repeat zone $zone $delta → life ${session.state.players[PlayLayout.zoneSeat(zone)].life}")
+    override fun onZoneRepeat(zone: Int) {
+        if (DrawerZones.isLife(zone)) {
+            if (holdStep > 0) applyLife(PlayLayout.zoneSeat(zone), PlayLayout.zoneDelta(zone) * holdStep)
+        } else {
+            drawer.onRepeat(zone)
+        }
+        if (trace) Log.d(TAG, "repeat zone $zone")
     }
 
     override fun onZonePressed(zone: Int) {
-        layout?.let { invalidateDither(it.zones[zone]) }
+        val d = dl ?: return
+        if (d.feedbackRect(zone, drawers, fb)) invalidateDither(fb)
     }
 
     override fun onZoneReleased(zone: Int) {
-        layout?.let { invalidateDither(it.zones[zone]) }
+        val d = dl ?: return
+        if (d.feedbackRect(zone, drawers, fb)) invalidateDither(fb)
     }
 
     @Suppress("DEPRECATION")
@@ -222,6 +287,7 @@ class PlayView(context: Context, private val session: GameSession) :
 
     override fun onDraw(canvas: Canvas) {
         val l = layout ?: return
+        val d = dl ?: return
         val t0 = if (trace) SystemClock.elapsedRealtimeNanos() else 0L
         r.begin(canvas)
         if (!canvas.getClipBounds(clipDev)) return
@@ -233,28 +299,19 @@ class PlayView(context: Context, private val session: GameSession) :
         if (hit(l.dividerH)) r.dottedH(l.dividerH.left, l.dividerH.top, l.dividerH.width)
 
         val players = session.state.players
-        for (s in 0 until minOf(l.playerCount, players.size)) {
+        val n = minOf(l.playerCount, players.size)
+        for (s in 0 until n) {
             if (!hit(l.panels[s])) continue
-            drawSeat(l, s, players[s])
+            drawSeat(l, d, s, players)
         }
 
-        // Press feedback: invert the pressed half-panels, then put the static chrome back on top.
-        for (z in l.zones.indices) {
-            if (!input.isPressed(z) || !hit(l.zones[z])) continue
-            if (DitherRenderer.canInvertInPlace) {
-                r.invertRect(l.zones[z])
-            } else {
-                // API < 29: redraw the seat inverted, clipped to the zone.
-                l.grid.toDevice(l.zones[z], dev)
-                canvas.save()
-                canvas.clipRect(dev.left, dev.top, dev.right, dev.bottom)
-                r.withInverted { r.clear(); drawSeat(l, PlayLayout.zoneSeat(z), players[PlayLayout.zoneSeat(z)]) }
-                canvas.restore()
-            }
-        }
+        // Press feedback, life halves first (the closed tab is drawn back on top of them).
+        for (z in 0 until DrawerZones.LIFE) if (input.isPressed(z)) invertZone(canvas, l, d, z, players)
 
-        for (s in 0 until l.playerCount) if (hit(l.tab[s])) drawTab(l, s)
+        for (s in 0 until n) if (!drawers.isOpen(s) && hit(l.tab[s])) drawTab(l, s)
         if (hit(l.diamond)) drawDiamond(l)
+
+        for (z in DrawerZones.LIFE until DrawerZones.COUNT) if (input.isPressed(z)) invertZone(canvas, l, d, z, players)
 
         if (trace) {
             val us = (SystemClock.elapsedRealtimeNanos() - t0) / 1000
@@ -262,20 +319,45 @@ class PlayView(context: Context, private val session: GameSession) :
         }
     }
 
-    private fun drawSeat(l: PlayLayout, s: Int, p: Player) {
+    private fun invertZone(canvas: Canvas, l: PlayLayout, d: DrawerLayout, z: Int, players: List<Player>) {
+        if (!d.feedbackRect(z, drawers, fb) || !hit(fb)) return
+        if (DitherRenderer.canInvertInPlace) {
+            r.invertRect(fb)
+            return
+        }
+        // API < 29: redraw the seat inverted, clipped to the rect.
+        val s = DrawerZones.seatOf(z)
+        l.grid.toDevice(fb, dev)
+        canvas.save()
+        canvas.clipRect(dev.left, dev.top, dev.right, dev.bottom)
+        r.withInverted {
+            r.clear()
+            drawSeat(l, d, s, players)
+            if (!drawers.isOpen(s)) drawTab(l, s)
+        }
+        canvas.restore()
+    }
+
+    private fun drawSeat(l: PlayLayout, d: DrawerLayout, s: Int, players: List<Player>) {
+        val p = players[s]
         val rot = l.rotation[s]
         val f = l.font
-        if (hit(l.minusGlyph[s])) text.draw(f, MINUS, l.minusGlyph[s].left, l.minusGlyph[s].top, l.pmK, rot)
-        if (hit(l.plusGlyph[s])) text.draw(f, PLUS, l.plusGlyph[s].left, l.plusGlyph[s].top, l.pmK, rot)
-        if (hit(l.numberSlot[s])) {
-            val k = l.numberFootprint(s, p.life, fp)
+        val open = drawers.isOpen(s)
+        val pmK = if (open) PlayLayout.pmK(d.numberK) else l.pmK
+        val minus = if (open) d.minusGlyph[s] else l.minusGlyph[s]
+        val plus = if (open) d.plusGlyph[s] else l.plusGlyph[s]
+        if (hit(minus)) text.draw(f, MINUS, minus.left, minus.top, pmK, rot)
+        if (hit(plus)) text.draw(f, PLUS, plus.left, plus.top, pmK, rot)
+        if (hit(if (open) d.numberSlot[s] else l.numberSlot[s])) {
+            val k = if (open) d.numberFootprint(s, p.life, fp) else l.numberFootprint(s, p.life, fp)
             text.drawInt(f, p.life, fp.left, fp.top, k, rot)
         }
-        val d = pending.delta(s)
-        if (d != 0 && hit(l.readoutSlot[s])) {
-            val k = l.readoutFootprint(s, d, fp)
-            text.drawInt(l.readoutFont, d, fp.left, fp.top, k, rot, signed = true)
+        val delta = pending.delta(s)
+        if (delta != 0 && hit(if (open) d.readoutSlot[s] else l.readoutSlot[s])) {
+            val k = if (open) d.readoutFootprint(s, delta, fp) else l.readoutFootprint(s, delta, fp)
+            text.drawInt(l.readoutFont, delta, fp.left, fp.top, k, rot, signed = true)
         }
+        if (open) painter.draw(d, drawer, s, players, clip)
     }
 
     private fun drawTab(l: PlayLayout, s: Int) {

@@ -44,7 +44,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 |----|--------|------|------|-------|
 | T06 | done | T03 T04 T05 | Play screen for 4 players landscape: 2×2 panels, top row rotated 180°, dotted dividers, life total, −/+ hit zones (whole left/right half), inversion press feedback, dirty-rect redraws. | `app/src/main/**/play/` |
 | T07 | done | T06 | Hold-to-repeat (±10 steps) and pending-delta readout with idle commit. | `play/`, `core/` reducer hooks |
-| T08 | wip | T06 T02 | Player drawer: bottom tab, opens (no animation) to tracker tray; counters with icon + value + −/+; `COMMANDER DAMAGE` button → per-opponent damage view (partner aware, optional life link). | `app/src/main/**/drawer/` |
+| T08 | done | T06 T02 | Player drawer: bottom tab, opens (no animation) to tracker tray; counters with icon + value + −/+; `COMMANDER DAMAGE` button → per-opponent damage view (partner aware, optional life link). | `app/src/main/**/drawer/` |
+| T30 | wip | T08 T27 | **Commander damage mode on the main interface** (Sam, 2026-11-13): an icon button on each player's tile; pressing it makes that player the *target* — every other tile swaps its life total for the commander damage that tile's player has dealt to the target (−/+ adjust it; partner slots supported), and the target's own tile swaps its life total for a quip (e.g. "Target"). Press again (or the target tile) to leave. Remove the drawer's COMMANDER DAMAGE button/view. Add a target quip category to core flavour. Same agent as T27, after it. | `play/`, `drawer/`, `core/**/flavour/` |
+| T31 | wip | — | Icon: redraw `commander` (and `partner` to match) to read as an *enemy* — demon/imp — in the current solid style. Design-only. | `design/icons/` |
 | T09 | todo | T06 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
 | T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
 | T10b | done | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
@@ -85,7 +87,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T28b | done | T28a | Effect engine (JVM-only): build step turning `design/fx/<name>/` frames + meta into generated Kotlin, pure `FxPlayer` state machine (injectable scheduler; trigger/cancel/no-queue/max-two rules), draw helper (black + knock-out layers, rotation). Ships `pow` and `twinkle`. No PlayView wiring. | `app/**/fx/`, `app/build.gradle.kts` |
 | T28c | todo | T28b T08 T27 | Wire effects into the play screen: trigger on delta commit by sign, cancel on tap, settings toggle; re-fit frames to sticker numerals; tune hold time and film on the Nomad. | `play/`, `design/fx/` |
 | T28d | wip | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
-| T27 | todo | T08 (owns play/) | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
+| T27 | wip | T08 | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
 
 ## Task notes
@@ -210,3 +212,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   `FxRenderer`, `FxLayout`, `FxPolicy`; wiring notes for T28c in `app/.../fx/README.md`. Note for
   T28c: `PendingDeltas.commit` zeroes the delta before the sink callback — pass the net through.
   Metas lack a `role` line (built-in fallback table for the nine names). T08 (device), T28d running.
+- 2026-11-13 — Tick 19: T08 verified by the coordinator on the Nomad (130 core + 157 app tests; fresh
+  data; tap on release 40->39; 2.7 s hold 40->10; drawer opens, number moves up, tax cell 0->4; capture
+  passes checker) and committed. New press model: nothing on touch-down, tap applies on release, hold
+  = +/-10 at 500 ms then every 1000 ms. Sam: move commander damage out of the drawer into a main-
+  interface "target" mode (T30) and make the commander icon an enemy imp/demon (T31). Dispatched one
+  agent for T27 then T30 (device), and T31 (design-only). T28d still running.
