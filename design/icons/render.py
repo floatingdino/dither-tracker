@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Render every design/icons/*.txt into a contact-sheet PNG (stdlib only).
 
-Usage: python3 design/icons/render.py [--scale N] [--cols N]
+Usage: python3 design/icons/render.py [--scale N] [--cols N] [--src DIR] [--out DIR] [--name BASE]
+
+  --src DIR   render the *.txt files in DIR instead (e.g. a folder of candidate
+              sketches named poison-a.txt, poison-b.txt ...); default: this folder
+  --name BASE output base name (default contact-sheet -> contact-sheet.png and
+              contact-sheet-inverted.png)
 
 Writes contact-sheet.png and contact-sheet-inverted.png next to this script.
 Each cell shows the icon at N x (nearest-neighbour, default 8) inside a thin
@@ -49,11 +54,11 @@ FONT = {
 WHITE, BLACK, GREY, PAPER = 255, 0, 170, 230
 
 
-def load_icons():
+def load_icons(src=HERE):
     icons = []
-    for fn in sorted(os.listdir(HERE)):
+    for fn in sorted(os.listdir(src)):
         if fn.endswith('.txt'):
-            with open(os.path.join(HERE, fn)) as f:
+            with open(os.path.join(src, fn)) as f:
                 rows = f.read().split('\n')[:16]
             icons.append((fn[:-4], rows))
     return icons
@@ -124,9 +129,11 @@ def main():
     ap.add_argument('--scale', type=int, default=8)
     ap.add_argument('--cols', type=int, default=10)
     ap.add_argument('--out', default=HERE)
+    ap.add_argument('--src', default=HERE)
+    ap.add_argument('--name', default='contact-sheet')
     a = ap.parse_args()
-    icons = load_icons()
-    for inv, name in ((False, 'contact-sheet.png'), (True, 'contact-sheet-inverted.png')):
+    icons = load_icons(a.src)
+    for inv, name in ((False, a.name + '.png'), (True, a.name + '-inverted.png')):
         w, h, px = render(icons, a.scale, a.cols, inv)
         write_png(os.path.join(a.out, name), w, h, px)
         print('wrote', os.path.join(a.out, name), f'{w}x{h}', f'{len(icons)} icons')

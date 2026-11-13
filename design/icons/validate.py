@@ -7,8 +7,9 @@ Checks:
   * no blank icons and no two identical icons
 
 Usage: python3 design/icons/validate.py [--report]
-  --report  also print each icon's ink bounding box and its offset from the
-            optical centre (7.5, 7.5) as a centring aid.
+  --report  also print each icon's ink bounding box, its offset from the
+            optical centre (7.5, 7.5), its ink pixel count and ink density
+            (ink / bbox area) as centring and weight aids. See README "Style".
 """
 import os
 import sys
@@ -54,8 +55,10 @@ def main():
             xs = [p[0] for p in ink]; ys = [p[1] for p in ink]
             dx = (min(xs) + max(xs)) / 2 - 7.5
             dy = (min(ys) + max(ys)) / 2 - 7.5
-            print(f'{name:16} bbox x{min(xs)}-{max(xs)} y{min(ys)}-{max(ys)}  '
-                  f'centre offset ({dx:+.1f}, {dy:+.1f})')
+            w = max(xs) - min(xs) + 1; h = max(ys) - min(ys) + 1
+            print(f'{name:16} bbox x{min(xs)}-{max(xs)} y{min(ys)}-{max(ys)} ({w}x{h})  '
+                  f'centre offset ({dx:+.1f}, {dy:+.1f})  ink {len(ink):3}  '
+                  f'density {len(ink) / (w * h):.2f}')
     for e in errors:
         print('FAIL', e)
     print(f'{len(names)} icons checked, {len(errors)} problem(s)')

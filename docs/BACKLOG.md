@@ -72,7 +72,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T20 | todo | T11 T12 | Performance pass: zero allocations in draw, startup time, APK size, StrictMode clean; measure on emulator throttled. | whole app |
 | T21 | todo | T04 T02 | App icon (1-bit, adaptive + legacy) and launcher label from the icon set / dither patterns. | `app/src/main/res/` |
 | T22 | todo | all | Full pixel-purity regression suite: render every screen at S=2..6, both orientations, inverted and not; fail on any non-#000/#FFF pixel or any off-grid edge. | `app/src/test/` |
-| T24 | wip | — | Icon redesign per Sam's feedback: redo `poison` (ugly), `rads` (too large in the set), refine `storm`; rework `experience`, `life`, `energy`, `commander` (too simplistic/off); add weight and a slightly cutesy/wacky character across the set, keeping the filled-arrow feel of `refresh`/`reset`. | `design/icons/` |
+| T24 | done | — | Icon redesign per Sam's feedback: redo `poison` (ugly), `rads` (too large in the set), refine `storm`; rework `experience`, `life`, `energy`, `commander` (too simplistic/off); add weight and a slightly cutesy/wacky character across the set, keeping the filled-arrow feel of `refresh`/`reset`. | `design/icons/` |
 | T25 | todo | T15 T16 | Personality copy: `core` quip tables (KO lines by reason, dice/coin lines, reset confirm, empty history) picked via injected `Random`; shown as static `ui`-face text; "quips" setting. Original lines only. | `core/src/**/flavour/`, call sites |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
 
@@ -97,6 +97,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 
 - E-ink experiments E1–E10 in `docs/eink.md` §5 need a phone slow-motion video / raking-light photos
   of the Nomad once the play screen is on it — the coordinator can drive the taps over adb.
+
+- Icon redesign (T24) is awaiting Sam's eye: `design/icons/contact-sheet.png` vs `contact-sheet-before.png`.
+  Coordinator's notes: `storm` is now the only outline icon in a mostly solid set; `partner` is busy;
+  `initiative` still cone-like.
 
 ## Tick log
 
@@ -133,3 +137,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   refresh API for sideloaded apps; `invalidate(Rect)` doesn't limit redraw; strategy = minimal changed
   pixels, one frame per action, single window, app-drawn flash cleanup, optional guarded vendor
   `screenRefresh`. Added SPEC rule 7 (single window). Forwarded to the T06 agent. T06, T24 running.
+- 2026-11-13 — Tick 10: T24 reviewed (validator: 43 icons, 0 problems; sheet eyeballed) and
+  committed. 30 icons redrawn as solid shapes with cut-out details; arrows share filled heads. T06 running.
