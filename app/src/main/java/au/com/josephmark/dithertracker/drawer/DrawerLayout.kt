@@ -57,7 +57,8 @@ class DrawerLayout(val play: PlayLayout) {
     val inset: Int = PlayLayout.Chrome.size(INSET, scale)
     val pad: Int = PlayLayout.Chrome.size(PAD, scale)
     val iconGap: Int = PlayLayout.Chrome.size(ICON_GAP, scale)
-    val readoutGap: Int = PlayLayout.Chrome.size(READOUT_GAP, scale)
+    /** Paper between the readout and the number: the closed tile's ([PlayLayout.READOUT_GAP] per hero k, T37). */
+    val readoutGap: Int = PlayLayout.READOUT_GAP * play.kMax
 
     /** Paper rim around an icon/label drawn straight on the drawer texture (zero-valued cells). */
     val halo: Int = PlayLayout.Chrome.size(HALO, scale)
@@ -328,7 +329,6 @@ class DrawerLayout(val play: PlayLayout) {
         const val INSET = 2
         const val PAD = 2
         const val ICON_GAP = 2
-        const val READOUT_GAP = 6
         const val HALO = 1
 
         /** Closest a tray value's digits ever sit (font px): 1 keeps the 3-px stems apart. */

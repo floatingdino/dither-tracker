@@ -55,22 +55,22 @@ class CommanderLayoutTest {
         assertEquals(IRect(2, 176 + 77, 22, 176 + 97), c.partnerMinus[3 * 2])
         assertEquals(IRect(94, 176 + 77, 114, 176 + 97), c.partnerPlus[3 * 2])
         assertEquals(l.underRow[3].top + 1, c.partnerIcon[3 * 2].top)
-        // Target block: below the readout (15..43) + 4, above the tab band (154 − 8) − 4.
-        assertEquals(47, c.targetTop); assertEquals(142, c.targetBottom)
-        assertSame(Fonts.NUM_M, c.lifeFont); assertEquals(2, c.lifeK); assertEquals(28, c.lifeRowH)
+        // Target block: below the readout (39..53) + 4, above the tab band (154 − 8) − 4.
+        assertEquals(57, c.targetTop); assertEquals(142, c.targetBottom)
+        assertSame(Fonts.NUM_M, c.lifeFont); assertEquals(1, c.lifeK); assertEquals(16, c.lifeRowH)
         assertEquals(10, c.quipGap)
         // One size below the largest that fits (designer), never below 2.
         assertEquals(4, c.quipFitK("Uh oh".length)); assertEquals(3, c.quipK("Uh oh".length))
         assertEquals(2, c.quipFitK("Here it comes".length)); assertEquals(2, c.quipK("Here it comes".length))
         assertEquals(2, c.quipK("Should've ducked".length))
-        // "UH OH" at k = 3: caps 65..86 centred, then 10 px, then the life row 96..124.
+        // "UH OH" at k = 3: caps 76..97 centred, then 10 px, then the life row 107..123.
         val fp = IRect(); val icon = IRect(); val num = IRect()
         assertEquals(3, c.quipFootprint(3, 5, fp))
-        assertEquals(IRect((233 - 87) / 2, 176 + 65, (233 - 87) / 2 + 87, 176 + 65 + 27), fp)
-        assertEquals(2, c.lifeFootprint(3, 5, 40, icon, num))
-        // icon 16 + gap 3 + "40" (44) = 63 wide, centred at x 85
-        assertEquals(IRect(85, 176 + 102, 101, 176 + 118), icon)
-        assertEquals(IRect(104, 176 + 96, 148, 176 + 124), num)
+        assertEquals(IRect((233 - 87) / 2, 176 + 76, (233 - 87) / 2 + 87, 176 + 76 + 27), fp)
+        assertEquals(1, c.lifeFootprint(3, 5, 40, icon, num))
+        // icon 16 + gap 3 + "40" (22) = 41 wide, centred at x 96
+        assertEquals(IRect(96, 176 + 107, 112, 176 + 123), icon)
+        assertEquals(IRect(115, 176 + 108, 137, 176 + 122), num)
         // The close X sits centred on the diamond.
         assertEquals(IRect(225, 167, 241, 183), c.closeIcon)
     }

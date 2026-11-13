@@ -40,13 +40,14 @@ class PlayLayoutTest {
         // Under-number row: between the number (bottom 115) and the tab's hit band (top 146).
         assertEquals(IRect(8, 176 + 121, 225, 176 + 139), l.underRow[3])
         assertEquals(IRect(72, 330, 161, 351), l.tab[3]) // 89×21 (T06: 55×12)
-        assertEquals(IRect(46, 176 + 15, 186, 176 + 43), l.readoutSlot[3]) // 6 × num-m (10 wide) at k=2, above the number
-        assertEquals(2, l.readoutK)
+        // 6 × num-m (10 wide) at k=1 (T37), its box 6 px above the number's cap top (59)
+        assertEquals(IRect(81, 176 + 39, 151, 176 + 53), l.readoutSlot[3])
+        assertEquals(1, l.readoutK); assertEquals(39, l.readoutY)
         // Top-left seat (180°): mirrored, tab on the screen top edge.
         assertEquals(IRect(200, 78, 220, 98), l.minusGlyph[0])
         assertEquals(IRect(13, 78, 33, 98), l.plusGlyph[0])
         assertEquals(IRect(72, 0, 161, 21), l.tab[0])
-        assertEquals(IRect(47, 132, 187, 160), l.readoutSlot[0]) // "above" = towards the screen centre
+        assertEquals(IRect(82, 122, 152, 136), l.readoutSlot[0]) // "above" = towards the screen centre
         assertEquals(233, l.diamondCx); assertEquals(175, l.diamondCy)
         assertEquals(IRect(213, 155, 254, 196), l.diamond) // 41×41 (T06: 23×23)
         assertEquals(IRect(224, 166, 243, 185), l.menuBarsBacking)
@@ -223,10 +224,19 @@ class PlayLayoutTest {
         }
     }
 
-    @Test fun readoutIsHalfTheNumberOnTheNomad() {
-        // num-m is half num-l's height; same k → half-size readout, same physical size at S=2..4.
-        assertEquals(listOf(4, 2, 2), nomadScales.take(3).map { it.readoutK })
-        for (l in nomadScales.take(3)) assertEquals(l.font.height(l.kMax), 2 * l.readoutFont.height(l.readoutK))
+    @Test fun readoutIsOneXAndAttachedToTheNumberOnTheNomad() {
+        // T37: the small numerals at the hero's own k (1× beside it), READOUT_GAP·k above its cap top,
+        // so S = 2..4 draw it at the same physical size and distance.
+        assertEquals(listOf(2, 1, 1), nomadScales.take(3).map { it.readoutK })
+        for (l in nomadScales.take(3)) {
+            assertEquals("$l", l.kMax, l.readoutK)
+            assertEquals("$l", PlayLayout.READOUT_GAP * l.kMax, l.numberSlotY - (l.readoutY + l.readoutFont.height(l.readoutK)))
+        }
+        // Clear of the diamond's touch area (not just its bounding box) on every seat.
+        for (l in nomadScales.filter { it.comfortable } + layouts().filter { it.comfortable }.toList()) for (s in 0 until 4) {
+            val ro = l.readoutSlot[s]
+            for (y in ro.top until ro.bottom) for (x in ro.left until ro.right) assertFalse("$l $s", l.inDiamondHit(x, y))
+        }
     }
 
     @Test fun rotatedReadoutMirrorsUpright() {

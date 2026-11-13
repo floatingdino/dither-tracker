@@ -126,6 +126,14 @@ class DrawerLayoutTest {
         }
     }
 
+    @Test fun theOpenReadoutKeepsItsClosedSizeAndGap() {
+        // T37: 1× beside the number whether the drawer is open or not, READOUT_GAP·k above it.
+        for (d in nomad.take(3)) {
+            assertEquals("$d", d.play.readoutK, d.readoutK)
+            assertEquals("$d", PlayLayout.READOUT_GAP * d.numberK, d.numberTop - d.readoutTop - d.play.readoutFont.height(d.readoutK))
+        }
+    }
+
     @Test fun everyCounterValueFitsItsCellWithoutClipping() {
         // T37: the bold num-m is 10 wide; `999` at tracking 2 is 34 px against a 32-px value box at
         // S = 4, so 3-digit values close to tracking 1 (and nothing else does).

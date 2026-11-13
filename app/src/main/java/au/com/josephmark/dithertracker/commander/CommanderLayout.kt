@@ -127,7 +127,7 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
         }
         // Target block region: V_MIN below the readout slot, V_MIN above the tab's hit band.
         val roH = play.readoutFont.height(play.readoutK)
-        targetTop = TextLayout.centre(slotY, roH) + roH + PlayLayout.V_MIN
+        targetTop = play.readoutY + roH + PlayLayout.V_MIN
         targetBottom = H - play.chrome.tabH - play.chrome.tabHitPad - PlayLayout.V_MIN
         var lk = play.readoutK
         while (lk > 1 && maxOf(iconSize, lifeFont.height(lk)) + quipGap + ui.capHeight > targetBottom - targetTop) lk--

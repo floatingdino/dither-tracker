@@ -94,8 +94,11 @@ class PlayLayout private constructor(
      */
     val readoutSlot: Array<IRect> = Array(PLAYERS) { IRect() }
 
-    /** Glyph scale of the readout (`num-m` at about half the number's height). */
+    /** Glyph scale of the readout (`num-m` at the hero's k: 1× beside the sticker, T37). */
     val readoutK: Int
+
+    /** Player-frame top of [readoutSlot] (the readout's box, [READOUT_GAP]·k above the number). */
+    val readoutY: Int
 
     /** Minimum hit size in dither px: ceil([MIN_TOUCH_DEVICE_PX] / S) (≈ 9 mm on the Nomad). */
     val target: Int = (MIN_TOUCH_DEVICE_PX + grid.scale - 1) / grid.scale
@@ -175,17 +178,20 @@ class PlayLayout private constructor(
         val pmY = pmCapAlignedY(slotY, kMax)
         pmVisible = pmX >= 0 && pmX + pmW <= side
 
-        // Readout: `num-m` at half the number's height (k = 2 under a k = 1 sticker), stepped down
-        // while its box does not fit above the number with V_MIN either side, or its width would
-        // reach the diamond corner (GAP_MIN beyond its reach) on either side.
-        var rk = maxOf(1, font.height(kMax) / 2 / readoutFont.glyphHeight)
+        // Readout (T37): the small numerals at the hero's own glyph scale (k = 1 beside a k = 1
+        // sticker, so the same physical size at every S), attached to the number: its box sits
+        // [READOUT_GAP]·k above the number slot's top (the hero's cap top), never closer than V_MIN to
+        // the far edge. Stepped down only if its width would reach the diamond corner (GAP_MIN beyond
+        // its reach) on either side, or its height would not fit above the number.
+        var rk = kMax
         val clearW = panelW - 2 * (diamondHalf + GAP_MIN)
         while (rk > 1 && (readoutFont.height(rk) + 2 * V_MIN > slotY || readoutFont.widthOf(READOUT_CHARS, rk) > clearW)) rk--
         readoutK = rk
         val roW = readoutFont.widthOf(READOUT_CHARS, rk)
         val roH = readoutFont.height(rk)
         val roX = (panelW - roW) / 2
-        val roY = TextLayout.centre(slotY, roH)
+        val roY = maxOf(V_MIN, slotY - READOUT_GAP * kMax - roH)
+        readoutY = roY
 
         val tabW = minOf(c.tabW, panelW)
         val tabH = minOf(c.tabH, panelH)
@@ -315,7 +321,7 @@ class PlayLayout private constructor(
      * `TextRenderer.drawInt(readoutFont, delta, out.left, out.top, k, rotation[seat], signed = true)`.
      */
     fun readoutFootprint(seat: Int, delta: Int, out: IRect): Int =
-        readoutFootprintAt(seat, delta, readoutK, TextLayout.centre(numberSlotY, readoutFont.height(readoutK)), out)
+        readoutFootprintAt(seat, delta, readoutK, readoutY, out)
 
     /** [readoutFootprint] for a readout slot sized for [kTop] whose top is at player-frame y [slotY]. */
     fun readoutFootprintAt(seat: Int, delta: Int, kTop: Int, slotY: Int, out: IRect): Int {
@@ -440,6 +446,9 @@ class PlayLayout private constructor(
 
         /** Minimum dither px between the number and the tab band, above and below (and around the readout). */
         const val V_MIN = 4
+
+        /** Paper between the readout's box and the hero number's cap top, per glyph scale k (T37). */
+        const val READOUT_GAP = 6
 
         /** 9 mm at 300 dpi (the Nomad): the fingertip minimum for every hit rect. */
         const val MIN_TOUCH_DEVICE_PX = 106
