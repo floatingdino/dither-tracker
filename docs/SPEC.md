@@ -114,9 +114,13 @@ Icons must read clearly at S=2..6 and when inverted.
 
 Friendly, lighthearted, doesn't take itself too seriously — never overt or cringey. Personality
 lives in small spaces, not in the main play surface:
+- **Effects**: Sam loves dither shading used both in overlays and in how effects interact with the
+  numerals (ghosting, cut-outs, gloss). Keep building in that language.
 - **Icons** lean slightly cutesy/wacky: rounder, a bit more character (faces, tilt, small details),
   and a bit more weight — partly filled shapes (like the arrowheads on `refresh`/`reset`) read well.
   The three original Figma icons are *not* sacred: `poison` and `rads` get redesigned, `storm` refined.
+- **Copy voice** (Sam, 2026-11-13): a smidge combative — the friend who heckles you across the table:
+  "uh oh", "whoops", "beefed it". Short, blunt, playful; teasing, never mean or crude.
 - **Copy**: short deadpan one-liners in a few spots — a random quip when a player is knocked out
   (in the spirit of Lotus's "didn't pay the 1"), dice/coin results, the reset confirm, empty history,
   first-launch names. Original lines only (MTG table humour, no card text or copied quotes), always

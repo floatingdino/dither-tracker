@@ -89,8 +89,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T26 | done | — | Hero numeral exploration: 4–5 heavier, more characterful candidates for life totals, rendered in-context at device pixels for Sam to pick. | `design/font/candidates/` (or `design/font-candidates/`) |
 | T28a | done | — | Hit/heal effect sprites: 3–4 damage and 2–3 heal effect concepts (swipe, crunch, fizzle, sparkle…), 2–4 frames each as 1-bit ASCII frames, with offline previews (frame strips + in-context mock). | `design/fx/` |
 | T28b | done | T28a | Effect engine (JVM-only): build step turning `design/fx/<name>/` frames + meta into generated Kotlin, pure `FxPlayer` state machine (injectable scheduler; trigger/cancel/no-queue/max-two rules), draw helper (black + knock-out layers, rotation). Ships `pow` and `twinkle`. No PlayView wiring. | `app/**/fx/`, `app/build.gradle.kts` |
-| T28c | todo | T28b T08 T27 | Wire effects into the play screen: trigger on delta commit by sign, cancel on tap, settings toggle; re-fit frames to sticker numerals; tune hold time and film on the Nomad. | `play/`, `design/fx/` |
+| T28c | todo | T28e T27 T30 | Promote **all** round-two options Sam approved from `design/fx/options/` to `design/fx/` (claw: `claw-cut` only — "Claw-A"; drop `claw-paper`; retire round-one `claw`, `wham`, `zap` and old `pow`/`crack`/`twinkle` in favour of the refits; keep `heart`, `sprout`, `fizzle`), then wire effects into the play screen: trigger on delta commit by sign/size, KO and last-standing flourishes, cancel on tap, settings toggle; tune hold time and film on the Nomad. | `play/`, `design/fx/` |
 | T28e | wip | T28b | Engine support for round-two effects: `x` (invert under mask), tile-filled layers at global phase, `anchor tile`; promote chosen options from `design/fx/options/` to `design/fx/`. JVM-only. | `app/**/fx/`, `design/fx/` |
+| T28f | todo | T28c | More effects in the round-two style (Sam: "continue building out more animations in this style after all the current set"): dither shading in overlays and numeral interactions, cut-outs, tile-wide reach; new damage/heal variety, counter-specific hits (poison, commander damage), monarch/initiative gained, turn pass, dice/coin reveals. Design then promote. | `design/fx/` |
+| T33 | todo | T30 (owns flavour) | Quip tone pass: make the whole table a smidge more combative ("uh oh", "whoops", "beefed it") per SPEC Tone; keep length/charset rules and the doc mirror. | `core/**/flavour/`, `design/copy/quips.md` |
 | T28d | done | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
 | T27 | wip | T08 | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
@@ -128,11 +130,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - Quips (T25a) are in `design/copy/quips.md` for Sam to mark up. Least sure: "All quiet on the
   battlefield", "Took it personally", "Tails never fails, they say", "Drew nothing but lands" (close in
   spirit to Lotus's "flooded").
-
-- **Pick round-two effects** (T28d): `design/fx/options/sheet.png`, `in-context-*.png`, README.
-  Agent's default set: `quake` (damage), `twinkle2` (heal), `focus` (big hit), `ko-shatter`, `winner`;
-  also `claw-cut`, `pow2`, `crack2`, `rise`, `sunrise`, `vines`, `claw-swipe`, `fault`. Several need two
-  engine additions: an `x` invert-under-mask symbol and dither tile layers, plus a tile anchor.
 
 ## Tick log
 
@@ -243,3 +240,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-13 — Tick 22: dispatched T28e (engine capability only, JVM-only, tested against
   `design/fx/options/`; promotion of chosen effects waits for Sam's picks). Poison icon reverted to
   option A at Sam's request. Running: T27 -> T30 -> T32 (device), T28e.
+- 2026-11-13 — Sam: poison option E after all; all round-two animations approved, `claw-cut` (Claw-A)
+  the pick of the claws, loves the dither shading in overlays and numeral interactions, wants more in
+  this style afterwards (T28f); quips a smidge more combative (T33; target-mode lines told now).
