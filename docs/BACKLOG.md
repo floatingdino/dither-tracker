@@ -25,9 +25,17 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   Put them in the untracked `local/` folder (gitignored; see `local/README.md`) or the coordinator's
   memory, and refer to them from tracked docs without the content. The coordinator still verifies each task
   after the agent reports and commits follow-up fixes and backlog updates separately.
-- **The Nomad is a single shared resource.** At most one running task may use the device
-  (install/launch/tap/screencap); other concurrent tasks must be JVM-test-only and the coordinator
-  does their device check afterwards. (Two agents tapping at once corrupted each other's runs in tick 11.)
+- **Devices.** Two kinds of target:
+  - **Emulator** (`tools/emulator.sh up <port>` -> `emulator-<port>`; Nomad-shaped, 1872x1404 landscape,
+    API 37, read-only instances so several run at once): the default for layout, input, persistence
+    and 1-bit purity checks. **Each agent that needs a device takes its own port** (5560, 5562, …) and
+    runs `tools/emulator.sh down <port>` when done. Always pass `adb -s emulator-<port>`. It is not
+    e-ink and not the Nomad's Android 11: never use it to judge refresh, ghosting, timing or weight.
+  - **The Nomad** (physical, one at a time, coordinator-assigned): for anything about the panel —
+    refresh, ghosting, effects timing, legibility at arm's length — and a final check of each
+    user-visible task. Its adb serial is in the untracked `local/README.md`; always pass `adb -s`.
+    At most one running task may use it. (Two agents tapping it at once corrupted each other's runs
+    in tick 11.) With both attached, a bare `adb` command fails — always name the target.
 - Agents: work only inside the task's **Files**; don't edit this file; finish by
   reporting what was built, how it was verified, and anything left open.
 - "Verified" always means `./gradlew :core:test :app:assembleDebug` passes, plus the task's own check.
@@ -87,7 +95,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 |----|--------|------|------|-------|
 | T19a | done | — | E-ink refresh research: Supernote/Ratta refresh-mode APIs, what stock Android offers, ghosting strategy → `docs/eink.md` with a concrete recommendation. Read-only device inspection. | `docs/eink.md` |
 | T19b | todo | T19a T06 | Implement the refresh strategy from `docs/eink.md`: invalidation audit, periodic full refresh, any safely available device refresh-mode hook. | `app/src/main/**/eink/` |
-| T20 | todo | T11 T12 | Performance pass: zero allocations in draw, startup time, APK size, StrictMode clean; measure on emulator throttled. | whole app |
+| T20 | todo | T09 T12 T28c (most features in) | **Comprehensive performance and battery pass** (Sam, 2026-11-14: as responsive as possible, very frugal with battery). *Responsiveness:* tap-to-pixel latency on the Nomad (trace + high-speed video), cold and warm start, onDraw time per interaction, zero allocations in draw/touch paths (allocation tracker, not just code reading), no main-thread disk or decode, overdraw, bitmap/mask memory, GC pauses, StrictMode clean, baseline profile / R8 full mode, APK size. *Battery:* no wake locks beyond the keep-awake setting; nothing scheduled while idle (no timers, handlers or animations ticking — verify with `dumpsys alarm`, `batterystats`, and CPU time over a 30-minute idle with the screen on and off); save writes batched; effects and readout timers cancelled when idle and in `onPause`; e-ink refresh count per action minimal (each panel update costs power); cleanup-flash cadence justified by measurement; behaviour when backgrounded and on screen-off. *Deliverables:* a repeatable benchmark script under `tools/`, `docs/performance.md` with before/after numbers and budgets (e.g. tap latency, idle CPU ~0), regression tests where practical, fixes applied. Uses the Nomad for all timing. | whole app, `tools/`, `docs/performance.md` |
 | T21 | todo | T04 T02 | App icon (1-bit, adaptive + legacy) and launcher label from the icon set / dither patterns. | `app/src/main/res/` |
 | T22 | todo | all | Full pixel-purity regression suite: render every screen at S=2..6, both orientations, inverted and not; fail on any non-#000/#FFF pixel or any off-grid edge. | `app/src/test/` |
 | T24 | done | — | Icon redesign per Sam's feedback: redo `poison` (ugly), `rads` (too large in the set), refine `storm`; rework `experience`, `life`, `energy`, `commander` (too simplistic/off); add weight and a slightly cutesy/wacky character across the set, keeping the filled-arrow feel of `refresh`/`reset`. | `design/icons/` |
@@ -337,3 +345,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   candidates, dispatched) and T41 (after T34).
 - 2026-11-14 — Sam: `monarch` and `night` can be filled — it was the silhouettes that were liked, not
   the outline treatment. Forwarded to the T40 agent (solid versions keeping the current shapes).
+- 2026-11-14 — Tick 32: Sam: set up a simulator if the device is a bottleneck. Added
+  `tools/emulator.sh` and a `Dither_Nomad` AVD (1404x1872 @ 300 dpi, landscape override; API 37
+  image already installed). Verified: boots headless in ~15 s, two read-only instances run side by
+  side, the app installs and its captures pass `check_1bit --scale 4` and are identical across
+  instances. Gotchas baked into the script: the first-run "Viewing full screen" sheet, and API 37
+  ignoring the landscape lock on a large screen (so the display is overridden to 1872x1404).
+  Sam: comprehensive performance + battery ticket -> T20 expanded.
