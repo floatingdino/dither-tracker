@@ -75,8 +75,8 @@ pinwheel).
 
 - Footprint: diamond R 87 (bbox 175×175 dither px, ~59 mm), centred on the crossing.
   **Hides 0 px of life ink**, no ± glyph, tab or commander button.
-- Targets: 8 facets, each a diamond 53 px across. The narrowest width (edge to edge) is ~39 px,
-  about 13 mm, so all are above the 27-px / 9-mm minimum. Hit-testing is |dx| + |dy| in the lattice.
+- Targets: 8 facets, each a diamond 53 px across. The narrowest width (edge to edge) is ~37 px,
+  about 12.5 mm, so all are above the 27-px / 9-mm minimum. Hit-testing is |dx| + |dy| in the lattice.
 - Flips to open: **~3,000 dither px** (48k device px), all inside the diamond. The optional bloom
   is closed → key1 (1,428) → open (2,291). key1 is the empty doubled diamond with the close
   already showing.
