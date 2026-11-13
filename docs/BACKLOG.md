@@ -125,7 +125,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T28d | done | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
 | T27 | done | T08 | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
 | T39 | todo | no agents running; Sam's go-ahead at run time | **Rewrite git history to remove private data** (Sam, 2026-11-14). Purge from every commit on `build`: the test device's adb serial (in old versions of this file), the third-party reference screenshot under `design/reference/`, and the private Figma file link (old `docs/SPEC.md`). The exact strings are in the untracked `local/README.md` — do not copy them into tracked files or commit messages. Use `git filter-repo` (or equivalent) with a replace-text file kept under `local/`; also check commit messages; verify with a full-history grep that nothing remains; then force-push `build` (confirm with Sam immediately before the force-push — it rewrites every commit hash) and ask Sam to have GitHub drop cached/dangling objects if needed. Coordinator only; run when no agent has work in flight; back up the repo first (`git bundle` into `local/`). | whole repo history |
-| T23 | wip | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
+| T23 | done | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
 
 ## Task notes
 
@@ -532,3 +532,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   after T47. In `review` for the Nomad look. SPEC "As built" updated. Dispatched T22 (purity/regression
   suite, emulator 5562) and T23 (release build + sideload guide). T11 waits for T47 to leave `ko/`.
   Running: T47, T22, T23.
+- 2026-11-14 — Tick 51: T23 done (`5810243`, `9ce9fea`), verified in a clean worktree (132 core + 575
+  app tests, debug 1.4 MB, release 190 KB unsigned). Release: R8 + resource shrinking, no keep rules
+  needed; signing read from env `DITHER_*` / Gradle `dither.*` / `local/keystore.properties`, unsigned
+  when none (`-PdebugSignRelease` for testing); QA intent extras compiled out via `BuildConfig.DEBUG`
+  (`inverted`, `trace` stay). README rewritten for the public repo with the Nomad sideload guide.
+  **Needs Sam:** generate the release keystore once (README, "Release build and signing"). Unverified
+  on a real Nomad: install from the file manager, on-device uninstall. Running: T47, T22.
