@@ -114,7 +114,10 @@ class HistoryOverlay(
         val p = painterOf(f)
         val k = WidgetMetrics(l.grid.scale).k
         for (ic in HistoryFormat.ICONS) p.c.blit(p.scaledIcon(ic, k), 0, 0, 0, false, false)
-        for (ic in PREWARM_ICONS) p.c.blit(p.scaledIcon(ic, k), 0, 0, 0, false, false)
+        for (ic in PREWARM_ICONS) {
+            p.c.blit(p.scaledIcon(ic, k), 0, 0, 0, false, false)
+            p.c.blit(p.scaledHalo(ic, k), 0, 0, 0, false, false) // buttons draw icons on their cut-out
+        }
         p.c.blit(HistoryArrow.heavy(k), 0, 0, 0, false, false)
         p.c.blit(HistoryArrow.thin(k), 0, 0, 0, false, false)
         // Every seat glyph (and the empty table) for every way the card can face.

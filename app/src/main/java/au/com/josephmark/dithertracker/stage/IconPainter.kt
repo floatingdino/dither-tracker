@@ -15,9 +15,16 @@ import au.com.josephmark.dithertracker.dither.MonoImage
  */
 class IconPainter(private val r: DitherRenderer) {
 
-    private var iconK = 1
-    private val scaled = arrayOfNulls<MonoImage>(Icon.entries.size)
-    private val scaledHalo = arrayOfNulls<MonoImage>(Icon.entries.size)
+    // Scaled icons and halos per (k, halo), each array indexed by icon ordinal. Kept for every k in use
+    // (T20: a single-k cache was emptied whenever two components drew at different k in one frame, so
+    // every frame made new instances and the renderer built — and kept — a new mask for each).
+    private var byK = arrayOfNulls<Array<MonoImage?>>(16)
+
+    private fun slot(k: Int, halo: Boolean): Array<MonoImage?> {
+        val i = 2 * k + if (halo) 1 else 0
+        if (i >= byK.size) byK = byK.copyOf(i + 8)
+        return byK[i] ?: arrayOfNulls<MonoImage>(Icon.entries.size).also { byK[i] = it }
+    }
 
     /**
      * Blits [icon] at glyph scale [k] with its footprint's top-left at [at]. [halo]: on its paper cut-out
@@ -43,21 +50,15 @@ class IconPainter(private val r: DitherRenderer) {
 
     fun scaledIcon(icon: Icon, k: Int): MonoImage {
         if (k == 1) return icon
-        rescale(k)
-        return scaled[icon.ordinal] ?: Scaled(icon, k).also { scaled[icon.ordinal] = it }
+        val a = slot(k, halo = false)
+        return a[icon.ordinal] ?: Scaled(icon, k).also { a[icon.ordinal] = it }
     }
 
     /** [icon]'s halo ([Icon.halo]) enlarged k×: a (18k)² cut-out to draw at the icon's top-left − k. */
     fun scaledHalo(icon: Icon, k: Int): MonoImage {
         if (k == 1) return icon.halo
-        rescale(k)
-        return scaledHalo[icon.ordinal] ?: Scaled(icon.halo, k).also { scaledHalo[icon.ordinal] = it }
-    }
-
-    private fun rescale(k: Int) {
-        if (k != iconK) {
-            scaled.fill(null); scaledHalo.fill(null); iconK = k
-        }
+        val a = slot(k, halo = true)
+        return a[icon.ordinal] ?: Scaled(icon.halo, k).also { a[icon.ordinal] = it }
     }
 
     /** An icon enlarged k× (nearest neighbour): a stable instance so the renderer's mask cache hits. */

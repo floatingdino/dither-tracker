@@ -20,6 +20,7 @@ import au.com.josephmark.dithertracker.tools.DiceLayout
 import au.com.josephmark.dithertracker.tools.DiceOverlay
 import au.com.josephmark.dithertracker.tools.DiceState
 import au.com.josephmark.dithertracker.dither.IRect
+import au.com.josephmark.dithertracker.dither.MonoImage
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -110,10 +111,15 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         }
     }
 
-    private fun script(body: Shots.(ScreenRig) -> Unit) {
+    /** [prewarmed] false: the script draws effects outside `FxPolicy`'s pools (the gallery), which only a debug gallery run prewarms. */
+    private fun script(prewarmed: Boolean = true, body: Shots.(ScreenRig) -> Unit) {
         val shots = Shots(ScreenRig(w, h, s))
         shots.body(shots.rig)
         shots.assertClean()
+        // T20: every image / sparse tile paint a shot drew was built by the host's prewarm, so the
+        // device never builds a scaled bitmap inside onDraw (a stall, and an allocation per first use).
+        val cold = shots.rig.r.cold
+        if (prewarmed) assertTrue("${shots.rig.tag}: ${cold.size} masks first needed in a draw, not prewarmed: " + cold.entries.joinToString { "${it.value} ${it.key.javaClass.simpleName} ${(it.key as? MonoImage)?.let { m -> "${m.width}x${m.height}" } ?: ""}" }, cold.isEmpty())
     }
 
     // ---- play: idle, readouts, presses, wide numbers ------------------------------------------------
@@ -382,7 +388,7 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
 
     // ---- effect keyframes ----------------------------------------------------------------------------------------
 
-    @Test fun effects() = script { rig ->
+    @Test fun effects() = script(prewarmed = false) { rig ->
         rig.fx.startGallery(arrayOf(Fx.entries.first()), 37)
         rig.fx.stopGallery()
         rig.fx.player.cancelAll()

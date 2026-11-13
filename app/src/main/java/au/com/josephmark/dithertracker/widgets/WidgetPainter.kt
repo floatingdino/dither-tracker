@@ -27,9 +27,15 @@ class WidgetPainter(val c: WidgetCanvas) {
     private val local = IRect()
     private val numBuf = CharBuf(16)
 
-    private var iconK = 1
-    private val scaledIcons = arrayOfNulls<MonoImage>(Icon.entries.size)
-    private val scaledHalos = arrayOfNulls<MonoImage>(Icon.entries.size)
+    // Per (k, halo), indexed by icon ordinal: every k in use keeps its instances (T20: a single-k cache
+    // made new instances, so new renderer masks, whenever two metrics alternated).
+    private var byK = arrayOfNulls<Array<MonoImage?>>(16)
+
+    private fun slot(k: Int, halo: Boolean): Array<MonoImage?> {
+        val i = 2 * k + if (halo) 1 else 0
+        if (i >= byK.size) byK = byK.copyOf(i + 8)
+        return byK[i] ?: arrayOfNulls<MonoImage>(Icon.entries.size).also { byK[i] = it }
+    }
 
     /** Draws [w] (and its children) in frame [f]. */
     fun draw(f: WidgetFrame, w: Widget) {
@@ -286,15 +292,15 @@ class WidgetPainter(val c: WidgetCanvas) {
     /** [Icon.halo] enlarged k× as a stable instance. */
     fun scaledHalo(icon: Icon, k: Int): MonoImage {
         if (k == 1) return icon.halo
-        scaledIcon(icon, k) // resets both caches on a k change
-        return scaledHalos[icon.ordinal] ?: Scaled(icon.halo, k).also { scaledHalos[icon.ordinal] = it }
+        val a = slot(k, halo = true)
+        return a[icon.ordinal] ?: Scaled(icon.halo, k).also { a[icon.ordinal] = it }
     }
 
     /** [icon] enlarged k× as a stable instance (the renderer caches its bitmap per instance). */
     fun scaledIcon(icon: Icon, k: Int): MonoImage {
         if (k == 1) return icon
-        if (k != iconK) { scaledIcons.fill(null); scaledHalos.fill(null); iconK = k }
-        return scaledIcons[icon.ordinal] ?: Scaled(icon, k).also { scaledIcons[icon.ordinal] = it }
+        val a = slot(k, halo = false)
+        return a[icon.ordinal] ?: Scaled(icon, k).also { a[icon.ordinal] = it }
     }
 
     private class Scaled(private val src: MonoImage, private val k: Int) : MonoImage {

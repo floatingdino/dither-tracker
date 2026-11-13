@@ -11,6 +11,7 @@ import au.com.josephmark.dithertracker.stage.Component
 import au.com.josephmark.dithertracker.stage.Frame
 import au.com.josephmark.dithertracker.stage.Kind
 import au.com.josephmark.dithertracker.stage.Layer
+import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.widgets.TextSlice
 import kotlin.random.Random
 
@@ -85,7 +86,7 @@ class KoWinner(
         f.icons.prewarm(WARM_ICONS, k.iconK)
         f.icons.prewarm(WARM_ICONS, k.causeK)
         for (rot in k.play.rotations) {
-            for (q in 1..k.warmK) f.text.draw(k.ui, WARM_UI, 0, 0, q, rot)
+            for (q in 1..k.warmK) f.text.draw(k.ui, warmUi(k.ui), 0, 0, q, rot)
             f.text.draw(k.causeFont, WARM_NUM, 0, 0, k.causeK, rot)
         }
     }
@@ -145,7 +146,8 @@ class KoWinner(
 
     companion object {
         private val WARM_ICONS = arrayOf(Icon.MONARCH, Icon.LIFE)
-        private const val WARM_UI = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 '.,-:?"
+        /** Every glyph of [font] (quips use punctuation beyond A–Z 0–9; T20: those were built in onDraw). Prewarm only. */
+        private fun warmUi(font: Font): String = font.glyphs.joinToString("") { it.char.toString() }
         private const val WARM_NUM = "0123456789-"
     }
 }

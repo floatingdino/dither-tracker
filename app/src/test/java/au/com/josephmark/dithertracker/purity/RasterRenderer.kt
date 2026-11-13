@@ -33,6 +33,23 @@ class RasterRenderer(grid: DitherGrid) : DitherRenderer() {
 
     var scratch = false
 
+    /**
+     * What `CanvasDitherRenderer` caches per image / per sparse tile paint, split by when it is first
+     * needed (T20): during the host's prewarm ([scratch] set) or only in a real draw, where the device
+     * would build the scaled bitmap inside `onDraw`. [cold] must stay empty ([perf.PrewarmCoverageTest]).
+     */
+    val warm = java.util.IdentityHashMap<Any, Boolean>()
+    val cold = java.util.IdentityHashMap<Any, String>()
+    private val sparseKeys = Array(256) { Any() }
+
+    private fun used(key: Any, what: String, tile: Tile? = null, white: Boolean = false) {
+        if (scratch) {
+            warm[key] = true
+        } else if (!warm.containsKey(key) && !cold.containsKey(key)) {
+            cold[key] = if (tile == null) what else "$what $tile white=$white" // formatted only when recorded
+        }
+    }
+
     // Saved clips, four ints each (no allocation per clipTo: the T20 allocation tests draw through this).
     private var clips = IntArray(4 * 8)
     private var clipDepth = 0
@@ -98,6 +115,7 @@ class RasterRenderer(grid: DitherGrid) : DitherRenderer() {
     }
 
     override fun blit(img: MonoImage, x: Int, y: Int, rotation: Int, invert: Boolean, opaque: Boolean) {
+        used(img, "blit")
         if (scratch) return
         val side = rotation == 90 || rotation == 270
         val sw = img.width
@@ -121,6 +139,7 @@ class RasterRenderer(grid: DitherGrid) : DitherRenderer() {
     }
 
     override fun fillMask(mask: MonoImage, x: Int, y: Int, tile: Tile, invert: Boolean) {
+        used(mask, "fillMask")
         if (scratch) return
         val inv = inverted != invert
         for (my in 0 until mask.height) for (mx in 0 until mask.width) {
@@ -132,6 +151,17 @@ class RasterRenderer(grid: DitherGrid) : DitherRenderer() {
     }
 
     override fun drawMask(img: MonoImage, x: Int, y: Int, op: MaskOp, tile: Tile, underlay: Runnable?) {
+        // As CanvasDitherRenderer: an all-paper tile through TILE_INK/PAPER draws (and caches) nothing;
+        // a mixed one needs a sparse tile paint per (tile, ink colour), ink colour = white in dark mode
+        // for TILE_INK.
+        val sparseOp = op == MaskOp.TILE_INK || op == MaskOp.TILE_PAPER
+        if (!(sparseOp && tile.inkCount == 0)) {
+            used(img, "drawMask")
+            if (sparseOp && tile.inkCount != tile.width * tile.height) {
+                val white = inverted == (op == MaskOp.TILE_INK)
+                used(sparseKeys[(tile.id * 2 + if (white) 1 else 0) and 255], "sparse tile paint", tile, white)
+            }
+        }
         if (scratch) return
         for (my in 0 until img.height) for (mx in 0 until img.width) {
             if (!img.isInk(mx, my)) continue

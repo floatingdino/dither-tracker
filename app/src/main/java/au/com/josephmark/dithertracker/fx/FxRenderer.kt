@@ -44,6 +44,9 @@ class FxRenderer internal constructor(private val target: Target) {
         fun invert(mask: MonoImage, x: Int, y: Int, underlay: Runnable?)
         fun tile(mask: MonoImage, x: Int, y: Int, tile: Tile, mode: FxTileMode)
 
+        /** [prewarm] only: [tile] in both colour modes (the paint a tile layer needs depends on dark mode). */
+        fun warmTile(mask: MonoImage, x: Int, y: Int, tile: Tile, mode: FxTileMode) = tile(mask, x, y, tile, mode)
+
         /** Clip every draw to [rect] (dither px, axis-aligned) until [unclip]. */
         fun clip(rect: IRect) {}
 
@@ -58,6 +61,9 @@ class FxRenderer internal constructor(private val target: Target) {
     var cutUnderlay: Runnable? = null
 
     private val tmp = IRect()
+
+    /** Inside [prewarmSpecs]: tile layers warm both colour modes' paints (T20: dark mode built them in onDraw). */
+    private var warming = false
 
     /**
      * Draws [frame] of [fx] for the life total whose on-screen ink box is [inkBox], seat turned by
@@ -109,7 +115,8 @@ class FxRenderer internal constructor(private val target: Target) {
             val layer = fx.tileLayer(i, frame)
             if (layer.isEmpty) continue
             val t = tiles[i]
-            target.tile(layer.rotated(rotation), x, y, t.tile, t.mode)
+            if (warming) target.warmTile(layer.rotated(rotation), x, y, t.tile, t.mode)
+            else target.tile(layer.rotated(rotation), x, y, t.tile, t.mode)
         }
         val ko = fx.knockout(frame)
         if (!ko.isEmpty) target.blit(ko, x, y, rotation, paper = true)
@@ -142,10 +149,12 @@ class FxRenderer internal constructor(private val target: Target) {
     fun prewarmSpecs(effects: Iterable<FxSpec>, rotations: IntArray = DEFAULT_ROTATIONS) {
         val underlay = cutUnderlay
         cutUnderlay = null // never run the fallback redraw on the scratch canvas
+        warming = true
         try {
             for (fx in effects) for (f in 0 until fx.frameCount) for (r in rotations) drawAt(fx, f, 0, 0, r)
         } finally {
             cutUnderlay = underlay
+            warming = false
         }
     }
 
@@ -165,6 +174,11 @@ class FxRenderer internal constructor(private val target: Target) {
             },
             tile,
         )
+
+        override fun warmTile(mask: MonoImage, x: Int, y: Int, tile: Tile, mode: FxTileMode) {
+            tile(mask, x, y, tile, mode)
+            r.withInverted { tile(mask, x, y, tile, mode) }
+        }
 
         override fun clip(rect: IRect) = r.clipTo(rect)
 
