@@ -53,7 +53,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T32 | wip | T30 | Counter peeks (Sam, 2026-11-13): with the drawer closed, show each non-zero counter as a small icon + value chip on the tile, display-only, overflow as "+N". Same agent as T27/T30. | `play/`, `drawer/` |
 | T34 | todo | T27 T30 T32 | **Component refactor** (Sam approved, 2026-11-13: play-screen edits were blocking compartmentalised features). No behaviour change. A `Component` contract (layout on the grid, draw, claim touch zones, tap/hold, invalidation on state change); a host view that owns no feature logic and loops over an ordered component list; zone ids allocated by the host; a per-seat tile layer (life, readout, drawer, peeks, commander mode, effects slot, KO slot) and a screen layer for overlays (menu, settings, history, tools). Existing tests pass; before/after device captures pixel-identical. Write `docs/architecture.md`. | `app/` |
 | T35 | wip | T05 | Shared 1-bit widgets (JVM-only, new package): button, icon button, list row, toggle, stepper, segmented choice, confirm prompt, paged list — pure layout + painter + hit-testing over `DitherRenderer`/`TextRenderer`, press inversion, fingertip-size rule. | `app/**/widgets/` |
-| T09 | todo | T34 T35 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
+| T36 | wip | — | Centre menu design options (Sam, 2026-11-13: likes that the Lotus radial menu isn't pointed at any one player — `design/reference/lotus-menu.webp` — but no angled buttons; achieve it in our pixel-perfect language). 3–4 concepts as true-pixel mocks, incl. how second-level panels (settings, history, players) orient. Design-only. | `design/menu/` |
+| T09 | todo | T34 T35 T36 + Sam's pick | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
 | T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
 | T10b | done | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
 
@@ -249,3 +250,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   T27/T30/T32 agent, which owns the play files), then T09/T12/T15/T16/T17/T18/T28c can run in
   parallel as separate components. Dispatched T35 (widgets, JVM-only) now. Running: T27->T30->T32
   (device), T28e, T35.
+- 2026-11-13 — Sam shared the Lotus radial menu as reference for the centre menu: player-neutral, but
+  no angled buttons. Dispatched T36 (menu concepts as mocks, design-only); T09 waits on the pick.
