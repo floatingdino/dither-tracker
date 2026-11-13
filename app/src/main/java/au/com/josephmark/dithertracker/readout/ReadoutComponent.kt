@@ -5,6 +5,7 @@ import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.TileSlots
 import au.com.josephmark.dithertracker.stage.Component
+import au.com.josephmark.dithertracker.stage.Events
 import au.com.josephmark.dithertracker.stage.Frame
 import au.com.josephmark.dithertracker.stage.Kind
 import au.com.josephmark.dithertracker.stage.Layer
@@ -93,6 +94,7 @@ class ReadoutComponent : Component(Layer.TILE, Kind.READOUT, timerCount = PlayLa
         } else {
             stage.session.endLifeGroup(seat)
         }
+        stage.send(Events.READOUT_COMMITTED, seat)
     }
 
     // ---- Readouts --------------------------------------------------------------------------------

@@ -177,4 +177,11 @@ object Events {
 
     /** The effect on [seat] finished (or was cancelled): draw the dead treatment now if still KO. */
     const val KO_RELEASE = 4
+
+    /**
+     * [seat]'s pending-delta group just committed (idle timeout, or committed by another action) and
+     * its core undo group closed (T28c: effects trigger on it, never per tap). Sent by the readout for
+     * every group, life or commander damage; the net change is not carried (diff the game state).
+     */
+    const val READOUT_COMMITTED = 5
 }
