@@ -14,6 +14,10 @@ import au.com.josephmark.dithertracker.type.TextLayout
  *
  * Reference points on an ink box of local size W×H: left/top = 0, centre = W/2 (floor), right/bottom
  * = W (the box's far edge), matching `design/fx/render.py` for even sizes.
+ *
+ * `anchor tile dx dy` (round two) measures the same way on the seat's **tile rect** instead: the frame
+ * centre is `tile centre (floor) + (dx, dy)`, so a 233×175 frame with (0, 0) exactly covers a
+ * 233×175 tile, upright or turned (`design/fx/options/render2.py`, `frame_origin`).
  */
 object FxLayout {
 
@@ -23,10 +27,33 @@ object FxLayout {
      * `out.left/top` is where to blit with that rotation; `out` is also the rect to invalidate.
      * The footprint may extend past the ink box (and, for big effects, past the seat): clip if needed.
      */
-    fun place(fx: Fx, inkBox: IRect, rotation: Int, out: IRect): IRect =
-        place(fx.width, fx.height, fx.anchorRef, fx.anchorDx, fx.anchorDy, inkBox, rotation, out)
+    fun place(fx: Fx, inkBox: IRect, rotation: Int, out: IRect): IRect = place(fx.spec, inkBox, rotation, out)
 
-    /** [place] with the frame size and anchor given explicitly. */
+    /** [place] for an [FxSpec]. Not for `anchor tile` effects: use the overload taking the tile rect. */
+    fun place(fx: FxSpec, inkBox: IRect, rotation: Int, out: IRect): IRect {
+        require(fx.anchorRef != FxAnchorRef.TILE) { "${fx.id} is anchored to the tile: pass the seat's tile rect" }
+        return place(fx.width, fx.height, fx.anchorRef, fx.anchorDx, fx.anchorDy, inkBox, rotation, out)
+    }
+
+    /**
+     * [place] for any effect, given both reference boxes: the life total's on-screen [inkBox] and the
+     * seat's on-screen [tileRect] (its panel, dither px). `anchor tile dx dy` effects are placed
+     * against [tileRect] — frame centre = tile centre + (dx, dy) in seat-upright coords, turned with
+     * the seat exactly like the ink-box refs — and every other ref against [inkBox].
+     */
+    fun place(fx: Fx, inkBox: IRect, tileRect: IRect, rotation: Int, out: IRect): IRect =
+        place(fx.spec, inkBox, tileRect, rotation, out)
+
+    /** [place] with both reference boxes, for an [FxSpec]. */
+    fun place(fx: FxSpec, inkBox: IRect, tileRect: IRect, rotation: Int, out: IRect): IRect {
+        val box = if (fx.anchorRef == FxAnchorRef.TILE) tileRect else inkBox
+        return place(fx.width, fx.height, fx.anchorRef, fx.anchorDx, fx.anchorDy, box, rotation, out)
+    }
+
+    /**
+     * [place] with the frame size and anchor given explicitly. [inkBox] is whichever reference box
+     * [ref] is measured on (for [FxAnchorRef.TILE] pass the tile rect; its point is the box centre).
+     */
     fun place(
         frameW: Int, frameH: Int, ref: FxAnchorRef, dx: Int, dy: Int,
         inkBox: IRect, rotation: Int, out: IRect,

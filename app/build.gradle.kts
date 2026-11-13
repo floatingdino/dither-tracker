@@ -353,11 +353,14 @@ tasks.withType<Test>().configureEach {
 // ---- Effects: design/fx/<name>/{meta.txt,frame-N.txt} → generated Kotlin enum `Fx` (see design/fx/README.md) ----
 
 /**
- * Converts every effect directory directly under `design/fx/` that has a `meta.txt` (one level deep
- * only; nested folders such as `design/fx/options/` are ignored) into one generated `Fx.kt`: per
- * effect its size, anchor, role, per-frame hold and each frame as two packed 1-bit layers
- * (`#` ink, `o` knock-out; `.` transparent) — zero parsing at runtime. Fails the build with
- * file:line detail on any malformed effect.
+ * Converts every effect directory directly under an fx folder that has a `meta.txt` (one level deep
+ * only; nested folders such as `design/fx/options/` are ignored) into one generated Kotlin file: per
+ * effect an `FxSpec` with its size, anchor, role, per-frame hold, `tile` declarations and each frame
+ * split into packed 1-bit layers by symbol (`#` ink, `o` knock-out, `x` cut, `1`–`9` tile layers;
+ * `.` transparent), run-length coded in string constants so even 233×175 tile-scale frames stay
+ * far below the JVM's 64 KB method limit. [target] `enum` writes the app's `enum class Fx`;
+ * `options` writes the test-only `object FxOptions` (round-two options, never shipped). Fails the
+ * build with file:line detail on any malformed effect.
  */
 @CacheableTask
 abstract class GenerateFxTask : DefaultTask() {
@@ -365,29 +368,53 @@ abstract class GenerateFxTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val fxFiles: ConfigurableFileCollection
 
+    /** `design/patterns/<NAME>.txt`: the tile names a `tile` line may use (mirror of Patterns.kt). */
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val patternFiles: ConfigurableFileCollection
+
+    /** `enum` (the app's `Fx`) or `options` (test-only `FxOptions`). */
+    @get:Input
+    abstract val target: Property<String>
+
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
     private class Effect(val id: String, val w: Int, val h: Int, val role: String, val ref: String, val dx: Int, val dy: Int, val holds: List<Int>) {
+        /** (digit, tile name, mode), ascending digit. */
+        val tiles = ArrayList<Triple<Int, String, String>>()
         val ink = ArrayList<IntArray>()
         val ko = ArrayList<IntArray>()
+        val cut = ArrayList<IntArray>()
+        /** Per frame, digit → layer. */
+        val tileLayers = ArrayList<Map<Int, IntArray>>()
     }
 
     private companion object {
-        val ROLES = listOf("damage", "heal", "big-hit", "ko")
-        val REFS = listOf("centre", "tl", "tr", "bl", "br", "top", "bottom", "left", "right")
-        // Used only when meta.txt has no `role` line (the T28a metas predate the key).
+        val ROLES = listOf("damage", "heal", "big-hit", "ko", "win")
+        val REFS = listOf("centre", "tl", "tr", "bl", "br", "top", "bottom", "left", "right", "tile")
+        val MODES = listOf("ink", "paper", "fill")
+        val KEYS = listOf("size", "frames", "anchor", "hold_ms", "ink_px", "knockout_px", "cut_px", "tile_px", "flips", "role", "tile")
+        // Used only when meta.txt has no `role` line (the T28a and T28d metas predate the key).
         val DEFAULT_ROLES = mapOf(
             "pow" to "damage", "zap" to "damage", "claw" to "damage", "crack" to "damage",
             "heart" to "heal", "sprout" to "heal", "twinkle" to "heal",
             "wham" to "big-hit", "fizzle" to "ko",
+            // Round two (design/fx/options/README.md).
+            "pow2" to "damage", "crack2" to "damage", "claw-cut" to "damage", "claw-paper" to "damage",
+            "quake" to "damage", "fault" to "damage",
+            "twinkle2" to "heal", "rise" to "heal", "sunrise" to "heal", "vines" to "heal",
+            "claw-swipe" to "big-hit", "focus" to "big-hit", "ko-shatter" to "ko", "winner" to "win",
         )
+        const val RLE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+        const val RLE_PART = 16000 // chars per string constant (well under the 65535-byte limit)
     }
 
     @TaskAction
     fun generate() {
         val errors = mutableListOf<String>()
         val nameRe = Regex("^[a-z0-9]+(-[a-z0-9]+)*$")
+        val tileNames = patternFiles.files.map { it.nameWithoutExtension }.filter { it != "INDEX" }.toSortedSet()
         val byDir = fxFiles.files.groupBy { it.parentFile }
         val effects = sortedMapOf<String, Effect>()
         for ((dir, files) in byDir.entries.sortedBy { it.key.name }) {
@@ -395,103 +422,161 @@ abstract class GenerateFxTask : DefaultTask() {
             val id = dir.name
             if (!nameRe.matches(id)) { errors += "${dir.path}: effect name '$id' must match [a-z0-9]+(-[a-z0-9]+)*"; continue }
             val before = errors.size
-            val fx = parseEffect(id, meta, files, errors)
+            val fx = parseEffect(id, meta, files, tileNames, errors)
             if (fx != null && errors.size == before) effects[id] = fx
         }
         if (errors.isNotEmpty()) {
-            throw GradleException("Malformed effect(s) (format: design/fx/README.md):\n  " + errors.joinToString("\n  "))
+            throw GradleException("Malformed effect(s) (format: design/fx/README.md, design/fx/options/README.md):\n  " + errors.joinToString("\n  "))
+        }
+        val options = when (target.get()) {
+            "enum" -> false
+            "options" -> true
+            else -> throw GradleException("generateFx target must be enum|options, was '${target.get()}'")
         }
         val pkg = "au.com.josephmark.dithertracker.fx"
-        val out = outputDir.get().asFile.resolve(pkg.replace('.', '/')).resolve("Fx.kt")
+        val out = outputDir.get().asFile.resolve(pkg.replace('.', '/')).resolve(if (options) "FxOptions.kt" else "Fx.kt")
         out.parentFile.mkdirs()
         fun enumName(id: String) = id.uppercase().replace('-', '_').let { if (it[0].isDigit()) "FX_$it" else it }
-        fun dataName(id: String) = "FxData" + id.split('-').joinToString("") { it.replaceFirstChar(Char::uppercase) }
+        fun dataName(id: String) = (if (options) "FxOptData" else "FxData") + id.split('-').joinToString("") { it.replaceFirstChar(Char::uppercase) }
         out.writeText(
             buildString {
-                appendLine("// GENERATED by :app:generateFx from design/fx/*/{meta,frame-N}.txt — do not edit.")
+                appendLine("// GENERATED by :app:${name} from ${if (options) "design/fx/options" else "design/fx"}/*/{meta,frame-N}.txt — do not edit.")
                 appendLine("package $pkg")
                 appendLine()
-                appendLine("/**")
-                appendLine(" * The hit/heal effects. Frame `i` (0 until [frameCount]) is held [holdMs]`(i)` ms; the last frame")
-                appendLine(" * is always empty (the clean end state). Draw with [FxRenderer]; play with [FxPlayer].")
-                appendLine(" */")
-                appendLine("enum class Fx(")
-                appendLine("    val id: String,")
-                appendLine("    val role: FxRole,")
-                appendLine("    /** Frame size in dither px, in the seat's upright frame. */")
-                appendLine("    val width: Int,")
-                appendLine("    val height: Int,")
-                appendLine("    val anchorRef: FxAnchorRef,")
-                appendLine("    val anchorDx: Int,")
-                appendLine("    val anchorDy: Int,")
-                appendLine("    private val holds: IntArray,")
-                appendLine("    private val inkLayers: Array<FxLayer>,")
-                appendLine("    private val knockoutLayers: Array<FxLayer>,")
-                appendLine(") {")
+                appendLine("import au.com.josephmark.dithertracker.dither.Patterns")
+                appendLine()
+                if (options) {
+                    appendLine("/** Round-two effect options (design/fx/options/), test-only: the engine is exercised on them, the app never ships them. */")
+                    appendLine("object FxOptions {")
+                    appendLine("    @JvmField val all: List<FxSpec> = listOf(")
+                    for (id in effects.keys) appendLine("        ${dataName(id)}.SPEC,")
+                    appendLine("    )")
+                    appendLine()
+                    appendLine("    fun byName(name: String): FxSpec? = all.firstOrNull { it.id == name.lowercase() }")
+                    appendLine("}")
+                } else {
+                    appendLine("/**")
+                    appendLine(" * The hit/heal effects. Frame `i` (0 until [frameCount]) is held [holdMs]`(i)` ms; the last frame")
+                    appendLine(" * is always empty (the clean end state). Draw with [FxRenderer]; play with [FxPlayer]. All data is in [spec].")
+                    appendLine(" */")
+                    appendLine("enum class Fx(val spec: FxSpec) {")
+                    for (id in effects.keys) appendLine("    ${enumName(id)}(${dataName(id)}.SPEC),")
+                    appendLine("    ;")
+                    appendLine()
+                    appendLine("    val id: String get() = spec.id")
+                    appendLine("    val role: FxRole get() = spec.role")
+                    appendLine("    /** Frame size in dither px, in the seat's upright frame. */")
+                    appendLine("    val width: Int get() = spec.width")
+                    appendLine("    val height: Int get() = spec.height")
+                    appendLine("    val anchorRef: FxAnchorRef get() = spec.anchorRef")
+                    appendLine("    val anchorDx: Int get() = spec.anchorDx")
+                    appendLine("    val anchorDy: Int get() = spec.anchorDy")
+                    appendLine("    /** Number of frames, including the final empty one. */")
+                    appendLine("    val frameCount: Int get() = spec.frameCount")
+                    appendLine("    /** Unscaled hold of [frame] in ms (0 for the last, empty frame). */")
+                    appendLine("    fun holdMs(frame: Int): Int = spec.holdMs(frame)")
+                    appendLine("    /** The black (`#`) layer of [frame]. */")
+                    appendLine("    fun ink(frame: Int): FxLayer = spec.ink(frame)")
+                    appendLine("    /** The knock-out (`o`, paper) layer of [frame]. */")
+                    appendLine("    fun knockout(frame: Int): FxLayer = spec.knockout(frame)")
+                    appendLine("    /** The cut (`x`) layer of [frame]. */")
+                    appendLine("    fun cut(frame: Int): FxLayer = spec.cut(frame)")
+                    appendLine("    /** The `tile` declarations (see [FxSpec.tiles]). */")
+                    appendLine("    val tiles: List<FxTileSpec> get() = spec.tiles")
+                    appendLine("    /** The layer of [frame] painted by `tiles[index]`. */")
+                    appendLine("    fun tileLayer(index: Int, frame: Int): FxLayer = spec.tileLayer(index, frame)")
+                    appendLine()
+                    appendLine("    companion object {")
+                    appendLine("        private val byId: Map<String, Fx> = entries.associateBy { it.id }")
+                    appendLine()
+                    appendLine("        /** Looks up an effect by its directory name, e.g. `\"pow\"`. */")
+                    appendLine("        fun byName(name: String): Fx? = byId[name.lowercase()]")
+                    appendLine()
+                    appendLine("        /** Every effect with [role], in name order. */")
+                    appendLine("        fun withRole(role: FxRole): List<Fx> = entries.filter { it.role == role }")
+                    appendLine("    }")
+                    appendLine("}")
+                }
+                fun layer(e: Effect, words: IntArray, indent: String) {
+                    val parts = rle(words, e.w, e.h)
+                    if (parts == null) appendLine("${indent}FxLayer.empty(${e.w}, ${e.h}),")
+                    else appendLine("${indent}FxLayer.rle(${e.w}, ${e.h}, " + parts.joinToString(", ") { "\"$it\"" } + "),")
+                }
+                // One object per effect keeps each class initialiser small; pixel data lives in string
+                // constants (constant pool), not in bytecode.
                 for ((id, e) in effects) {
                     val role = "FxRole." + e.role.uppercase().replace('-', '_')
                     val ref = "FxAnchorRef." + e.ref.uppercase()
-                    appendLine("    ${enumName(id)}(\"$id\", $role, ${e.w}, ${e.h}, $ref, ${e.dx}, ${e.dy}, intArrayOf(${e.holds.joinToString(", ")}), ${dataName(id)}.INK, ${dataName(id)}.KNOCKOUT),")
-                }
-                appendLine("    ;")
-                appendLine()
-                appendLine("    /** Number of frames, including the final empty one. */")
-                appendLine("    val frameCount: Int get() = holds.size")
-                appendLine()
-                appendLine("    /** Unscaled hold of [frame] in ms (0 for the last, empty frame). */")
-                appendLine("    fun holdMs(frame: Int): Int = holds[frame]")
-                appendLine()
-                appendLine("    /** The black (`#`) layer of [frame]. */")
-                appendLine("    fun ink(frame: Int): FxLayer = inkLayers[frame]")
-                appendLine()
-                appendLine("    /** The knock-out (`o`, paper) layer of [frame]. */")
-                appendLine("    fun knockout(frame: Int): FxLayer = knockoutLayers[frame]")
-                appendLine()
-                appendLine("    companion object {")
-                appendLine("        private val byId: Map<String, Fx> = entries.associateBy { it.id }")
-                appendLine()
-                appendLine("        /** Looks up an effect by its directory name, e.g. `\"pow\"`. */")
-                appendLine("        fun byName(name: String): Fx? = byId[name.lowercase()]")
-                appendLine()
-                appendLine("        /** Every effect with [role], in name order. */")
-                appendLine("        fun withRole(role: FxRole): List<Fx> = entries.filter { it.role == role }")
-                appendLine("    }")
-                appendLine("}")
-                // One object per effect keeps each class initialiser small (JVM 64 KB method limit).
-                for ((id, e) in effects) {
                     appendLine()
                     appendLine("private object ${dataName(id)} {")
-                    for ((name, layers) in listOf("INK" to e.ink, "KNOCKOUT" to e.ko)) {
-                        appendLine("    @JvmField val $name: Array<FxLayer> = arrayOf(")
-                        for (words in layers) {
-                            if (words.all { it == 0 }) {
-                                appendLine("        FxLayer(${e.w}, ${e.h}, IntArray(${words.size})),")
-                                continue
-                            }
-                            appendLine("        FxLayer(${e.w}, ${e.h}, intArrayOf(")
-                            val stride = (e.w + 31) / 32
-                            words.toList().chunked(stride).forEach { row -> appendLine("            " + row.joinToString(", ") + ",") }
-                            appendLine("        )),")
-                        }
-                        appendLine("    )")
+                    appendLine("    @JvmField val SPEC = FxSpec(")
+                    appendLine("        \"$id\", $role, ${e.w}, ${e.h}, $ref, ${e.dx}, ${e.dy},")
+                    appendLine("        intArrayOf(${e.holds.joinToString(", ")}),")
+                    if (e.tiles.isEmpty()) appendLine("        emptyList(),")
+                    else appendLine("        listOf(" + e.tiles.joinToString(", ") { (d, t, m) -> "FxTileSpec($d, Patterns.byName(\"$t\")!!, FxTileMode.${m.uppercase()})" } + "),")
+                    for (layers in listOf(e.ink, e.ko, e.cut)) {
+                        appendLine("        arrayOf(")
+                        for (words in layers) layer(e, words, "            ")
+                        appendLine("        ),")
                     }
+                    appendLine("        arrayOf(")
+                    for ((d, _, _) in e.tiles) {
+                        appendLine("            arrayOf( // tile $d")
+                        for (frame in e.tileLayers) layer(e, frame.getValue(d), "                ")
+                        appendLine("            ),")
+                    }
+                    appendLine("        ),")
+                    appendLine("    )")
                     appendLine("}")
                 }
             },
         )
     }
 
-    private fun parseEffect(id: String, meta: File, files: List<File>, errors: MutableList<String>): Effect? {
+    /**
+     * Run-length code of a packed layer, as decoded by `FxLayer.rle`: alternating unset/set runs over
+     * the pixels in row-major order (starting unset, trailing unset run dropped), each a little-endian
+     * varint of 5-bit groups ([RLE_ALPHABET] index ≥ 32 = more follow). Null when nothing is set.
+     */
+    private fun rle(words: IntArray, w: Int, h: Int): List<String>? {
+        if (words.all { it == 0 }) return null
+        val stride = (w + 31) / 32
+        val parts = ArrayList<String>()
+        val sb = StringBuilder()
+        fun emit(run: Int) {
+            var v = run
+            while (true) {
+                val d = v and 31
+                v = v ushr 5
+                if (v == 0) { sb.append(RLE_ALPHABET[d]); break }
+                sb.append(RLE_ALPHABET[32 + d])
+            }
+            if (sb.length >= RLE_PART) { parts += sb.toString(); sb.setLength(0) }
+        }
+        var cur = false
+        var run = 0
+        for (y in 0 until h) for (x in 0 until w) {
+            val b = (words[y * stride + (x ushr 5)] ushr (31 - (x and 31))) and 1 == 1
+            if (b != cur) { emit(run); run = 0; cur = b }
+            run++
+        }
+        if (cur) emit(run)
+        if (sb.isNotEmpty()) parts += sb.toString()
+        return parts
+    }
+
+    private fun parseEffect(id: String, meta: File, files: List<File>, tileNames: Set<String>, errors: MutableList<String>): Effect? {
         val vals = HashMap<String, List<String>>()
         val lineOf = HashMap<String, Int>()
+        val tileLines = ArrayList<Pair<Int, List<String>>>() // (line index, values)
         meta.readText().replace("\r\n", "\n").split("\n").forEachIndexed { i, raw ->
             val l = raw.substringBefore('#').trim()
             if (l.isEmpty()) return@forEachIndexed
             val parts = l.split(Regex("\\s+"))
             val key = parts[0]
             when {
-                key !in listOf("size", "frames", "anchor", "hold_ms", "ink_px", "knockout_px", "flips", "role") ->
-                    errors += "${meta.path}:${i + 1}: unknown key '$key' (size, frames, anchor, hold_ms, ink_px, knockout_px, flips, role)"
+                key !in KEYS -> errors += "${meta.path}:${i + 1}: unknown key '$key' (${KEYS.joinToString(", ")})"
+                key == "tile" -> tileLines += i to parts.drop(1) // repeatable: one line per digit
                 key in vals -> errors += "${meta.path}:${i + 1}: duplicate '$key' (first at line ${lineOf[key]!! + 1})"
                 else -> { vals[key] = parts.drop(1); lineOf[key] = i }
             }
@@ -525,7 +610,7 @@ abstract class GenerateFxTask : DefaultTask() {
             if (holds.last() != 0) err("hold_ms", "last hold must be 0 (the empty end frame)")
             if (holds.dropLast(1).any { it <= 0 }) err("hold_ms", "holds before the last frame must be > 0")
         }
-        for (k in listOf("ink_px", "knockout_px", "flips")) {
+        for (k in listOf("ink_px", "knockout_px", "cut_px", "tile_px", "flips")) {
             val v = ints(k) ?: continue
             if (v.size != n) err(k, "'$k' has ${v.size} values, expected $n (frames)")
         }
@@ -533,6 +618,21 @@ abstract class GenerateFxTask : DefaultTask() {
             if (r.size != 1 || r[0] !in ROLES) { err("role", "'role' must be one of ${ROLES.joinToString("|")}"); null } else r[0]
         } ?: DEFAULT_ROLES[id]
         if (role == null && "role" !in vals) errors += "${meta.path}: missing 'role' (one of ${ROLES.joinToString("|")})"
+        val e = Effect(id, w, h, role ?: "", ref, dx, dy, holds) // a missing role is already an error
+        // Tile layers: `tile <digit 1-9> <TILE> <ink|paper|fill>`, one line per digit.
+        val tileLine = HashMap<Int, Int>()
+        for ((i, v) in tileLines) {
+            val at = "${meta.path}:${i + 1}"
+            if (v.size != 3) { errors += "$at: 'tile' needs <digit> <TILE> <mode>, got '${v.joinToString(" ")}'"; continue }
+            val d = v[0].singleOrNull()?.takeIf { it in '1'..'9' }?.digitToInt()
+            if (d == null) { errors += "$at: tile digit must be 1-9, got '${v[0]}'"; continue }
+            if (d in tileLine) { errors += "$at: duplicate 'tile $d' (first at line ${tileLine[d]!! + 1})"; continue }
+            if (v[1] !in tileNames) { errors += "$at: unknown tile '${v[1]}' (known: ${tileNames.joinToString(" ")})"; continue }
+            if (v[2] !in MODES) { errors += "$at: tile mode must be one of ${MODES.joinToString("|")}, got '${v[2]}'"; continue }
+            tileLine[d] = i
+            e.tiles += Triple(d, v[1], v[2])
+        }
+        e.tiles.sortBy { it.first }
         // Frames: exactly frame-1.txt … frame-N.txt.
         val frameRe = Regex("^frame-(\\d+)\\.txt$")
         val frameFiles = HashMap<Int, File>()
@@ -542,8 +642,8 @@ abstract class GenerateFxTask : DefaultTask() {
             if (k !in 1..n) errors += "${f.path}: unexpected frame file (meta says frames $n)"
             else frameFiles[k] = f
         }
-        val e = Effect(id, w, h, role ?: "", ref, dx, dy, holds) // a missing role is already an error
         val stride = (w + 31) / 32
+        val usedDigits = HashSet<Int>()
         for (k in 1..n) {
             val f = frameFiles[k]
             if (f == null) { errors += "${meta.parentFile.path}/frame-$k.txt: missing (meta says frames $n)"; continue }
@@ -551,6 +651,9 @@ abstract class GenerateFxTask : DefaultTask() {
             if (lines.size != h) errors += "${f.path}: expected $h lines (size $w $h), found ${lines.size}"
             val ink = IntArray(stride * h)
             val ko = IntArray(stride * h)
+            val cut = IntArray(stride * h)
+            val tl = e.tiles.associate { it.first to IntArray(stride * h) }
+            val undeclared = HashSet<Char>()
             lines.take(h).forEachIndexed { y, line ->
                 if (line.length != w) errors += "${f.path}:${y + 1}: expected $w chars (size $w $h), found ${line.length}"
                 line.forEachIndexed { x, c ->
@@ -560,40 +663,70 @@ abstract class GenerateFxTask : DefaultTask() {
                     when (c) {
                         '#' -> ink[i] = ink[i] or bit
                         'o' -> ko[i] = ko[i] or bit
+                        'x' -> cut[i] = cut[i] or bit
                         '.' -> {}
-                        else -> errors += "${f.path}:${y + 1}:${x + 1}: invalid char '$c' (only '#' ink, 'o' knock-out, '.' transparent)"
+                        in '1'..'9' -> {
+                            val layer = tl[c.digitToInt()]
+                            if (layer == null) {
+                                if (undeclared.add(c)) errors += "${f.path}:${y + 1}:${x + 1}: tile digit '$c' has no 'tile $c <TILE> <mode>' line in ${meta.name}"
+                            } else { layer[i] = layer[i] or bit; usedDigits += c.digitToInt() }
+                        }
+                        else -> errors += "${f.path}:${y + 1}:${x + 1}: invalid char '$c' (only '#' ink, 'o' knock-out, 'x' cut, '1'-'9' tile layers, '.' transparent)"
                     }
                 }
             }
-            if (k == n && (ink.any { it != 0 } || ko.any { it != 0 })) errors += "${f.path}: the last frame must be empty (it is the clean end state)"
+            val all = listOf(ink, ko, cut) + tl.values
+            if (k == n && all.any { l -> l.any { it != 0 } }) errors += "${f.path}: the last frame must be empty (it is the clean end state)"
             e.ink += ink
             e.ko += ko
-            // ink_px/knockout_px are informational (author.py); a stale count only warns.
-            val inkPx = ink.sumOf { Integer.bitCount(it) }
-            val koPx = ko.sumOf { Integer.bitCount(it) }
-            vals["ink_px"]?.getOrNull(k - 1)?.toIntOrNull()?.let { if (it != inkPx) logger.warn("${meta.path}: ink_px for frame $k says $it, frame has $inkPx") }
-            vals["knockout_px"]?.getOrNull(k - 1)?.toIntOrNull()?.let { if (it != koPx) logger.warn("${meta.path}: knockout_px for frame $k says $it, frame has $koPx") }
+            e.cut += cut
+            e.tileLayers += tl
+            // Pixel counts are informational (author.py / author2.py); a stale count only warns.
+            fun count(l: IntArray) = l.sumOf { Integer.bitCount(it) }
+            val counts = mapOf("ink_px" to count(ink), "knockout_px" to count(ko), "cut_px" to count(cut), "tile_px" to tl.values.sumOf { count(it) })
+            for ((key, px) in counts) {
+                vals[key]?.getOrNull(k - 1)?.toIntOrNull()?.let { if (it != px) logger.warn("${meta.path}: $key for frame $k says $it, frame has $px") }
+            }
         }
+        for ((d, i) in tileLine) if (d !in usedDigits) logger.warn("${meta.path}:${i + 1}: 'tile $d' is never used by a frame")
         return e
     }
 }
 
+val fxDir = providers.gradleProperty("fxDir").getOrElse(rootProject.file("design/fx").path)
+val fxOptionsDir = rootProject.file("design/fx/options")
+// Only <dir>/<name>/meta.txt and frame-N.txt one level down; nested folders (options/…) never match.
+fun fxSources(dir: Any) = fileTree(dir) { include("*/meta.txt", "*/frame-*.txt") }
+val fxPatterns = fileTree(rootProject.file("design/patterns")) { include("*.txt"); exclude("INDEX.txt") }
+
 val generateFx = tasks.register<GenerateFxTask>("generateFx") {
     // -PfxDir=<dir> lets the step be exercised against another folder (e.g. a malformed fixture).
-    val dir = providers.gradleProperty("fxDir").getOrElse(rootProject.file("design/fx").path)
-    // Only <dir>/<name>/meta.txt and frame-N.txt one level down; nested folders (options/…) never match.
-    fxFiles.from(fileTree(dir) { include("*/meta.txt", "*/frame-*.txt") })
+    fxFiles.from(fxSources(fxDir))
+    patternFiles.from(fxPatterns)
+    target.set("enum")
     outputDir.set(layout.buildDirectory.dir("generated/source/fx"))
+}
+
+// design/fx/options/ (round-two candidates, T28d) → test-only `FxOptions`, so the engine is built and
+// tested against every option without shipping any of them.
+val generateFxOptions = tasks.register<GenerateFxTask>("generateFxOptions") {
+    fxFiles.from(fxSources(fxOptionsDir))
+    patternFiles.from(fxPatterns)
+    target.set("options")
+    outputDir.set(layout.buildDirectory.dir("generated/source/fxOptions"))
 }
 
 androidComponents {
     onVariants { variant ->
         variant.sources.kotlin?.addGeneratedSourceDirectory(generateFx, GenerateFxTask::outputDir)
+        (variant as? com.android.build.api.variant.HasUnitTest)?.unitTest?.sources?.kotlin
+            ?.addGeneratedSourceDirectory(generateFxOptions, GenerateFxTask::outputDir)
     }
 }
 
 tasks.withType<Test>().configureEach {
-    systemProperty("dither.fxDir", rootProject.file("design/fx").absolutePath)
-    inputs.files(rootProject.fileTree("design/fx") { include("*/meta.txt", "*/frame-*.txt") })
-        .withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty("dither.fxDir", file(fxDir).absolutePath)
+    systemProperty("dither.fxOptionsDir", fxOptionsDir.absolutePath)
+    inputs.files(fxSources(fxDir)).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(fxSources(fxOptionsDir)).withPathSensitivity(PathSensitivity.RELATIVE)
 }
