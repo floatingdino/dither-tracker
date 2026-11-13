@@ -39,9 +39,9 @@ object PlayScreen {
         stage.add(ReadoutComponent())             // pending delta; the Readouts service (Kind.READOUT)
         stage.add(PeeksComponent())               // counter chips under the number (Kind.CONTENT)
         val drawer = stage.add(DrawerComponent()) // open drawer; the TileSlots lower occupant (Kind.CONTENT)
+        stage.add(KoWinner(random))               // last player standing: the line replaces the number (Kind.CONTENT); before fx so the flourish plays over it
         stage.add(FxComponent())                  // hit/heal/KO/winner effects, after the number (Kind.EFFECT)
         stage.add(KoComponent(random))            // KO: dead tile, quip, tap-tap revive; covers the seat (Kind.STATUS)
-        stage.add(KoWinner(random))               // last player standing caption in the under row (Kind.CONTENT)
 
         // ---- TILE_CHROME (per seat, over the tile layer's press inversion) ----------------------------
         stage.add(DrawerTab(drawer))              // closed tab (Kind.CHROME)

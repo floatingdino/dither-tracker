@@ -68,89 +68,114 @@ class KoTest {
 
     private fun overlaps(a: IRect, b: IRect) = a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
 
-    @Test fun plateFitsEveryQuipAtEveryScaleForEverySeat() {
-        val all = QuipKind.entries.filter { it.name.startsWith("KO_") }
+    private fun heroLines(): List<String> =
+        QuipKind.entries.filter { it.name.startsWith("KO_") || it == QuipKind.WINNER }
             .flatMap { Flavour.quippy.lines(it) + Flavour.plain.lines(it) }
-        for ((w, h) in screens) for (sc in 2..6) {
-            val l = PlayLayout.compute(DitherGrid(w, h, sc))
-            val k = KoLayout(l)
-            val b = KoLayout.Block()
-            for (q in all) for (s in 0 until 4) {
-                val tag = "$w×$h S=$sc seat $s '$q'"
-                k.arrange(s, q.uppercase(), b)
-                val p = l.panels[s]
-                assertTrue("$tag plate ${b.plate} in $p", inside(b.plate, p))
-                assertFalse("$tag plate clear of diamond", overlaps(b.plate, l.diamond))
-                if (!l.comfortable) continue // cramped layouts (never chosen): only kept inside the panel
-                val sh = b.shadow
-                assertTrue("$tag shadow in panel", inside(sh, p))
-                assertTrue("$tag revive text", inside(b.reviveText, b.plate))
-                assertTrue("$tag lines", b.lines in 1..KoLayout.MAX_LINES)
-                assertEquals("$tag whole quip shown", q.trim().length, (0 until b.lines).sumOf { b.end[it] - b.start[it] } + b.lines - 1)
-                val num = IRect()
-                l.numberFootprint(s, -999, num)
-                val o = k.outline
-                val ring = IRect(num.left - o, num.top - o, num.right + o, num.bottom + o)
-                assertTrue("$tag cut-out in panel", inside(ring, p))
-                assertFalse("$tag plate/number", overlaps(b.plate, ring) || overlaps(sh, ring))
-                for (i in 0 until b.lines) {
-                    val r = b.line[i]
-                    assertTrue("$tag line $i", inside(r, b.plate))
-                    if (i > 0) assertFalse("$tag lines overlap", overlaps(r, b.line[i - 1]))
-                }
-                val tomb = IRect(); val ci = IRect(); val cn = IRect()
-                for (v in intArrayOf(10, 21, 999)) {
-                    k.topRow(s, true, v, tomb, ci, cn)
-                    for ((n, r) in listOf("tomb" to tomb, "cause icon" to ci, "cause number" to cn)) {
-                        assertTrue("$tag $n $r in panel", inside(r, p))
-                        assertFalse("$tag $n/number", overlaps(r, ring))
-                        assertFalse("$tag $n/diamond", overlaps(r, l.diamond))
-                    }
-                    assertFalse("$tag tomb/cause", overlaps(tomb, ci) || overlaps(ci, cn) || overlaps(tomb, cn))
-                }
-            }
-        }
-    }
 
-    @Test fun winnerCaptionStaysInTheUnderRowClearOfThePeekCorners() {
+    @Test fun heroFitsEveryKoAndWinnerLineAtEveryScaleOnEverySeat() {
+        val all = heroLines()
         for ((w, h) in screens) for (sc in 2..6) {
             val l = PlayLayout.compute(DitherGrid(w, h, sc))
             val k = KoLayout(l)
             val peek = au.com.josephmark.dithertracker.peeks.PeekLayout(l)
             val b = KoLayout.Block()
-            for (line in Flavour.quippy.lines(QuipKind.WINNER) + Flavour.plain.lines(QuipKind.WINNER)) for (s in 0 until 4) {
-                val tag = "$w×$h S=$sc seat $s '$line'"
-                k.arrangeWinner(s, line.uppercase(), b)
-                if (!l.comfortable && b.lines == 0) continue // cramped layout (never chosen): may have no room
-                assertTrue("$tag shown", b.k >= 1 && b.lines >= 1)
-                if (w == 1872 && sc <= 4) assertEquals("$tag whole caption", line.length, (0 until b.lines).sumOf { b.end[it] - b.start[it] } + b.lines - 1)
-                for (i in 0 until b.lines) {
-                    val r = b.line[i]
-                    val wb = IRect().also { k.winnerBand(s, it) }
-                    assertTrue("$tag line $i $r in band $wb", inside(r, wb))
-                    assertFalse("$tag line $i over the tab", overlaps(r, l.tabHit[s]))
-                    assertFalse("$tag line $i over the number", overlaps(r, l.numberSlot[s]))
-                    if (i > 0) assertFalse("$tag lines overlap", overlaps(r, b.line[i - 1]))
-                    if (peek.enabled) for (col in 0..1) {
-                        val c = IRect().also { peek.corner(s, col, it) }
-                        assertFalse("$tag line $i over peek corner $col", overlaps(r, c))
+            val g = k.gutter
+            val diamond = IRect(l.diamond.left - g, l.diamond.top - g, l.diamond.right + g, l.diamond.bottom + g)
+            for (s in 0 until 4) {
+                val p = l.panels[s]
+                val emblem = IRect().also { k.emblem(s, it) }
+                val emblemHalo = IRect(emblem.left - k.halo, emblem.top - k.halo, emblem.right + k.halo, emblem.bottom + k.halo)
+                val area = IRect().also { k.heroArea(s, it) }
+                val cover = IRect().also { k.winnerCover(s, it) }
+                val base = "$w×$h S=$sc seat $s"
+                assertTrue("$base emblem in panel", inside(emblemHalo, p))
+                assertFalse("$base emblem/diamond", overlaps(emblemHalo, diamond))
+                assertTrue("$base hero area in panel", inside(area, p))
+                assertTrue("$base hero area in the winner cover", inside(area, cover))
+                if (peek.enabled) for (col in 0..1) {
+                    val c = IRect().also { peek.corner(s, col, it) }
+                    assertFalse("$base winner cover over peek corner $col", overlaps(cover, c))
+                }
+                if (!l.comfortable) continue
+                assertFalse("$base hero area/emblem", overlaps(area, emblemHalo))
+                assertFalse("$base hero area/diamond", overlaps(area, diamond))
+                assertFalse("$base hero area/tab", overlaps(area, l.tabHit[s]))
+                val icon = IRect(); val num = IRect(); val chip = IRect()
+                for (v in intArrayOf(0, -999, 10, 21, 999)) {
+                    assertTrue("$base detail $v fits", k.detail(s, v, icon, num, chip))
+                    assertTrue("$base chip in panel", inside(chip, p))
+                    assertTrue("$base chip holds icon + number", inside(icon, chip) && inside(num, chip))
+                    assertFalse("$base chip/hero", overlaps(chip, area))
+                    assertFalse("$base chip/tab", overlaps(chip, l.tabHit[s]))
+                    if (peek.enabled) for (col in 0..1) assertFalse("$base chip/peek $col", overlaps(chip, IRect().also { peek.corner(s, col, it) }))
+                }
+                for (q in all) {
+                    val tag = "$base '$q'"
+                    k.arrange(s, q.uppercase(), b)
+                    assertTrue("$tag lines ${b.lines}", b.lines in 1..KoLayout.MAX_LINES)
+                    assertTrue("$tag k ${b.k}", b.k in 1..k.kMax)
+                    assertEquals("$tag whole line shown", q.trim().length, (0 until b.lines).sumOf { b.end[it] - b.start[it] } + b.lines - 1)
+                    for (i in 0 until b.lines) {
+                        if (i > 0) assertTrue("$tag breaks at a space", q[b.start[i] - 1] == ' ')
+                        val r = b.line[i]
+                        assertTrue("$tag line $i $r in hero area $area", inside(r, area))
+                        if (i > 0) assertFalse("$tag lines overlap", overlaps(r, b.line[i - 1]))
                     }
+                    assertTrue("$tag word boxes in hero area", inside(b.bounds, area))
+                    for (r in listOf(b.plate, b.keyline, b.shadow)) assertTrue("$tag revive $r in hero area", inside(r, area))
+                    val rt = b.reviveText
+                    // The text box's cap band (it is the face's full height; the descender rows face away on a turned seat) sits on the plate.
+                    assertTrue("$tag revive text", rt.left >= b.plate.left && rt.right <= b.plate.right &&
+                        minOf(rt.bottom, b.plate.bottom) - maxOf(rt.top, b.plate.top) >= k.ui.capHeight * b.reviveK)
                 }
             }
         }
     }
 
-    @Test fun nomadNumbers() {
+    @Test fun heroScaleFollowsLineLengthAtS4() {
         val k = KoLayout(PlayLayout.compute(DitherGrid(1872, 1404, 4)))
-        assertEquals(2, k.iconK)
-        assertEquals(2, k.quipKMax)
-        assertEquals(1, k.causeK)
-        assertEquals(64, k.winnerLeft) // between the peek corners (T38): x 64..169 at S = 4
-        assertEquals(169, k.winnerRight)
         val b = KoLayout.Block()
-        k.arrange(3, "COULDN'T STOP IT. DIDN'T TRY", b)
-        assertEquals(2, b.k)
-        assertEquals(2, b.lines)
+        fun kOf(q: String): Pair<Int, Int> { k.arrange(3, q, b); return b.k to b.lines }
+        assertEquals(5 to 1, kOf("OOF")) // ≤ 7 chars: one line at k = 5
+        assertEquals(5 to 1, kOf("GOT GOT"))
+        assertEquals(4 to 1, kOf("GAME OVER")) // 8–9 chars: one line at k = 4
+        assertEquals(4 to 2, kOf("THOU ART SLAIN")) // two lines of ≤ 9 at k = 4
+        assertEquals(3 to 2, kOf("YOUR QUEST ENDS HERE")) // two lines of ≤ 12 at k = 3
+        assertEquals(2 to 2, kOf("COULDN'T STOP IT. DIDN'T TRY")) // longer: k = 2
+        assertEquals(5, k.kMax)
+        assertEquals(2, k.iconK)
+        assertEquals(1, k.causeK)
+        assertEquals(217, k.textW)
+        assertEquals(42, k.textTop)
+        assertEquals(115, k.textBottom)
+        assertEquals(64, k.detailLeft) // between the peek corners (T38): x 64..169 at S = 4
+        assertEquals(169, k.detailRight)
+    }
+
+    @Test fun gutterKeepsTheFieldOffTheDividersAndTheDiamond() {
+        for ((w, h) in screens) for (sc in 2..6) {
+            val l = PlayLayout.compute(DitherGrid(w, h, sc))
+            val k = KoLayout(l)
+            val g = k.gutter
+            assertTrue(g >= 1)
+            for (s in 0 until 4) {
+                val p = l.panels[s]
+                for (y in p.top until p.bottom) for (x in p.left until p.right) {
+                    val ink = k.fieldInk(s, x, y)
+                    // Paper next to every divider and panel edge.
+                    if (x < p.left + g || x >= p.right - g || y < p.top + g || y >= p.bottom - g) assertFalse("$w×$h S=$sc seat $s ($x,$y) edge", ink)
+                    // Paper within the gutter of the diamond (Chebyshev distance to any diamond pixel).
+                    var near = false
+                    for (dy in -g..g) {
+                        val hw = l.diamondRowHalf(y + dy - l.diamondCy)
+                        if (hw >= 0 && x >= l.diamondCx - hw - g && x <= l.diamondCx + hw + g) near = true
+                    }
+                    if (near) assertFalse("$w×$h S=$sc seat $s ($x,$y) by the diamond", ink)
+                }
+                val m = mid(p)
+                assertTrue(k.fieldInk(s, m[0], m[1]))
+            }
+        }
     }
 
     @Test fun haloFillsTheTombstoneAndGrowsIt() {
@@ -174,12 +199,10 @@ class KoTest {
         val panel = IRect().also { r.l.grid.toDevice(r.l.panels[3], it) }
         assertTrue(r.rig.platform.invalidated.isNotEmpty())
         for (d in r.rig.platform.invalidated) assertTrue("$d in $panel", inside(d, panel))
-        // Staying dead with another life change only redraws the cut-out number.
+        // Staying dead with another life change only redraws the detail chip's band.
         r.rig.platform.invalidated.clear()
         r.session.dispatch(Action.ChangeLife(r.rig.id(3), -2), 0)
-        val o = r.ko.layout!!.outline
-        val n = r.l.numberSlot[3]
-        val ring = IRect().also { r.l.grid.toDevice(IRect(n.left - o, n.top - o, n.right + o, n.bottom + o), it) }
+        val ring = IRect().also { r.l.grid.toDevice(IRect().also { b -> r.ko.layout!!.detailBand(3, b) }, it) }
         assertTrue(r.rig.platform.invalidated.isNotEmpty())
         for (d in r.rig.platform.invalidated) assertTrue("$d in $ring", inside(d, ring))
         // Others' changes leave the dead tile alone.
@@ -208,7 +231,9 @@ class KoTest {
         assertTrue(r.ko.visible(2))
         assertEquals(Kind.STATUS, r.ko.kind)
         assertEquals(Layer.TILE, r.ko.layer)
-        // Press feedback is the plate.
+        // Press feedback is the quip's words; once armed, the revive plate.
+        assertEquals(r.ko.block(2).bounds, r.rig.feedback(r.ko, 2, KoComponent.ZONE))
+        r.tap(l.panels[2])
         assertEquals(r.ko.block(2).plate, r.rig.feedback(r.ko, 2, KoComponent.ZONE))
     }
 
@@ -228,8 +253,13 @@ class KoTest {
         val r = Rig()
         r.kill(3)
         val panel = r.l.panels[3]
+        r.rig.platform.invalidated.clear()
         r.tap(panel)
         assertTrue(r.armed(3))
+        // Arming redraws the hero area only (the plate replaces the quip there).
+        val area = IRect().also { r.l.grid.toDevice(IRect().also { b -> r.ko.layout!!.heroArea(3, b) }, it) }
+        assertTrue(r.rig.platform.invalidated.isNotEmpty())
+        for (d in r.rig.platform.invalidated) assertTrue("$d in $area", inside(d, area))
         assertTrue(r.session.state.isKo(r.session.state.players[3]))
         r.tap(panel)
         assertFalse(r.armed(3))
@@ -408,20 +438,66 @@ class KoTest {
         r.rig.platform.invalidated.clear()
         r.kill(2)
         assertEquals(3, r.winner.winner)
-        assertTrue(r.winner.caption.isNotEmpty())
+        assertTrue(r.winner.showing)
         assertEquals(r.winner.caption, r.winner.caption.uppercase())
         assertTrue(r.winner.caption in Flavour.quippy.lines(QuipKind.WINNER).map { it.uppercase() })
-        val under = IRect().also { r.l.grid.toDevice(IRect().also { b -> r.ko.layout!!.winnerBand(3, b) }, it) }
-        assertTrue(r.rig.platform.invalidated.any { overlaps(it, under) })
+        val panel = IRect().also { r.l.grid.toDevice(r.l.panels[3], it) }
+        assertTrue(r.rig.platform.invalidated.any { overlaps(it, panel) })
         // Revive one: no winner any more.
         r.tap(r.l.panels[2]); r.tap(r.l.panels[2])
         assertEquals(-1, r.winner.winner)
         assertEquals("", r.winner.caption)
+        assertFalse(r.winner.showing)
         // Everyone dead: no winner either (seat 2 was revived at 0, so it has to be marked out).
         r.session.dispatch(Action.MarkDead(r.rig.id(2)), 0)
         r.kill(3)
         assertEquals(-1, r.winner.winner)
         assertEquals(KoReason.LIFE, r.session.state.koReason(r.session.state.players[3]))
+    }
+
+    @Test fun winnerTileStaysLiveAndALifeChangeDismissesTheCaptionUntilTheNextWin() {
+        val r = Rig()
+        r.kill(0); r.kill(1); r.kill(2)
+        assertTrue(r.winner.showing)
+        // The ± halves still belong to the life component underneath.
+        assertEquals("life:3:$PLUS", r.hit(r.l.zones[PlayLayout.zone(3, PLUS)]))
+        assertTrue(r.rig.life.visible(3))
+        r.rig.platform.invalidated.clear()
+        r.tap(r.l.zones[PlayLayout.zone(3, PLUS)])
+        assertEquals(41, r.session.state.players[3].life)
+        assertEquals(3, r.winner.winner)
+        assertTrue(r.winner.dismissed)
+        assertFalse(r.winner.showing)
+        val panel = IRect().also { r.l.grid.toDevice(r.l.panels[3], it) }
+        assertTrue(r.rig.platform.invalidated.any { overlaps(it, panel) })
+        // Further changes keep it down; others' changes too.
+        r.tap(r.l.zones[PlayLayout.zone(3, MINUS)])
+        assertFalse(r.winner.showing)
+        // Next win: someone revives, dies again -> a fresh caption.
+        r.tap(r.l.panels[2]); r.tap(r.l.panels[2])
+        assertEquals(-1, r.winner.winner)
+        r.session.dispatch(Action.MarkDead(r.rig.id(2)), 0)
+        assertEquals(3, r.winner.winner)
+        assertTrue(r.winner.showing)
+    }
+
+    @Test fun winnerBlockFitsAndPeeksStayVisible() {
+        val r = Rig()
+        r.session.dispatch(Action.SetCounter(r.rig.id(3), Counter.POISON, 3), 0)
+        r.kill(0); r.kill(1); r.kill(2)
+        assertTrue(r.winner.showing)
+        assertTrue(r.rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.peeks.PeeksComponent>().single().visible(3))
+        val b = r.winner.block()
+        assertTrue(b.lines >= 1)
+        val area = IRect().also { r.ko.layout!!.heroArea(3, it) }
+        for (i in 0 until b.lines) assertTrue(inside(b.line[i], area))
+    }
+
+    @Test fun winnerIsDrawnBeforeEffectsSoTheFlourishPlaysOverIt() {
+        val r = Rig()
+        val cs = r.stage.components
+        val fx = cs.indexOfFirst { it is au.com.josephmark.dithertracker.fx.FxComponent }
+        assertTrue(cs.indexOf(r.winner) < fx)
     }
 
     @Test fun winnerHiddenInCommanderMode() {

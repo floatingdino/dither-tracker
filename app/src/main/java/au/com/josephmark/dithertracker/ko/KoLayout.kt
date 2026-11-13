@@ -6,29 +6,38 @@ import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.PlayLayout.Chrome
 import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.type.Fonts
-import au.com.josephmark.dithertracker.type.TextLayout
 import au.com.josephmark.dithertracker.widgets.TextWrap
 
 /**
- * Geometry of a knocked-out tile (T15) on top of [PlayLayout]. Pure maths (no Android types), JVM
- * tested; laid out in the player's frame and mapped with [PlayLayout.mapRect], so a top-row tile is
- * the exact 180° image of an upright one.
+ * Geometry of the knocked-out tile and the winner's tile (T15, reworked in T42: the quip replaces the
+ * life total). Pure maths (no Android types), JVM tested; laid out in the player's frame and mapped
+ * with [PlayLayout.mapRect], so a top-row tile is the exact 180° image of an upright one. Dead and
+ * winner tiles share one layout, so a line looks the same on either:
  *
- * The dead tile, in bands of the player's frame:
- * - **Field**: the whole panel in `Role.DEAD` (crosshatch).
- * - **Top band** (above the number, where the readout lives): the `dead` tombstone at [iconK]
- *   (≈ 2× chrome icons) and, unless the player died of life loss, the **cause** — the small icon and
- *   the lethal number in `num-m` (poison 10, imp 21) — centred together ([topRow]).
- * - **Number slot**: the final life total in the hero face where it always is, knocked out of the
- *   hatch as a paper cut-out with an [outline] of ink (`KoComponent`; geometry = [PlayLayout.numberFootprint]).
- * - **Bottom band** (under the number; the tab is hidden on a dead tile): a paper **plate** with an
- *   ink [border] and a solid [shadow] down-right in the reader's frame (the numerals' sticker look),
- *   holding the KO quip in ALL CAPS in the `ui` face, wrapped to at most [MAX_LINES] lines at the
- *   largest scale ≤ [quipKMax] that fits ([arrange]). While a revive is armed the plate is inked and
- *   reads [REVIVE] in paper at the quip's scale.
- *
- * The winner caption ([arrangeWinner]) sits in the under-number row of the last player standing,
- * between the counter-peek corners.
+ * ```
+ *  ┌──────────── far edge (the diamond sits in one far corner) ────────────┐
+ *  │                         [emblem]       tombstone / crown, k = iconK    │
+ *  │                                                                        │
+ *  │                     THE QUIP, IN CAPS,          hero: `ui` × k, 1–4    │
+ *  │                     CENTRED AS A BLOCK          lines, k by maths      │
+ *  │ (peeks)                                                       (peeks)  │
+ *  │ (peeks)              [♥ 0] / [☠ 10]          detail: cause / final life │
+ *  │ (peeks)                 (tab)                                 (peeks)  │
+ *  └─────────────────────────── near edge (the player) ─────────────────────┘
+ * ```
+ * - **Field** (dead only): `Role.DEAD` over the panel inset by a paper [gutter], with a paper ring
+ *   [gutter] wide round the centre diamond ([fieldInk]), so dividers and the diamond keep a clean edge.
+ * - **Emblem**: 16 × [iconK] px, centred, [PlayLayout.V_MIN] from the far edge ([emblem]).
+ * - **Hero**: the quip block in [textLeft, textRight) × [textTop, textBottom): the largest k ≤ [kMax]
+ *   at which it wraps into ≤ [MAX_LINES] lines without breaking a word and fits ([arrange]). Lines are
+ *   9k apart (the face's full height), the block's cap bands centred vertically, each line centred.
+ *   On a dead tile every word sits on a paper box grown by [halo] (cut out of the field).
+ * - **Detail**: an icon + `num-m` value on a paper chip, centred in the under-number row between the
+ *   counter-peek corners ([detail]).
+ * - **Revive** (armed): an ink plate reading [REVIVE] in paper at [Block.reviveK], with a solid
+ *   shadow down-right separated from it by a paper [keyline], centred in the hero area.
+ * - **Winner cover** ([winnerCover]): paper over everything above the peek corners (the number, ±
+ *   and readout of the live tile underneath).
  */
 class KoLayout(val play: PlayLayout) {
 
@@ -38,238 +47,271 @@ class KoLayout(val play: PlayLayout) {
     private val W = play.panelW
     private val H = play.panelH
 
-    val border: Int = Chrome.size(BORDER, s)
+    /** Paper between the dead field and the dividers / centre diamond. */
+    val gutter: Int = Chrome.size(GUTTER, s)
 
-    /** Solid drop shadow under the plate, down-right in the reader's frame. */
-    val shadow: Int = Chrome.size(SHADOW, s)
+    /** Paper round the emblem's silhouette, each word of the quip and the detail chip. */
+    val halo: Int = Chrome.size(HALO, s)
 
-    /** Ink ring round the cut-out number (dither px). */
-    val outline: Int = Chrome.size(OUTLINE, s)
-
-    /** Plate padding inside the border: across and down. */
+    /** Revive plate: border-free ink; padding round its text; shadow offset and the paper keyline. */
     val padH: Int = Chrome.size(PAD_H, s)
     val padV: Int = Chrome.size(PAD_V, s)
-
-    /** Paper round the tombstone's silhouette and the cause chip (cut out of the hatch). */
-    val halo: Int = Chrome.size(HALO, s)
-    val lineGap: Int = Chrome.size(LINE_GAP, s)
+    val shadow: Int = Chrome.size(SHADOW, s)
+    val keyline: Int = Chrome.size(KEYLINE, s)
     val iconGap: Int = Chrome.size(ICON_GAP, s)
-    val causeGap: Int = Chrome.size(CAUSE_GAP, s)
 
-    /** Number slot (player frame) and the bands either side, [PlayLayout.V_MIN] clear of it and the edges. */
-    private val slotY = play.numberSlotY
-    private val slotH = play.font.height(play.kMax)
-    val topBandTop: Int = PlayLayout.V_MIN
-    val topBandBottom: Int = slotY - PlayLayout.V_MIN - outline
-    val bottomBandTop: Int = slotY + slotH + PlayLayout.V_MIN + outline
-    val bottomBandBottom: Int = H - PlayLayout.V_MIN
-
-    /** Scale of the tombstone (16 × [iconK] dither px): ≈ 2× chrome, stepped down to fit the top band. */
-    val iconK: Int
-    val iconSize: Int
-
-    /** Scale of the small cause icon and its number. */
+    /** Scale of the small detail icon and its number. */
     val causeK: Int = play.tk
     val causeIconSize: Int = PlayLayout.ICON * causeK
 
-    /** Largest quip / plate / winner text scale (physical size ≈ S = 4's [QUIP_K]). */
-    val quipKMax: Int = Chrome.size(QUIP_K, s)
+    /** Largest hero scale (physical size ≈ S = 4's [QUIP_K]). */
+    val kMax: Int = Chrome.size(QUIP_K, s)
 
-    /** Widest plate (player frame): the panel less [PlayLayout.EDGE_MIN] each side and the shadow. */
-    val maxPlateW: Int = W - 2 * PlayLayout.EDGE_MIN - shadow
+    // ---- bands (player frame) -------------------------------------------------------------------
 
-    /** Widest quip line. */
-    val maxTextW: Int = maxPlateW - 2 * (border + padH)
+    private val peek = PeekLayout(play)
+    private val slotBottom = play.numberSlotY + play.font.height(play.kMax)
 
-    /** Tallest plate: the bottom band less the shadow. */
-    val maxPlateH: Int = bottomBandBottom - bottomBandTop - shadow
+    /** Top of the peek corners (pads included), or the near edge's margin without peeks. */
+    private val peekTop: Int =
+        if (peek.enabled) peek.slotY(2 * (peek.rows - 1)) - peek.pad else H - PlayLayout.V_MIN
 
-    /** Width the plate + its shadow are centred in. */
-    private val CW = W - shadow
+    /** Detail band: the under-number row between the peek corners (also the old winner caption band). */
+    val detailLeft: Int = if (peek.enabled) peek.leftX + peek.colW + peek.pad + PlayLayout.V_MIN else play.underX
+    val detailRight: Int = if (peek.enabled) peek.rightX - peek.colW - peek.pad - PlayLayout.V_MIN else play.underX + play.underW
+    val detailTop: Int = slotBottom + PlayLayout.V_MIN
+    val detailBottom: Int = H - play.chrome.tabH - play.chrome.tabHitPad - PlayLayout.V_MIN
+
+    val emblemTop: Int = PlayLayout.V_MIN + gutter
+
+    /** Hero text box (cap bands and descenders; word boxes grow [halo] beyond it). */
+    val textLeft: Int = PlayLayout.EDGE_MIN
+    val textRight: Int = W - PlayLayout.EDGE_MIN
+    val textW: Int get() = textRight - textLeft
+    val textBottom: Int = minOf(peekTop, detailTop) - halo
+
+    /** Scale of the emblem (16 × [iconK] px): ≈ 2× chrome, stepped down to leave the hero two k = 2 lines. */
+    val iconK: Int
+    val iconSize: Int
+    val textTop: Int
+    val textH: Int get() = textBottom - textTop
 
     private val wrap = TextWrap(MAX_LINES)
 
     init {
         var ik = Chrome.size(ICON_K, s)
-        while (ik > 1 && PlayLayout.ICON * ik + 2 * halo > topBandBottom - topBandTop) ik--
+        val minText = 2 * ui.height(Chrome.size(2, s))
+        fun top(k: Int) = maxOf(emblemTop + PlayLayout.ICON * k + 2 * halo, play.diamondHalf + gutter + halo + 1)
+        while (ik > 1 && textBottom - top(ik) < minText) ik--
         iconK = ik
         iconSize = PlayLayout.ICON * ik
+        textTop = top(ik)
     }
 
     /** The panels (screen), for the dead fill and the touch zone. */
     val panels: Array<IRect> get() = play.panels
 
-    // ---- the plate ------------------------------------------------------------------------------
+    // ---- field --------------------------------------------------------------------------------------
+
+    /** The dead dither's rect on [seat] (screen): the panel inset by [gutter]. */
+    fun field(seat: Int, out: IRect): IRect {
+        val p = play.panels[seat]
+        return out.set(p.left + gutter, p.top + gutter, p.right - gutter, p.bottom - gutter)
+    }
 
     /**
-     * Lays out [seat]'s plate for [quip] (already in caps) into [out]: picks the quip scale, wraps
-     * it, centres the plate in the bottom band. Pure; allocation-free.
+     * Half-width of the paper ring round the diamond at screen row offset `dy` from its centre (−1 =
+     * the row is clear of it): the stepped diamond grown by [gutter] in every direction (its cut
+     * edges by [gutter] across and down, so diagonally twice).
+     */
+    fun ringRowHalf(dy: Int): Int {
+        val a = if (dy < 0) -dy else dy
+        val lim = play.diamondHalf + gutter
+        if (a > lim) return -1
+        return minOf(play.diamondHalf + play.diamondTip + 2 * gutter - a, lim)
+    }
+
+    /** True where a dead [seat]'s field may put dither ink (screen px): inside [field], outside the ring. */
+    fun fieldInk(seat: Int, gx: Int, gy: Int): Boolean {
+        val p = play.panels[seat]
+        if (gx < p.left + gutter || gx >= p.right - gutter || gy < p.top + gutter || gy >= p.bottom - gutter) return false
+        val hw = ringRowHalf(gy - play.diamondCy)
+        return hw < 0 || gx < play.diamondCx - hw || gx > play.diamondCx + hw
+    }
+
+    // ---- emblem and detail -----------------------------------------------------------------------------
+
+    /** The emblem (tombstone / crown) footprint on [seat] (screen). */
+    fun emblem(seat: Int, out: IRect) = play.mapRect(seat, (W - iconSize) / 2, emblemTop, iconSize, iconSize, out)
+
+    /**
+     * The detail on [seat]: icon then [value] in [causeFont], centred in the detail band. Writes the
+     * icon, number and chip (paper backing = both grown by [halo]) footprints; returns false (all
+     * empty) when the band has no room.
+     */
+    fun detail(seat: Int, value: Int, icon: IRect, number: IRect, chip: IRect): Boolean {
+        val nw = causeFont.measureInt(value, causeK)
+        val cw = causeIconSize + iconGap + nw
+        val ch = maxOf(causeIconSize, causeFont.capHeight * causeK)
+        // The chip's paper margin: [halo], or less on a cramped band.
+        val g = minOf(halo, (detailRight - detailLeft - cw) / 2, (detailBottom - detailTop - ch) / 2)
+        if (g < 0) {
+            icon.set(0, 0, 0, 0); number.set(0, 0, 0, 0); chip.set(0, 0, 0, 0)
+            return false
+        }
+        val x = detailLeft + (detailRight - detailLeft - cw) / 2
+        val y = detailTop + (detailBottom - detailTop - ch) / 2
+        play.mapRect(seat, x - g, y - g, cw + 2 * g, ch + 2 * g, chip)
+        play.mapRect(seat, x, y + (ch - causeIconSize) / 2, causeIconSize, causeIconSize, icon)
+        val capH = causeFont.capHeight * causeK
+        play.mapRect(seat, x + causeIconSize + iconGap, y + (ch - capH) / 2 - causeFont.capTop * causeK, nw, causeFont.height(causeK), number)
+        return true
+    }
+
+    /** The whole detail band on [seat] (screen): invalidate this when the detail's value changes. */
+    fun detailBand(seat: Int, out: IRect) =
+        play.mapRect(seat, detailLeft, detailTop, maxOf(0, detailRight - detailLeft), maxOf(0, detailBottom - detailTop), out)
+
+    // ---- hero ----------------------------------------------------------------------------------------
+
+    /** The hero area on [seat] (screen): the text box grown by [halo] — everything the quip or the revive plate touches. */
+    fun heroArea(seat: Int, out: IRect) =
+        play.mapRect(seat, textLeft - halo, textTop - halo, textW + 2 * halo, textH + 2 * halo, out)
+
+    /** Height of [lines] lines at [k] (each line the face's full height, so descenders always fit). */
+    fun blockH(k: Int, lines: Int): Int = lines * ui.height(k)
+
+    /**
+     * Lays out the hero [quip] (already in caps) on [seat] into [out]: the largest k ≤ [kMax] at which
+     * it wraps into ≤ [MAX_LINES] lines of [textW] without breaking a word and fits [textH]; else
+     * k = 1 with what fits. Also places the armed revive plate. Pure; allocation-free.
      */
     fun arrange(seat: Int, quip: CharSequence, out: Block) {
-        var k = quipKMax
+        var k = kMax
         while (true) {
-            wrap.wrap(quip, ui, k, maxTextW)
-            if ((!wrap.truncated && plateH(k, wrap.lines) <= maxPlateH) || k == 1) break
+            wrap.wrap(quip, ui, k, textW)
+            if ((fitsWhole(quip) && blockH(k, wrap.lines) <= textH) || k == 1) break
             k--
         }
+        var n = wrap.lines
+        while (n > 1 && blockH(k, n) > textH) n--
         out.k = k
-        out.lines = wrap.lines
-        for (i in 0 until wrap.lines) {
+        out.lines = n
+        val lh = ui.height(k)
+        // Centre the cap bands (the last line's descender rows hang into the slack below), keeping
+        // every glyph box inside the text box.
+        val capBlock = blockH(k, n) - (lh - ui.capHeight * k - ui.capTop * k)
+        val y0 = textTop + maxOf(0, minOf((textH - capBlock) / 2, textH - blockH(k, n)))
+        var u = Int.MAX_VALUE; var v = Int.MAX_VALUE; var r = Int.MIN_VALUE; var b = Int.MIN_VALUE
+        for (i in 0 until n) {
             out.start[i] = wrap.start[i]
             out.end[i] = wrap.end[i]
-        }
-        val textW = maxOf(wrap.widestWidth, ui.widthOf(REVIVE.length, k))
-        val pw = minOf(maxPlateW, textW + 2 * (border + padH))
-        val ph = plateH(k, wrap.lines)
-        val px = (CW - pw) / 2
-        // Centred in the bottom band; on a cramped (not `comfortable`) layout, kept inside the panel.
-        val py = (bottomBandTop + (bottomBandBottom - bottomBandTop - shadow - ph) / 2).coerceIn(0, maxOf(0, H - shadow - ph))
-        play.mapRect(seat, px, py, pw, ph, out.plate)
-        play.mapRect(seat, px + shadow, py + shadow, pw, ph, out.shadow)
-        val lh = ui.capHeight * k
-        var y = py + border + padV
-        for (i in 0 until wrap.lines) {
             val tw = ui.widthOf(wrap.end[i] - wrap.start[i], k)
-            play.mapRect(seat, (CW - tw) / 2, y - ui.capTop * k, tw, ui.height(k), out.line[i])
-            y += lh + lineGap
+            val x = (W - tw) / 2
+            val y = y0 + i * lh
+            out.lx[i] = x; out.ly[i] = y
+            play.mapRect(seat, x, y, tw, lh, out.line[i])
+            u = minOf(u, x); v = minOf(v, y); r = maxOf(r, x + tw); b = maxOf(b, y + lh)
         }
-        val rt = ui.widthOf(REVIVE.length, k)
-        play.mapRect(seat, (CW - rt) / 2, py + (ph - lh) / 2 - ui.capTop * k, rt, ui.height(k), out.reviveText)
+        if (n > 0) play.mapRect(seat, u - halo, v - halo, r - u + 2 * halo, b - v + 2 * halo, out.bounds)
+        else out.bounds.set(0, 0, 0, 0)
+        arrangeRevive(seat, out)
     }
 
-    /** Plate height for quip scale [k] and [lines] lines. */
-    fun plateH(k: Int, lines: Int): Int = 2 * (border + padV) + lines * ui.capHeight * k + (lines - 1) * lineGap
-
-    // ---- top band --------------------------------------------------------------------------------
-
-    /**
-     * The top band of [seat]: the tombstone, then (when [withCause]) the cause icon and [value] in
-     * [causeFont], centred together in the band. Writes the three footprints (cause ones empty
-     * without a cause); returns the number's glyph scale.
-     */
-    fun topRow(seat: Int, withCause: Boolean, value: Int, tomb: IRect, icon: IRect, number: IRect): Int {
-        val nw = if (withCause) causeFont.measureInt(value, causeK) else 0
-        val unit = iconSize + if (withCause) causeGap + halo + causeIconSize + iconGap + nw + halo else 0
-        val x = (W - unit) / 2
-        val bandH = topBandBottom - topBandTop
-        val cy = topBandTop + bandH / 2
-        play.mapRect(seat, x, topBandTop + TextLayout.centre(bandH, iconSize), iconSize, iconSize, tomb)
-        if (!withCause) {
-            icon.set(0, 0, 0, 0); number.set(0, 0, 0, 0)
-            return causeK
+    /** True when the last wrap kept every non-space char and broke lines only at spaces. */
+    private fun fitsWhole(text: CharSequence): Boolean {
+        if (wrap.truncated) return false
+        for (i in 0 until wrap.lines) {
+            val e = wrap.end[i]
+            if (e < text.length && text[e] != ' ' && text[e] != '\n') return false
         }
-        val ix = x + iconSize + causeGap + halo
-        play.mapRect(seat, ix, cy - causeIconSize / 2, causeIconSize, causeIconSize, icon)
-        val capH = causeFont.capHeight * causeK
-        play.mapRect(seat, ix + causeIconSize + iconGap, cy - capH / 2 - causeFont.capTop * causeK, nw, causeFont.height(causeK), number)
-        return causeK
+        return true
     }
 
-    /** The whole top band of [seat] (screen): invalidate this when the cause value changes. */
-    fun topBand(seat: Int, out: IRect) = play.mapRect(seat, 0, topBandTop, W, maxOf(0, topBandBottom - topBandTop), out)
-
-    // ---- winner caption ---------------------------------------------------------------------------
-
-    /**
-     * Where the winner caption may go (player frame): the under-number row, between the counter-peek
-     * corners (T38, [PeekLayout.corner]) with [PlayLayout.V_MIN] clear of each, so it never sits on a
-     * peek. Without peeks (disabled layout) it has the row's full width.
-     */
-    private val peek = PeekLayout(play)
-    val winnerLeft: Int = if (peek.enabled) peek.leftX + peek.colW + peek.pad + PlayLayout.V_MIN else play.underX
-    val winnerRight: Int = if (peek.enabled) peek.rightX - peek.colW - peek.pad - PlayLayout.V_MIN else play.underX + play.underW
-    val winnerW: Int get() = maxOf(0, winnerRight - winnerLeft)
-    private val winnerWrap = TextWrap(MAX_LINES)
-
-    /**
-     * Player-frame band the caption is centred in: the whole gap between the number slot and the
-     * tab's hit area ([PlayLayout.V_MIN] clear of each) — the band the under-number row is centred in.
-     */
-    val winnerTop: Int = slotY + slotH + PlayLayout.V_MIN
-    val winnerBottom: Int = H - play.chrome.tabH - play.chrome.tabHitPad - PlayLayout.V_MIN
-    private val winnerH0: Int get() = winnerBottom - winnerTop
-
-    /** The caption band on [seat] (screen): invalidate this when the winner changes. */
-    fun winnerBand(seat: Int, out: IRect) =
-        play.mapRect(seat, winnerLeft, winnerTop, winnerW, maxOf(0, winnerBottom - winnerTop), out)
-
-    /**
-     * Lays out a winner [caption] (caps) on [seat] into [out]: the largest scale ≤ [quipKMax] at which
-     * it wraps into at most [MAX_LINES] lines of [winnerW] without cutting a word and fits the row's
-     * height; if none does, scale 1 with what fits. `out.k == 0` = no room at all.
-     */
-    fun arrangeWinner(seat: Int, caption: CharSequence, out: Block) {
-        out.k = 0; out.lines = 0
-        val w = winnerW
-        if (winnerH0 <= 0 || w <= 0 || winnerBottom <= winnerTop) return
-        var k = quipKMax
-        while (true) {
-            winnerWrap.wrap(caption, ui, k, w)
-            if ((!winnerWrap.truncated && winnerH(k, winnerWrap.lines) <= winnerH0) || k == 1) break
-            k--
-        }
-        var n = winnerWrap.lines
-        while (n > 1 && winnerH(k, n) > winnerH0) n-- // scale 1 still too tall: drop lines
-        if (n == 0 || winnerH(k, n) > winnerH0) return
-        out.k = k; out.lines = n
-        val lh = ui.capHeight * k
-        val bh = winnerH(k, n)
-        var y = winnerTop + (winnerH0 - bh) / 2 + ui.capTop * k
-        for (i in 0 until n) {
-            out.start[i] = winnerWrap.start[i]; out.end[i] = winnerWrap.end[i]
-            val tw = ui.widthOf(out.end[i] - out.start[i], k)
-            // Box top from the cap top, kept inside the row (the face's descender band may hang below).
-            val top = minOf(y - ui.capTop * k, winnerTop + winnerH0 - ui.height(k))
-            play.mapRect(seat, winnerLeft + (w - tw) / 2, maxOf(winnerTop, top), tw, ui.height(k), out.line[i])
-            y += lh + winnerGap(k)
-        }
+    private fun arrangeRevive(seat: Int, out: Block) {
+        val n = REVIVE.length
+        // The plate with its keyline (up-left) and shadow (down-right) inside the hero area.
+        val aL = textLeft - halo
+        val aT = textTop - halo
+        val aW = textW + 2 * halo - keyline - shadow
+        val aH = textH + 2 * halo - keyline - shadow
+        var k = minOf(kMax, Chrome.size(REVIVE_K, s))
+        while (k > 1 && (ui.widthOf(n, k) + 2 * padH > aW || ui.capHeight * k + 2 * padV > aH)) k--
+        out.reviveK = k
+        val tw = ui.widthOf(n, k)
+        val pw = tw + 2 * padH
+        val ph = ui.capHeight * k + 2 * padV
+        val px = aL + keyline + (aW - pw) / 2
+        val py = aT + keyline + (aH - ph) / 2
+        play.mapRect(seat, px, py, pw, ph, out.plate)
+        play.mapRect(seat, px - keyline, py - keyline, pw + 2 * keyline, ph + 2 * keyline, out.keyline)
+        play.mapRect(seat, px + shadow, py + shadow, pw, ph, out.shadow)
+        play.mapRect(seat, px + padH, py + padV - ui.capTop * k, tw, ui.height(k), out.reviveText)
     }
 
-    /** Gap between the caption's cap bands: [WINNER_GAP], and never less than the face's descent (boxes never overlap). */
-    fun winnerGap(k: Int): Int = maxOf(Chrome.size(WINNER_GAP, s), ui.height(k) - ui.capHeight * k - ui.capTop * k)
+    /**
+     * The paper box of the word `[from, until)` of line [i] in [b] on [seat] (screen): the glyphs'
+     * cap band (and descender rows when [descends]) grown by [halo].
+     */
+    fun wordBox(seat: Int, b: Block, i: Int, from: Int, until: Int, descends: Boolean, out: IRect) {
+        val k = b.k
+        val step = ui.advance * k
+        val x = b.lx[i] + (from - b.start[i]) * step
+        val w = ui.widthOf(until - from, k)
+        val h = (if (descends) ui.glyphHeight else ui.capTop + ui.capHeight) * k - ui.capTop * k
+        play.mapRect(seat, x - halo, b.ly[i] + ui.capTop * k - halo, w + 2 * halo, h + 2 * halo, out)
+    }
 
-    /** Height of a [lines]-line caption at scale [k]: cap bands, gaps and the last line's descent. */
-    private fun winnerH(k: Int, lines: Int): Int =
-        lines * ui.capHeight * k + (lines - 1) * winnerGap(k) + (ui.height(k) - ui.capHeight * k - ui.capTop * k)
+    // ---- winner ---------------------------------------------------------------------------------------
 
-    /** One seat's plate (screen rects), filled by [arrange]. */
+    /** Paper over the live tile above the peek corners on [seat] (screen): number, ±, readout. */
+    fun winnerCover(seat: Int, out: IRect) = play.mapRect(seat, 0, 0, W, peekTop, out)
+
+    /** One seat's hero (screen rects), filled by [arrange]. */
     class Block {
         var k = 1
         var lines = 0
         val start = IntArray(MAX_LINES)
         val end = IntArray(MAX_LINES)
-        val plate = IRect()
 
-        /** The plate's drop shadow (drawn first; the plate covers all but its down-right edge). */
-        val shadow = IRect()
+        /** Player-frame top-left of each line's glyph box (for word boxes). */
+        val lx = IntArray(MAX_LINES)
+        val ly = IntArray(MAX_LINES)
+
+        /** Each line's glyph box (full face height). */
         val line = Array(MAX_LINES) { IRect() }
 
-        /** [REVIVE] centred on the plate (armed). */
+        /** The block's words with their [halo]: what a press inverts. */
+        val bounds = IRect()
+
+        /** Armed: the ink plate, its paper keyline, its shadow, and [REVIVE] at [reviveK]. */
+        var reviveK = 1
+        val plate = IRect()
+        val keyline = IRect()
+        val shadow = IRect()
         val reviveText = IRect()
     }
 
     override fun toString(): String =
-        "KoLayout(S=$s tomb k$iconK, cause k$causeK, quip k..$quipKMax, top band $topBandTop..$topBandBottom, " +
-            "bottom band $bottomBandTop..$bottomBandBottom, plate ≤ ${maxPlateW}x$maxPlateH, outline $outline)"
+        "KoLayout(S=$s emblem k$iconK, hero k..$kMax in ${textW}x$textH at y $textTop, detail " +
+            "$detailLeft..$detailRight x $detailTop..$detailBottom, gutter $gutter, halo $halo)"
 
     companion object {
-        const val MAX_LINES = 2
+        const val MAX_LINES = 4
 
         /** The armed plate's text. */
         const val REVIVE = "REVIVE?"
 
         /** Design values at S = 4 (converted per S like [PlayLayout.Chrome]). */
         const val ICON_K = 2
-        const val QUIP_K = 2
-        const val BORDER = 1
-        const val SHADOW = 2
-        const val OUTLINE = 2
-        const val PAD_H = 6
-        const val PAD_V = 4
+        const val QUIP_K = 5
+        const val REVIVE_K = 4
+        const val GUTTER = 2
         const val HALO = 2
-        const val LINE_GAP = 5
+        const val PAD_H = 6
+        const val PAD_V = 5
+        const val SHADOW = 3
+        const val KEYLINE = 1
         const val ICON_GAP = 3
-        const val CAUSE_GAP = 10
-        const val WINNER_GAP = 3
     }
 }

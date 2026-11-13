@@ -26,10 +26,11 @@ import kotlin.random.Random
  * poison ≥ 10, 21 from one commander, or marked dead), derived from the saved game, so it survives
  * process death; only the quip is re-picked on restore.
  *
- * - **Look** ([KoLayout]): the panel in `Role.DEAD` (crosshatch); the tombstone (and the cause for
- *   poison / commander damage) in the top band; the final life total where it always is, knocked out
- *   of the hatch as a paper cut-out with an ink ring; the KO quip on a paper plate with a sticker
- *   shadow below. The quip is picked once when the KO happens (`Flavour.ko(reason, …)`, never the
+ * - **Look** ([KoLayout], T42): the panel in `Role.DEAD` (a light dither) inset by a paper gutter
+ *   and kept off the centre diamond; the tombstone as a small emblem at the top; **the quip replaces
+ *   the life total** as the hero — caps, `ui` face at the largest k that fits, each word a paper box
+ *   cut out of the field; the cause as one quiet chip below (heart + life, poison + count, imp +
+ *   damage). The quip is picked once when the KO happens (`Flavour.ko(reason, …)`, never the
  *   previous line), not on redraw; re-picked when the player dies again or the cause changes.
  * - **Cover**: while a seat shows dead, [cover] hides its life, peeks, drawer, tab, readout and
  *   commander-mode content (`CONTENT | CHROME | READOUT | MODE`) — so they neither draw nor take
@@ -37,7 +38,8 @@ import kotlin.random.Random
  *   [Kind.STATUS]: commander mode does not hide it (a dead player stays dead there), full overlays do.
  * - **Revive** is deliberate: the whole tile is one zone; the first tap arms it (the plate turns ink
  *   and reads `REVIVE?` for [ARM_MS]); a second tap while armed dispatches [Action.Revive]; the
- *   timeout disarms. A press inverts the plate.
+ *   timeout disarms. The armed plate is ink with a paper keyline between it and its shadow. A press
+ *   inverts the quip's words (or the armed plate).
  * - **Effects hook** ([Events.KO_HOLD] / [Events.KO_RELEASE]): an effect can hold the dead treatment
  *   off a seat while it plays; released by the effect, by any touch-down on the seat, or after
  *   [HOLD_MAX_MS]. Nobody holding = immediate.
@@ -82,7 +84,6 @@ class KoComponent(
     private val tr = IRect()
     private val ci = IRect()
     private val cn = IRect()
-    private val fp = IRect()
     private val scratch = IRect()
     private var tomb: MonoImage = Icon.DEAD
     private var tombHalo: Array<MonoImage> = emptyArray() // [upright, rotated 180]
@@ -130,7 +131,7 @@ class KoComponent(
         for (h in tombHalo) f.r.fillMask(h, 0, 0, Role.SURFACE)
         f.icons.prewarm(CAUSE_ICONS, k.causeK)
         for (rot in ROTATIONS) {
-            for (q in 1..k.quipKMax) f.text.draw(k.ui, WARM_UI, 0, 0, q, rot)
+            for (q in 1..k.kMax) f.text.draw(k.ui, WARM_UI, 0, 0, q, rot)
             f.text.draw(k.causeFont, WARM_NUM, 0, 0, k.causeK, rot)
         }
     }
@@ -141,20 +142,14 @@ class KoComponent(
         if (layout == null) return
         val np = new.players
         val op = old.players
-        // A dead player's own numbers changed: redraw the cut-out number and the cause.
+        // A dead player's own numbers changed: redraw the detail chip.
         val k = layout!!
         for (s in 0 until minOf(P, np.size, op.size)) {
             val a = op[s]
             val b = np[s]
             if (a === b || (shown ushr s) and 1 == 0 || new.koReason(b) != reasons[s]) continue
-            if (a.life != b.life) {
-                val n = l!!.numberSlot[s]
-                val o = k.outline
-                scratch.set(n.left - o, n.top - o, n.right + o, n.bottom + o)
-                invalidate(scratch)
-            }
-            if (a.counters.poison != b.counters.poison || a.maxCommanderDamage != b.maxCommanderDamage) {
-                k.topBand(s, scratch); invalidate(scratch)
+            if (a.life != b.life || a.counters.poison != b.counters.poison || a.maxCommanderDamage != b.maxCommanderDamage) {
+                k.detailBand(s, scratch); invalidate(scratch)
             }
         }
         sync(new, invalidate = true)
@@ -238,7 +233,7 @@ class KoComponent(
     private fun arm(seat: Int) {
         armed = armed or (1 shl seat)
         timers.schedule(ARM_TIMER + seat, ARM_MS)
-        invalidate(blocks[seat].plate)
+        layout?.let { it.heroArea(seat, scratch); invalidate(scratch) }
     }
 
     private fun disarm(seat: Int) {
@@ -246,7 +241,7 @@ class KoComponent(
         if (armed and bit == 0) return
         armed = armed and bit.inv()
         timers.cancel(ARM_TIMER + seat)
-        if (layout != null) invalidate(blocks[seat].plate)
+        layout?.let { it.heroArea(seat, scratch); invalidate(scratch) }
     }
 
     override fun zones(seat: Int, z: ZoneSink) {
@@ -256,7 +251,8 @@ class KoComponent(
 
     override fun feedback(seat: Int, local: Int, out: IRect): Boolean {
         if ((shown ushr seat) and 1 == 0) return false
-        val p = blocks[seat].plate
+        val b = blocks[seat]
+        val p = if ((armed ushr seat) and 1 != 0) b.plate else b.bounds
         out.set(p.left, p.top, p.right, p.bottom)
         return true
     }
@@ -290,49 +286,72 @@ class KoComponent(
         val b = blocks[seat]
         val p = f.players[seat]
         val rot = l.rotation[seat]
-        f.r.fill(Role.DEAD, l.panels[seat])
 
-        // Top band: tombstone, and the cause unless it was plain life loss (the cut-out says that).
-        val reason = reasons[seat]
-        val withCause = reason == KoReason.POISON || reason == KoReason.COMMANDER_DAMAGE
-        val value = if (reason == KoReason.POISON) p.counters.poison else p.maxCommanderDamage
-        val nk = k.topRow(seat, withCause, value, tr, ci, cn)
+        // Field: paper, the dead dither inset by the gutter, a paper ring round the diamond.
+        val panel = l.panels[seat]
+        f.r.rect(panel, ink = false)
+        f.r.fill(Role.DEAD, k.field(seat, scratch))
+        val cy = l.diamondCy
+        val lim = l.diamondHalf + k.gutter
+        for (dy in -lim..lim) {
+            val y = cy + dy
+            if (y < panel.top || y >= panel.bottom) continue
+            val hw = k.ringRowHalf(dy)
+            val x0 = maxOf(panel.left, l.diamondCx - hw)
+            val x1 = minOf(panel.right, l.diamondCx + hw + 1)
+            if (x1 > x0) f.r.rect(x0, y, x1 - x0, 1, ink = false)
+        }
+
+        // Emblem: the tombstone, cut out of the field in its own shape.
+        k.emblem(seat, tr)
         if (f.hit(tr)) {
-            // Cut out of the hatch in the tombstone's own shape, then the outline on top.
             val g = k.halo
             f.r.fillMask(tombHalo[if (rot == 180) 1 else 0], tr.left - g, tr.top - g, Role.SURFACE)
             f.r.blit(tomb, tr.left, tr.top, rot)
         }
-        if (withCause && (f.hit(ci) || f.hit(cn))) {
-            val g = k.halo
-            chip.set(minOf(ci.left, cn.left) - g, minOf(ci.top, cn.top) - g, maxOf(ci.right, cn.right) + g, maxOf(ci.bottom, cn.bottom) + g)
+
+        // Detail: why — heart and life, poison and its count, the imp and its damage.
+        val reason = reasons[seat]
+        val value = when (reason) {
+            KoReason.POISON -> p.counters.poison
+            KoReason.COMMANDER_DAMAGE -> p.maxCommanderDamage
+            else -> p.life
+        }
+        if (k.detail(seat, value, ci, cn, chip) && f.hit(chip)) {
             f.r.rect(chip, ink = false)
-            f.icons.icon(k.causeK, if (reason == KoReason.POISON) Icon.POISON else Icon.COMMANDER, ci, rot, invert = false, opaque = false)
-            f.text.drawInt(k.causeFont, value, cn.left, cn.top, nk, rot)
-        }
-
-        // The final life total, knocked out of the hatch: an ink ring, then the numerals in paper.
-        val lk = l.numberFootprint(seat, p.life, fp)
-        if (f.hit(l.numberSlot[seat])) {
-            val o = k.outline
-            for (dy in -o..o) for (dx in -o..o) {
-                if (dx == 0 && dy == 0) continue
-                f.text.drawInt(l.font, p.life, fp.left + dx, fp.top + dy, lk, rot, shadow = false)
+            val icon = when (reason) {
+                KoReason.POISON -> Icon.POISON
+                KoReason.COMMANDER_DAMAGE -> Icon.COMMANDER
+                else -> Icon.LIFE
             }
-            f.text.drawInt(l.font, p.life, fp.left, fp.top, lk, rot, invert = true, shadow = false)
+            f.icons.icon(k.causeK, icon, ci, rot, invert = false, opaque = false)
+            f.text.drawInt(k.causeFont, value, cn.left, cn.top, k.causeK, rot)
         }
 
-        // The plate: quip, or the armed revive.
-        if (!f.hit(b.shadow) && !f.hit(b.plate)) return
-        if (k.shadow > 0) f.r.rect(b.shadow, ink = true)
+        // Hero: the armed revive plate, or the quip as ink words on paper cut out of the field.
         if ((armed ushr seat) and 1 != 0) {
+            if (!f.hit(b.keyline) && !f.hit(b.shadow)) return
+            f.r.rect(b.shadow, ink = true)
+            f.r.rect(b.keyline, ink = false)
             f.r.rect(b.plate, ink = true)
-            f.text.draw(k.ui, KoLayout.REVIVE, b.reviveText.left, b.reviveText.top, b.k, rot, invert = true)
+            f.text.draw(k.ui, KoLayout.REVIVE, b.reviveText.left, b.reviveText.top, b.reviveK, rot, invert = true)
             return
         }
-        f.r.rect(b.plate, ink = false)
-        f.r.frame(b.plate, k.border)
+        if (!f.hit(b.bounds)) return
         val q = quips[seat]
+        for (i in 0 until b.lines) {
+            var j = b.start[i]
+            val e = b.end[i]
+            while (j < e) {
+                if (q[j] == ' ') { j++; continue }
+                var w = j
+                var desc = false
+                while (w < e && q[w] != ' ') { if (q[w] == ',' || q[w] == ';') desc = true; w++ }
+                k.wordBox(seat, b, i, j, w, desc, scratch)
+                f.r.rect(scratch, ink = false)
+                j = w
+            }
+        }
         for (i in 0 until b.lines) {
             val r = b.line[i]
             f.text.draw(k.ui, slice.set(q, b.start[i], b.end[i]), r.left, r.top, b.k, rot)
