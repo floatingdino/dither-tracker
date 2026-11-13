@@ -7,9 +7,11 @@ import au.com.josephmark.dithertracker.commander.CommanderTile
 import au.com.josephmark.dithertracker.drawer.DrawerComponent
 import au.com.josephmark.dithertracker.drawer.DrawerTab
 import au.com.josephmark.dithertracker.fx.FxComponent
+import au.com.josephmark.dithertracker.history.HistoryOverlay
 import au.com.josephmark.dithertracker.ko.KoComponent
 import au.com.josephmark.dithertracker.ko.KoWinner
 import au.com.josephmark.dithertracker.life.LifeComponent
+import au.com.josephmark.dithertracker.menu.MenuItem
 import au.com.josephmark.dithertracker.menu.MenuOverlay
 import au.com.josephmark.dithertracker.peeks.PeeksComponent
 import au.com.josephmark.dithertracker.readout.ReadoutComponent
@@ -47,6 +49,7 @@ object PlayScreen {
 
         // ---- OVERLAY -------------------------------------------------------------------------------
         val menu = stage.add(MenuOverlay(random)) // table menu, the gem (T09; Kind.OVERLAY)
+        menu.destinations.register(MenuItem.LOG, stage.add(HistoryOverlay(random))) // game history card (T18)
         // slot: settings (T12), history (T18), tools (T16/T17), player setup (T13): Layer.OVERLAY,
         //       Kind.OVERLAY, each with its own Cover if it hides anything. Menu items reach them with
         //       `menu.destinations.register(MenuItem.SETUP, stage.add(SettingsOverlay(...)))`.

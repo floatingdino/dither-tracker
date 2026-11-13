@@ -61,10 +61,12 @@ class MenuOverlayTest {
         r.rig.session.changeLife(0, -1, 0) // UNDO becomes available
         r.open()
         r.rig.stage.collectNow()
-        // Open: + dismiss, the gem block, and every enabled facet (8 of 9: REDO and the 4 routed items are
-        // disabled → 9 − 5 = 4 facets: centre, NEW, UNDO, CLEAN).
-        assertEquals(4, r.menu.enabled.count { it })
-        assertEquals(closed + 2 + 4, r.rig.stage.collectedCount)
+        // Open: + dismiss, the gem block, and every enabled facet: centre, NEW, UNDO, CLEAN, plus each
+        // routed item that has a destination registered in PlayScreen (REDO is disabled).
+        val routed = MenuItem.entries.count { it.routed && r.menu.destinations[it] != null }
+        val facets = 4 + routed
+        assertEquals(facets, r.menu.enabled.count { it })
+        assertEquals(closed + 2 + facets, r.rig.stage.collectedCount)
         assertEquals(MenuOverlay.ZONES, r.menu.zonesPerSeat)
         // Closed again: back to the closed set.
         r.tapSlot(CENTRE)
