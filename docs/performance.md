@@ -18,6 +18,7 @@ owner's install). Debuggable builds run interpreted/JIT, so their CPU times are 
 | Bitmaps built inside `onDraw` | 0 | 0 — purity-suite check |
 | CPU while idle, foreground or background | 0 ticks | 0 ticks over 120 s each |
 | Timers armed after the app is paused | 0 | 0 — `perf/BackgroundTest` |
+| Turn timer (T17), while on and showing | ≤ 1 redraw a minute, digits only | 1 a minute, 10×14 dither px (`turns/TurnTabTest`) |
 | Frames per life tap | ≤ 2 (press, release) | 2 |
 | StrictMode violations (debug) | 0 | 0 |
 
@@ -166,7 +167,10 @@ effect invalidates its own seat only, at most one panel = 25 %.)
   keyframe; 0 for press/release, gem and drawer open/close; a life tap and a tap + commit + effect
   round add nothing over `:core`'s own state change (budget 4 KB, measured 1.4 KB).
 - `perf/BackgroundTest` — after `Events.PAUSE`: readout committed, no effect playing, no timer armed,
-  no redraw over a minute; also mid-effect and mid-KO.
+  no redraw over a minute; also mid-effect and mid-KO; and with the turn timer on (T17), nothing armed
+  or drawn over three paused hours, one re-synced redraw on resume, nothing armed with the timer off.
+- `perf/AllocationBudgetTest` also pins the turn tab (T17): 0 bytes to draw it (minutes, pressed, on a
+  KO tile) and 0 bytes per minute tick.
 - `perf/PrewarmPhaseTest` — the first prewarm phase covers a fresh table, KO tiles and a winner at
   S = 2..6, both orientations and colour modes; the phases add up to everything.
 - `perf/LayoutDeferralTest` — the settings card is not measured in the layout pass, and measures the
@@ -228,6 +232,16 @@ effect invalidates its own seat only, at most one panel = 25 %.)
   large updates per ~20 counted changes, only after 2 s of quiet. Its timer is a single 2 s one-shot,
   armed only while a clean is due, dropped on pause; nothing is scheduled while it is OFF or below
   the threshold. Design unchanged.
+- **Turn tracker and timer** (T17, `turns/TurnTab`): a pass is one frame over the two tabs (old and
+  new, 89×21 dither px each at S = 4; the stage unions them into one rect, but only their pixels
+  change); a press inverts one tab. The timer (Turns = GAME / TURN, off by default) is ONE one-shot
+  armed for the next minute boundary of the clock, only while the timer is on, a tab is showing (not
+  under an overlay, in commander mode, or after the game) and the app is resumed; it redraws only the
+  digits (10×14 dither px per digit; the whole tab when 9 → 10 or 99 → 100) and re-arms. Dropped on
+  `Events.PAUSE`, re-synced from the wall clock on `RESUME` (the minutes come from `TurnState`'s
+  persisted start stamps, never a counter). A life tap does not re-arm it. With the timer off nothing
+  is ever scheduled. Known slack: while the active seat's drawer is open the tab is hidden but the
+  tick stays armed, so the panel is asked once a minute to redraw ~140 unchanged pixels there.
 - **Keep awake** holds `FLAG_KEEP_SCREEN_ON` on the play window only while resumed and the setting is
   on; no wake locks otherwise (`dumpsys power`: none while idle).
 

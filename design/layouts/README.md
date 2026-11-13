@@ -137,6 +137,7 @@ so it favours nobody.
 | Commander mode | partner numbers with ± each | partner ± hidden (two 2-digit numbers and their icons) |
 | KO / winner tile | quip at the one size | the same size; long quips wrap to more lines |
 | Effects | tile-wide | tile-wide (the narrower tile) |
+| Turn tab (T17) | 89 × 21 on the far edge, centred (beside the diamond at 2 players and the 3-player end seat); icon + minutes | 89 × 21 centred on seats clear of the diamond; **45 × 21 beside it** on the middle seats (5: seat 1; 6: seats 1 and 4), the minutes alone when the timer is on |
 
 ## Open design questions
 

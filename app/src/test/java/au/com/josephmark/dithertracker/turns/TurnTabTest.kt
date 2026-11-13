@@ -378,6 +378,9 @@ class TurnTabTest {
         r.start(3)
         r.c.tap(r.c.tab, 3, 0)
         assertTrue(r.c.drawer.state.isOpen(3))
+        // Why: the open drawer's compact readout + number stack climbs into the far strip.
+        val tiles = r.stage.tiles!!
+        assertTrue(overlaps(r.l.hit[3], tiles.readoutSlot(3, true)) || overlaps(r.l.hit[3], tiles.numberSlot(3, true)))
         assertNull(r.c.pointOf(r.turn, 3, TurnTab.PASS))
         assertTrue(r.c.check("drawer").isEmpty())
         r.c.drawer.controller.closeAll()
