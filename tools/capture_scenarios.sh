@@ -171,18 +171,18 @@ sleep 6                             # the badge clears after 5 s
 tap 934 702; sleep 1; tap 1050 818
 sleep 1
 cap 29_settings
-cap_pressed 30_press_settings_row 934 590   # "Invert" row held; release toggles it (dark mode)
+cap_pressed 30_press_settings_row 934 646   # "Invert" row held; release toggles it (dark mode)
 sleep 1
 cap 31_settings_inverted
-tap 934 590                         # Invert back off
+tap 934 646                         # Invert back off
 sleep 1
-tap 934 1038                        # Counters page
+tap 934 1094                        # Counters page
 sleep 1
 cap 32_settings_counters
-tap 470 238                         # rotate the card a quarter turn (it now faces the east edge)
+tap 414 182                         # rotate the card a quarter turn (it now faces the east edge)
 sleep 1
 cap 33_settings_rotated
-tap 1385 1156                       # its close X, turned with it to the lower right
+tap 1458 1220                       # its close X, turned with it to the lower right
 sleep 1
 
 # --- history card -----------------------------------------------------------------------------------------
