@@ -51,7 +51,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 |----|--------|------|------|-------|
 | T11 | todo | T06 | Layout engine for 2–6 players, portrait + landscape, per-seat rotation (0/90/180/270), all on the dither grid with leftover px as margin. Render tests per layout. | `app/src/main/**/layout/` |
 | T12 | todo | T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life, counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
-| T13 | todo | T08 T12 | Player customisation: name entry (on-screen 1-bit keyboard or system IME), per-player background pattern picker. | `app/src/main/**/player/` |
+| T13 | todo | T08 T12 | Player customisation: name entry (in-app 1-bit keyboard — no system IME, see SPEC rule 7), per-player background pattern picker. | `app/src/main/**/player/` |
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | todo | T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive) + toggle. | `play/` |
 
@@ -67,7 +67,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
-| T19a | wip | — | E-ink refresh research: Supernote/Ratta refresh-mode APIs, what stock Android offers, ghosting strategy → `docs/eink.md` with a concrete recommendation. Read-only device inspection. | `docs/eink.md` |
+| T19a | done | — | E-ink refresh research: Supernote/Ratta refresh-mode APIs, what stock Android offers, ghosting strategy → `docs/eink.md` with a concrete recommendation. Read-only device inspection. | `docs/eink.md` |
 | T19b | todo | T19a T06 | Implement the refresh strategy from `docs/eink.md`: invalidation audit, periodic full refresh, any safely available device refresh-mode hook. | `app/src/main/**/eink/` |
 | T20 | todo | T11 T12 | Performance pass: zero allocations in draw, startup time, APK size, StrictMode clean; measure on emulator throttled. | whole app |
 | T21 | todo | T04 T02 | App icon (1-bit, adaptive + legacy) and launcher label from the icon set / dither patterns. | `app/src/main/res/` |
@@ -92,6 +92,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   serial `<device-serial>`; Android 11 / API 30, 1404x1872 @ 300dpi, arm64-v8a). Screen tasks must be
   checked on it: `adb install -r` the debug APK, launch, `adb exec-out screencap -p` and run the
   pixel-purity check on the capture. Only install/launch/screencap this app — touch nothing else on the device.
+
+## Needs Sam
+
+- E-ink experiments E1–E10 in `docs/eink.md` §5 need a phone slow-motion video / raking-light photos
+  of the Nomad once the play screen is on it — the coordinator can drive the taps over adb.
 
 ## Tick log
 
@@ -124,3 +129,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   integer multiple k; API in `app/.../type/` (`TextRenderer.drawIn/drawIntIn`). Known nits: `1` flag
   heavy, `5` bowl corner, `8` snowman, strokes slightly lighter than mock. Dispatched T06.
   T19a, T24 still running.
+- 2026-11-13 — Tick 9: T19a reviewed and committed (`docs/eink.md`). Key findings: no documented
+  refresh API for sideloaded apps; `invalidate(Rect)` doesn't limit redraw; strategy = minimal changed
+  pixels, one frame per action, single window, app-drawn flash cleanup, optional guarded vendor
+  `screenRefresh`. Added SPEC rule 7 (single window). Forwarded to the T06 agent. T06, T24 running.

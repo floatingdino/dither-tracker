@@ -19,6 +19,8 @@ A 1-bit life tracker for MTG Commander, built for E-ink. Primary target: **Super
    are a single redraw. Invalidate the smallest dirty rect possible (partial e-ink refresh).
 5. **Cheap.** No Compose, no heavy deps. Custom `View`s drawing on `Canvas`. No allocations in
    `onDraw`. Cache tile bitmaps/shaders. Cold start should be near-instant; APK should be tiny.
+7. **Single window.** No Dialog, PopupWindow, Toast or system IME; overlays are drawn in-app. System
+   bars are hidden once and never toggled. Opaque white window background. (See `docs/eink.md`.)
 6. **Pressed feedback is an inversion** (black↔white swap of the touched region), nothing else.
 
 ## Stack
