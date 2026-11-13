@@ -78,7 +78,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
-| T11 | wip | T06 | Layout engine for 2–6 players, portrait + landscape, per-seat rotation (0/90/180/270), all on the dither grid with leftover px as margin. Render tests per layout. | `app/src/main/**/layout/` |
+| T11 | review | T06 | Layout engine for 2–6 players, portrait + landscape, per-seat rotation (0/90/180/270), all on the dither grid with leftover px as margin. Render tests per layout. | `app/src/main/**/layout/` |
 | T12 | done | T34 T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life as a segmented [40] [30] [20] choice (not a stepper), counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
 | T13 | dropped | — | ~~Player names (in-app keyboard)~~ — Sam, 2026-11-14: player names are dropped; seats are identified by the seat glyph (T44). What remains of player customisation is the per-player background pattern, moved to T45. | — |
 | T45 | dropped | — | ~~Per-player background pattern picker~~ — Sam, 2026-11-14: player colours/patterns are dropped too. | — |
@@ -562,3 +562,15 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   fizzle as tile layers at global phase (`KNOWN_OFF_PHASE` empty). In flight, uncommitted: T11's
   player-count control (settings, menu, persistence, core codec). Left: T11 control + captures;
   T48 docs/captures; T49. Running: T11, T48/T49.
+- 2026-11-14 — Tick 55: T11 reported (`ddc8059`, `068831d`, `347b041`, `29dccc5`, `cf8872b`, `62a45e1`,
+  `e7e532a`), verified in a clean worktree (137 core + 1036 app tests; 13 captures pass `check_1bit`).
+  Arrangements (table in `layout/Arrangement.kt`, notes in `design/layouts/README.md`): 2 across
+  (468×175), 3 tee with the right end turned 270° (292×175), 4 grid unchanged and byte-identical,
+  5 three+two and 6 three+three (155×175, "narrow" tier: no ± glyphs, no peeks, 2 drawer cells a
+  page). `Players [2][3][4][5][6]` in settings, applied on NEW (`NewGameFor`), save format v2 (v1
+  loads). Portrait computed and tested, not unlocked. In `review`.
+  **Needs Sam (design):** ± on narrow tiles; peeks / drawer density at 5–6; the 5-player near row
+  leaves side margins (equal tiles) — widen the two near seats?; gem labels and the dice/settings/
+  history cards have no facing for the 3-player end seat; offer alternate arrangements in settings?;
+  diamond mid-edge at 2/5/6. Note: `purity/ScreenRig` uses `pointer++` and `PlayInput` ignores
+  pointer ids ≥ 32 — fix in the next purity touch. Running: T48/T49.
