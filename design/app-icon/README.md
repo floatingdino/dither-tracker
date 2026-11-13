@@ -82,3 +82,18 @@ python3 design/app-icon/render.py --check         # exit 1 if committed resource
 
 To change the icon, edit `<PICK>/icon.txt` and run the script. To switch concepts, change `PICK` in
 `render.py`. Never edit the PNGs by hand.
+
+## Nomad-exact heart icon (2026-11-14)
+
+The designer picked the **heart** concept. On the Supernote Nomad (300 dpi) the system's "My Apps"
+list draws app icons at exactly **90 x 90 px**. The adaptive icon was being rescaled into that by a
+non-integer factor, which smeared the dither, so:
+
+- there is **no adaptive icon** any more (`mipmap-anydpi-v26` and the foreground bitmaps are gone);
+- the Nomad gets its own bitmap in `mipmap-300dpi/` — `heart-nomad/icon.txt`, a 30 x 30 grid drawn at
+  3 device px per icon pixel (the heart at 2x, a checker shadow, a paper halo, and a Bayer gradient
+  from 1/16 at the top to 8/16 at the bottom). Checked on the device: the icon area in the app list
+  matches the design pixel for pixel (`design/captures/t21-nomad-app-list-heart.png`).
+- other densities use the plain per-density `ic_launcher.png` from the `heart` concept (`PICK`).
+
+Regenerate with `python3 design/app-icon/render.py`; `--check` verifies the committed resources.

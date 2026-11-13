@@ -25,7 +25,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 PATTERNS = os.path.join(ROOT, 'design', 'patterns')
 RES = os.path.join(ROOT, 'app', 'src', 'main', 'res')
 
-PICK = 'sticker'
+PICK = 'heart'
 CONCEPTS = ['sticker', 'diamond', 'heart']
 
 GRID = 54          # adaptive canvas: 108 dp / 2 dp per icon px
@@ -245,10 +245,30 @@ def preview(name, ink):
 
 # ---------------------------------------------------------------- resources
 
+# The Supernote Nomad (300 dpi) draws app icons at exactly 90 x 90 px in its "My Apps" list. A
+# bitmap in a `mipmap-300dpi` bucket is used there unscaled, so the Nomad gets its own design: a
+# 30 x 30 grid at 3 device px per icon pixel (design/app-icon/heart-nomad/icon.txt).
+NOMAD = 'heart-nomad'
+NOMAD_DPI = 300
+NOMAD_GRID = 30
+NOMAD_K = 3
+
+
+def load_nomad():
+    rows = [l.rstrip('\n') for l in open(os.path.join(HERE, NOMAD, 'icon.txt'))]
+    rows = [r for r in rows if r]
+    assert len(rows) == NOMAD_GRID and all(len(r) == NOMAD_GRID and set(r) <= set('#.') for r in rows), \
+        f'{NOMAD}/icon.txt must be {NOMAD_GRID} x {NOMAD_GRID} of # and .'
+    return [[c == '#' for c in r] for r in rows]
+
+
 def resources(ink):
     """Yields (path, writer, image) for every launcher resource of the picked concept."""
-    for d, k in ADAPTIVE.items():
-        yield os.path.join(RES, f'mipmap-{d}', 'ic_launcher_foreground.png'), write_1bit, scale(ink, k)
+    # No adaptive icon (see NOMAD below): launchers that honour it rescale the layers by non-integer
+    # factors, which smears the dither. Plain per-density bitmaps only.
+    nomad = load_nomad()
+    for f in ('ic_launcher.png', 'ic_launcher_round.png'):
+        yield os.path.join(RES, f'mipmap-{NOMAD_DPI}dpi', f), write_1bit, scale(nomad, NOMAD_K)
     for d, size in LEGACY.items():
         sq, _, _ = legacy(ink, size, False)
         yield os.path.join(RES, f'mipmap-{d}', 'ic_launcher.png'), write_1bit, [[v == 0 for v in r] for r in sq]
@@ -289,13 +309,6 @@ def main():
         os.makedirs(os.path.dirname(path), exist_ok=True)
         writer(path, img)
         print('wrote', os.path.relpath(path, ROOT), f'{len(img[0])}x{len(img)}')
-    for v in ('mipmap-anydpi-v26',):
-        d = os.path.join(RES, v)
-        os.makedirs(d, exist_ok=True)
-        for f in ('ic_launcher.xml', 'ic_launcher_round.xml'):
-            with open(os.path.join(d, f), 'w') as fh:
-                fh.write(ADAPTIVE_XML)
-            print('wrote', os.path.relpath(os.path.join(d, f), ROOT))
 
 
 if __name__ == '__main__':
