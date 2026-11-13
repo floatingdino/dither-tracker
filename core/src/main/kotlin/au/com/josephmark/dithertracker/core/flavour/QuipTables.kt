@@ -14,7 +14,8 @@ internal object QuipTables {
 
     // Since T42 a KO or winner line replaces the life total, drawn large: short lines draw biggest
     // (<= 9 chars per line at k = 4 on the Nomad, <= 12 at k = 3). Each list ends with its verbatim
-    // game lines ([verbatim]; sources in `design/copy/quips.md`).
+    // 8/16-bit game lines ([verbatim]) — at least half of every KO and winner list; sources in
+    // `design/copy/quips.md`, the wider bench in `design/copy/retro-candidates.md`.
 
     val koLife = listOf(
         "Beefed it",
@@ -31,15 +32,22 @@ internal object QuipTables {
         "Thoroughly cooked",
         "Lost the table vote",
         "Oops. Anyway",
-        "Game over",
-        "Press start to cry",
         // verbatim
+        "Thou art dead.",
+        "You die...",
         "Somebody set up us the bomb.",
+        "Oh no!",
+        "Unit lost.",
+        "Too late for that.",
+        "A valiant attempt.",
+        "Your prayers are not heard.",
+        "Shoot! It was so close too!",
+        "Stay a while... stay forever!",
+        "But nothing happened.",
         "Critical hit!",
-        "But nothing happened!",
+        "I feel asleep!!",
         "You fight like a dairy farmer.",
         "Rise from your grave!",
-        "Toasty!",
         "Barf!",
     )
 
@@ -47,16 +55,14 @@ internal object QuipTables {
         "Poisoned. Gross",
         "It was only a 1/1",
         "Nibbled to death",
-        "Full health, still dead",
-        "One proliferate too many",
-        "Wasn't counting, clearly",
         "Ten is a very low number",
-        "Death by tally marks",
-        "Doesn't feel so good",
         "Died of ten papercuts",
-        "Forgot the antidote",
         // verbatim
+        "The poison was deadly...",
         "It's not very effective...",
+        "Buy medicine before you go.",
+        "Your life force is running out",
+        "Time passes...",
     )
 
     val koCommanderDamage = listOf(
@@ -68,13 +74,20 @@ internal object QuipTables {
         "Bullied by one commander",
         "Killed it. It came back",
         "Ignored it for too long",
-        "Lost to the final boss",
         // verbatim
+        "All your base are belong to us.",
         "It's super effective!",
         "Welcome to your doom!",
-        "Fatality",
+        "One-hit KO!",
+        "Excellent move!",
+        "Toasty!",
+        "You spoony bard!",
+        "Son of a submariner!",
+        "I hunger!",
+        "It's you !!",
         "Can't escape!",
         "What you say !!",
+        "The truck have started to move!",
     )
 
     val koManual = listOf(
@@ -83,10 +96,14 @@ internal object QuipTables {
         "Chose peace",
         "Has a train to catch",
         "Went to get snacks",
-        "Bailed. Fair enough",
-        "Insert coin to rejoin",
         // verbatim
+        "Chickening out... already?",
+        "You run THAT fast?",
         "Got away safely!",
+        "Do you wish to leave the game?",
+        "go ahead and leave.",
+        "The enemy is running away.",
+        "Leave at once!",
         "It's a secret to everybody.",
     )
 
@@ -183,17 +200,23 @@ internal object QuipTables {
         "Told you so",
         "Wins. Rematch?",
         "Too easy",
-        "High score. Enter name",
-        "Level up",
         // verbatim
-        "All your base are belong to us.",
-        "For great justice.",
-        "How are you gentlemen !!",
         "A winner is you",
         "Conglaturation !!!",
         "You have completed a great game.",
-        "Flawless victory",
+        "You won!",
+        "The legends have proven true.",
+        "For great justice.",
         "Course clear!",
+        "Yippee!",
+        "Hurrah!",
+        "Now go and rest our heroes !",
+        "I've not seen such bravery",
+        "Thou art truly brave.",
+        "Do you expect me to applaud?",
+        "Boy, you're rich!",
+        "Go home and be a family man!",
+        "How are you gentlemen !!",
     )
 
     /**
@@ -203,13 +226,64 @@ internal object QuipTables {
      * table in `design/copy/quips.md`.
      */
     val verbatim: Set<String> = setOf(
-        "Somebody set up us the bomb.", "Critical hit!", "But nothing happened!",
-        "You fight like a dairy farmer.", "Rise from your grave!", "Toasty!", "Barf!",
+        "Thou art dead.",
+        "You die...",
+        "Somebody set up us the bomb.",
+        "Oh no!",
+        "Unit lost.",
+        "Too late for that.",
+        "A valiant attempt.",
+        "Your prayers are not heard.",
+        "Shoot! It was so close too!",
+        "Stay a while... stay forever!",
+        "But nothing happened.",
+        "Critical hit!",
+        "I feel asleep!!",
+        "You fight like a dairy farmer.",
+        "Rise from your grave!",
+        "Barf!",
+        "The poison was deadly...",
         "It's not very effective...",
-        "It's super effective!", "Welcome to your doom!", "Fatality", "Can't escape!", "What you say !!",
-        "Got away safely!", "It's a secret to everybody.",
-        "All your base are belong to us.", "For great justice.", "How are you gentlemen !!", "A winner is you",
-        "Conglaturation !!!", "You have completed a great game.", "Flawless victory", "Course clear!",
+        "Buy medicine before you go.",
+        "Your life force is running out",
+        "Time passes...",
+        "All your base are belong to us.",
+        "It's super effective!",
+        "Welcome to your doom!",
+        "One-hit KO!",
+        "Excellent move!",
+        "Toasty!",
+        "You spoony bard!",
+        "Son of a submariner!",
+        "I hunger!",
+        "It's you !!",
+        "Can't escape!",
+        "What you say !!",
+        "The truck have started to move!",
+        "Chickening out... already?",
+        "You run THAT fast?",
+        "Got away safely!",
+        "Do you wish to leave the game?",
+        "go ahead and leave.",
+        "The enemy is running away.",
+        "Leave at once!",
+        "It's a secret to everybody.",
+        "A winner is you",
+        "Conglaturation !!!",
+        "You have completed a great game.",
+        "You won!",
+        "The legends have proven true.",
+        "For great justice.",
+        "Course clear!",
+        "Yippee!",
+        "Hurrah!",
+        "Now go and rest our heroes !",
+        "I've not seen such bravery",
+        "Thou art truly brave.",
+        "Do you expect me to applaud?",
+        "Boy, you're rich!",
+        "Go home and be a family man!",
+        "How are you gentlemen !!",
     )
 
     // --- Commander damage: the targeted player ------------------------------------------------

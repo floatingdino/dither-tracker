@@ -23,7 +23,7 @@ class FlavourTest {
                 assertTrue(wrapped.size <= 2, "prompt wraps to ${wrapped.size} lines: $wrapped")
             } else {
                 assertTrue(line.length <= LINE_MAX, "$kind longer than $LINE_MAX: '$line' (${line.length})")
-                assertFalse(line.endsWith("?") && kind != QuipKind.WINNER, "$kind caption is a question: '$line'")
+                assertFalse(line.endsWith("?") && kind != QuipKind.WINNER && line !in QuipTables.verbatim, "$kind caption is a question: '$line'")
             }
         }
     }
@@ -54,6 +54,8 @@ class FlavourTest {
             val l = Flavour.quippy.lines(kind)
             val first = l.indexOfFirst { it in QuipTables.verbatim }
             if (first >= 0) assertTrue(l.drop(first).all { it in QuipTables.verbatim }, "$kind mixes verbatim and own lines")
+            // The retro register is an identity, not a stray joke: at least half of each list (Sam, T42).
+            assertTrue(2 * l.count { it in QuipTables.verbatim } >= l.size, "$kind is less than half retro")
         }
     }
 

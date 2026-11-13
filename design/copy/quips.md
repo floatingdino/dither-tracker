@@ -13,11 +13,12 @@ line breaks the rules below. (Not a coder? Edit this file and ask for the Kotlin
 - Characters the `ui` face can draw: letters, digits, space and `+ - / : ; . , ? ( ) [ ] % # & ' " < > = _ | *`.
 - Sentence case, no full stop at the end, no exclamation marks. No duplicates anywhere.
 - Original lines only: no card names, card text or other apps' quips. Kid-safe.
-- **Exception (T42): verbatim game quotes.** The KO and winner lists end with a few famous one-liners
-  from 8- and 16-bit era games, quoted exactly (Sam, 2026-11-14), listed under *Verbatim game quotes*.
-  They keep their own punctuation (`!`, a closing full stop, odd spacing); the case here is sentence
-  case because every KO and winner line is drawn in caps. Each one's source is in the table at the
-  bottom. Only lines we are sure of word-for-word; a misquote is worse than no quote.
+- **Exception (T42): verbatim game quotes.** At least half of each KO and winner list is famous
+  one-liners from 8- and 16-bit era games, quoted exactly (Sam, 2026-11-14), listed under *Verbatim
+  game quotes*. They keep their own punctuation and quirks (`!`, `?`, a closing full stop, `!!` after
+  a space, a lower-case start); otherwise they are stored in sentence case, because every KO and
+  winner line is drawn in caps. Each one's source is in the table at the bottom. Only lines checked
+  word-for-word against a source; a misquote is worse than no quote.
 
 **Size (T42):** KO and winner lines replace the life total and are drawn as big as they fit — up to
 7 characters on one line at the largest size, two lines of 9 at the next, two lines of 12 below
@@ -50,33 +51,38 @@ strings at the bottom are used instead.
 - Thoroughly cooked
 - Lost the table vote
 - Oops. Anyway
-- Game over
-- Press start to cry
 
 #### Verbatim game quotes *(sources below)*
+- Thou art dead.
+- You die...
 - Somebody set up us the bomb.
+- Oh no!
+- Unit lost.
+- Too late for that.
+- A valiant attempt.
+- Your prayers are not heard.
+- Shoot! It was so close too!
+- Stay a while... stay forever!
+- But nothing happened.
 - Critical hit!
-- But nothing happened!
+- I feel asleep!!
 - You fight like a dairy farmer.
 - Rise from your grave!
-- Toasty!
 - Barf!
 
 ### Knocked out: poison (10 counters)
 - Poisoned. Gross
 - It was only a 1/1
 - Nibbled to death
-- Full health, still dead
-- One proliferate too many
-- Wasn't counting, clearly
 - Ten is a very low number
-- Death by tally marks
-- Doesn't feel so good
 - Died of ten papercuts
-- Forgot the antidote
 
 #### Verbatim game quotes *(sources below)*
+- The poison was deadly...
 - It's not very effective...
+- Buy medicine before you go.
+- Your life force is running out
+- Time passes...
 
 ### Knocked out: commander damage (21 from one commander)
 - One creature. Lots of hats
@@ -87,14 +93,21 @@ strings at the bottom are used instead.
 - Bullied by one commander
 - Killed it. It came back
 - Ignored it for too long
-- Lost to the final boss
 
 #### Verbatim game quotes *(sources below)*
+- All your base are belong to us.
 - It's super effective!
 - Welcome to your doom!
-- Fatality
+- One-hit KO!
+- Excellent move!
+- Toasty!
+- You spoony bard!
+- Son of a submariner!
+- I hunger!
+- It's you !!
 - Can't escape!
 - What you say !!
+- The truck have started to move!
 
 ### Knocked out: marked out by hand (conceded)
 - Scooped with dignity
@@ -102,11 +115,15 @@ strings at the bottom are used instead.
 - Chose peace
 - Has a train to catch
 - Went to get snacks
-- Bailed. Fair enough
-- Insert coin to rejoin
 
 #### Verbatim game quotes *(sources below)*
+- Chickening out... already?
+- You run THAT fast?
 - Got away safely!
+- Do you wish to leave the game?
+- go ahead and leave.
+- The enemy is running away.
+- Leave at once!
 - It's a secret to everybody.
 
 ### Starting player *(under name)*
@@ -183,18 +200,24 @@ Any pair can follow any prompt, so the confirm label must read as "reset" on its
 - Told you so
 - Wins. Rematch?
 - Too easy
-- High score. Enter name
-- Level up
 
 #### Verbatim game quotes *(sources below)*
-- All your base are belong to us.
-- For great justice.
-- How are you gentlemen !!
 - A winner is you
 - Conglaturation !!!
 - You have completed a great game.
-- Flawless victory
+- You won!
+- The legends have proven true.
+- For great justice.
 - Course clear!
+- Yippee!
+- Hurrah!
+- Now go and rest our heroes !
+- I've not seen such bravery
+- Thou art truly brave.
+- Do you expect me to applaud?
+- Boy, you're rich!
+- Go home and be a family man!
+- How are you gentlemen !!
 
 ### Commander damage: the targeted player *(drawn large on their tile, at most 16 characters; heckling a little)*
 - Uh oh
@@ -269,30 +292,68 @@ Any pair can follow any prompt, so the confirm label must read as "reset" on its
 ## Sources (verbatim game quotes)
 
 Exact on-screen text (or the spoken line, for announcer voices) as it appeared; "As shown" is the
-original casing. Check any you doubt before shipping; drop rather than "fix" one.
+original casing (the tile draws everything in caps). Each was checked against the source named —
+disassemblies and released source code first, then transcripts. Check any you doubt before shipping;
+drop rather than "fix" one. The wider bench (with spares for dice, reset and history) is
+`design/copy/retro-candidates.md`.
 
-| Line | As shown | Game (year, platform) | Where |
-|---|---|---|---|
-| Somebody set up us the bomb. | SOMEBODY SET UP US THE BOMB. | Zero Wing (1991, Mega Drive) | KO: life |
-| Critical hit! | Critical hit! | Pokemon Red / Blue (1996-98, Game Boy) | KO: life |
-| But nothing happened! | But nothing happened! | Pokemon Red / Blue (Game Boy) | KO: life |
-| You fight like a dairy farmer. | You fight like a dairy farmer. | The Secret of Monkey Island (1990, PC) | KO: life |
-| Rise from your grave! | (spoken) | Altered Beast (1988, arcade / Mega Drive) | KO: life |
-| Toasty! | (spoken) | Mortal Kombat II (1993, arcade) | KO: life |
-| Barf! | BARF! | River City Ransom (1989, NES) | KO: life |
-| It's not very effective... | It's not very effective... | Pokemon Red / Blue (Game Boy) | KO: poison |
-| It's super effective! | It's super effective! | Pokemon Red / Blue (Game Boy) | KO: commander damage |
-| Welcome to your doom! | (spoken) | Altered Beast (1988, arcade / Mega Drive) | KO: commander damage |
-| Fatality | FATALITY (and spoken) | Mortal Kombat (1992, arcade) | KO: commander damage |
-| Can't escape! | Can't escape! | Pokemon Red / Blue (Game Boy) | KO: commander damage |
-| What you say !! | WHAT YOU SAY !! | Zero Wing (1991, Mega Drive) | KO: commander damage |
-| Got away safely! | Got away safely! | Pokemon Red / Blue (Game Boy) | KO: conceded |
-| It's a secret to everybody. | IT'S A SECRET TO EVERYBODY. | The Legend of Zelda (1986, NES) | KO: conceded |
-| All your base are belong to us. | ALL YOUR BASE ARE BELONG TO US. | Zero Wing (1991, Mega Drive) | Winner |
-| For great justice. | FOR GREAT JUSTICE. | Zero Wing (1991, Mega Drive) | Winner |
-| How are you gentlemen !! | HOW ARE YOU GENTLEMEN !! | Zero Wing (1991, Mega Drive) | Winner |
-| A winner is you | A WINNER IS YOU | Pro Wrestling (1986, NES) | Winner |
-| Conglaturation !!! | CONGLATURATION !!! | Ghostbusters (1988, NES) | Winner |
-| You have completed a great game. | YOU HAVE COMPLETED A GREAT GAME. | Ghostbusters (1988, NES) | Winner |
-| Flawless victory | (spoken) | Mortal Kombat (1992, arcade) | Winner |
-| Course clear! | COURSE CLEAR! | Super Mario World (1990, SNES) | Winner |
+| Line | As shown | Game (year, platform) | Verified against | Where |
+|---|---|---|---|---|
+| Thou art dead. | Thou art dead. | Dragon Warrior (1989, NES) | DW disassembly (nmikstas), Bank02.asm | KO: life |
+| You die... | You die... | NetHack (1987, PC) | NetHack source, end.c | KO: life |
+| Somebody set up us the bomb. | SOMEBODY SET UP US THE BOMB. | Zero Wing (1991, Mega Drive) | Wikiquote: Zero Wing | KO: life |
+| Oh no! | (spoken) | Lemmings (1991, Amiga/PC) | Retro Gamer #39; MobyGames trivia | KO: life |
+| Unit lost. | (spoken) | Command & Conquer (1995, DOS) | PCGamesN on the EVA lines | KO: life |
+| Too late for that. | Too late for that. | Zork I (1980, PC) | Zork I source (historicalsource), gverbs.zil | KO: life |
+| A valiant attempt. | A valiant attempt. | Zork I (1980, PC) | Zork I source, gverbs.zil | KO: life |
+| Your prayers are not heard. | Your prayers are not heard. | Zork I (1980, PC) | Zork I source, 1actions.zil | KO: life |
+| Shoot! It was so close too! | Shoot! It was so close too! | Pokemon Red / Blue (1998 US, Game Boy) | pokered disassembly (pret), text_6.asm | KO: life |
+| Stay a while... stay forever! | (spoken) | Impossible Mission (1984, C64) | Wikipedia: Impossible Mission | KO: life |
+| But nothing happened. | But nothing happened. | Dragon Warrior (1989, NES) | DW disassembly, Bank02.asm | KO: life |
+| Critical hit! | Critical hit! | Pokemon Red / Blue (Game Boy) | pokered, text_2.asm | KO: life |
+| I feel asleep!! | I FEEL ASLEEP!! | Metal Gear (1988, NES) | Wikipedia: Metal Gear (video game) (case per NES all-caps text) | KO: life |
+| You fight like a dairy farmer. | You fight like a dairy farmer. | The Secret of Monkey Island (1990, PC) | AGS wiki: Insult Swordfighting; Wikiquote | KO: life |
+| Rise from your grave! | (spoken) | Altered Beast (1988 arcade / 1989 MD) | VGMRips sound-test track list; Wikipedia | KO: life |
+| Barf! | BARF! | River City Ransom (1990, NES) | Legends of Localization: River City Ransom's BARF! | KO: life |
+| The poison was deadly... | The poison was deadly... | NetHack (1987, PC) | NetHack source, attrib.c | KO: poison |
+| It's not very effective... | It's not very effective... | Pokemon Red / Blue (Game Boy) | pokered, text_2.asm | KO: poison |
+| Buy medicine before you go. | BUY MEDICINE BEFORE YOU GO. | The Legend of Zelda (1987, NES) | Legends of Localization: Zelda text comparison | KO: poison |
+| Your life force is running out | (spoken) | Gauntlet (1985, arcade) | Wikipedia: Gauntlet (1985 video game) | KO: poison |
+| Time passes... | Time passes... | Zork I (1980, PC) | Zork I source, gverbs.zil | KO: poison |
+| All your base are belong to us. | ALL YOUR BASE ARE BELONG TO US. | Zero Wing (1991, Mega Drive) | Wikiquote: Zero Wing | KO: commander damage |
+| It's super effective! | It's super effective! | Pokemon Red / Blue (Game Boy) | pokered, text_2.asm | KO: commander damage |
+| Welcome to your doom! | (spoken) | Altered Beast (1988 arcade / 1989 MD) | VGMRips track list | KO: commander damage |
+| One-hit KO! | One-hit KO! | Pokemon Red / Blue (Game Boy) | pokered, text_2.asm | KO: commander damage |
+| Excellent move! | Excellent move! | Dragon Warrior (1989, NES) | DW disassembly (critical hit) | KO: commander damage |
+| Toasty! | (spoken) | Mortal Kombat II (1993, arcade) | Mortal Kombat Wiki; PC Gamer | KO: commander damage |
+| You spoony bard! | You spoony bard! | Final Fantasy II US (IV) (1991, SNES) | Legends of Localization: You Spoony Bard | KO: commander damage |
+| Son of a submariner! | Son of a submariner! | Final Fantasy III US (VI) (1994, SNES) | Wikipedia: Ted Woolsey | KO: commander damage |
+| I hunger! | (spoken) | Sinistar (1982, arcade) | Wikipedia: Sinistar | KO: commander damage |
+| It's you !! | It's you !! | Zero Wing (1991, Mega Drive) | Wikiquote: Zero Wing | KO: commander damage |
+| Can't escape! | Can't escape! | Pokemon Red / Blue (Game Boy) | pokered, text_2.asm | KO: commander damage |
+| What you say !! | WHAT YOU SAY !! | Zero Wing (1991, Mega Drive) | Wikiquote: Zero Wing | KO: commander damage |
+| The truck have started to move! | THE TRUCK HAVE STARTED TO MOVE! | Metal Gear (1988, NES) | Wikipedia: Metal Gear (own sentence after "Uh-oh!") | KO: commander damage |
+| Chickening out... already? | Chickening out... already? | Wolfenstein 3D (1992, DOS) | Wolf3D source (id Software), WL_MENU.C | KO: conceded |
+| You run THAT fast? | You run THAT fast? | The Secret of Monkey Island (1990, PC) | AGS wiki: Insult Swordfighting | KO: conceded |
+| Got away safely! | Got away safely! | Pokemon Red / Blue (Game Boy) | pokered, text_2.asm | KO: conceded |
+| Do you wish to leave the game? | Do you wish to leave the game? | Zork I (1980, PC) | Zork I source, gverbs.zil | KO: conceded |
+| go ahead and leave. | go ahead and leave. | Doom (1993, DOS) | Doom source (id Software), dstrings.c | KO: conceded |
+| The enemy is running away. | The enemy is running away. | Dragon Warrior (1989, NES) | DW disassembly | KO: conceded |
+| Leave at once! | Leave at once! | Dragon Warrior (1989, NES) | DW disassembly | KO: conceded |
+| It's a secret to everybody. | IT'S A SECRET TO EVERYBODY. | The Legend of Zelda (1987, NES) | Legends of Localization; Wikiquote | KO: conceded |
+| A winner is you | A WINNER IS YOU | Pro Wrestling (1987, NES, US release) | Wikipedia; The Cutting Room Floor notes later revisions | Winner |
+| Conglaturation !!! | CONGLATURATION !!! | Ghostbusters (1988, NES) | Legends of Localization (?p=9672) | Winner |
+| You have completed a great game. | YOU HAVE COMPLETED A GREAT GAME. | Ghostbusters (1988, NES) | Legends of Localization (?p=9672) | Winner |
+| You won! | YOU WON! | EarthBound (1995, SNES) | Legends of Localization: EarthBound battles | Winner |
+| The legends have proven true. | The legends have proven true. | Dragon Warrior (1989, NES) | DW disassembly | Winner |
+| For great justice. | FOR GREAT JUSTICE. | Zero Wing (1991, Mega Drive) | Wikiquote: Zero Wing | Winner |
+| Course clear! | COURSE CLEAR! | Super Mario Bros. 3 (1990, NES) | Mario Wiki: Goal | Winner |
+| Yippee! | (spoken) | Lemmings (1991, Amiga/PC) | Retro Gamer #39 | Winner |
+| Hurrah! | Hurrah! | Dragon Warrior (1989, NES) | DW disassembly | Winner |
+| Now go and rest our heroes ! | NOW GO AND REST OUR HEROES ! | Ghostbusters (1988, NES) | Legends of Localization (?p=9672) | Winner |
+| I've not seen such bravery | (spoken) | Gauntlet (1985, arcade) | Wikipedia: Gauntlet | Winner |
+| Thou art truly brave. | Thou art truly brave. | Dragon Warrior (1989, NES) | DW disassembly | Winner |
+| Do you expect me to applaud? | Do you expect me to applaud? | Zork I (1980, PC) | Zork I source, gverbs.zil | Winner |
+| Boy, you're rich! | BOY, YOU'RE RICH! | The Legend of Zelda (1987, NES) | Legends of Localization: Zelda text comparison | Winner |
+| Go home and be a family man! | Go home and be a family man! | Street Fighter II (1991, arcade) | Legends of Localization (?p=944) (original casing unconfirmed) | Winner |
+| How are you gentlemen !! | HOW ARE YOU GENTLEMEN !! | Zero Wing (1991, Mega Drive) | Wikiquote: Zero Wing | Winner |
