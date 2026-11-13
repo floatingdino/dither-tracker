@@ -26,8 +26,8 @@ import au.com.josephmark.dithertracker.type.Fonts
  * at [k]; spacing designed at S = 4 and converted per S like `PlayLayout.Chrome` (constant physical
  * size). Each face is exactly as tall as the taller of the result and the text block (label,
  * underline, two caption lines) + [PAD_V], and as wide as the result + a [TEXT_CHARS]-glyph column,
- * or the fold row if that is wider. At S = 4 that is 149×105 (155×111 with the rim) at 2×, 141×99
- * (147×105) at 1× (stacked, see [stacked]): clear of every life total up to four glyphs, the
+ * or the fold row if that is wider (it is, at every S: four buttons that hold "coin"). At S = 4 that
+ * is 157×105 (163×111 with the rim) at 2×, 157×99 (163×105) at 1× (stacked, see [stacked]): clear of every life total up to four glyphs, the
  * readouts and every ± glyph (see `DiceLayoutTest`).
  *
  * The faces are point-symmetric about the crossing (each long side reads its own face upright), so
@@ -116,9 +116,10 @@ class DiceLayout(val play: PlayLayout, resultScale: Int = RESULT_K) {
         val margin = Chrome.size(BTN_MARGIN, scale)
         val r = foldH / 2 + 1
         // Wide enough for a [TEXT_CHARS]-glyph caption column and for four fingertip-sized fold
-        // buttons (hit = button + gap ≥ target) beside the diamond; the caption takes any slack.
+        // buttons (hit = button + both half-gaps ≥ target) beside the diamond; the caption takes any slack.
         val textW = ui.widthOf(TEXT_CHARS, k)
-        val bwMin = play.target - gap
+        // Each button holds its longest label ("coin") with [BTN_AIR] of paper inside the frame.
+        val bwMin = maxOf(play.target - 2 * (gap / 2), ui.widthOf(LONGEST_BUTTON_LABEL, k) + 2 + 2 * Chrome.size(BTN_AIR, scale))
         val foldW = 2 * (margin + 2 * bwMin + 2 * gap + r) + 1
         val faceW = odd(maxOf(padH + resW + colGap + textW + padH, foldW))
         val w = faceW + 2 * b
@@ -306,7 +307,11 @@ class DiceLayout(val play: PlayLayout, resultScale: Int = RESULT_K) {
         const val COL_GAP = 5
         const val FOLD_H = 27
         const val FOLD_CUT = 2
-        const val BTN_GAP = 3
+        const val BTN_GAP = 2
+        const val BTN_AIR = 2
+
+        /** Glyphs in the longest fold-button label ("coin"). */
+        const val LONGEST_BUTTON_LABEL = 4
         const val BTN_MARGIN = 1
         const val X_HALF = 5
         const val X_RUN = 1

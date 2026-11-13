@@ -30,20 +30,20 @@ class DiceLayoutTest {
         val l = layout(4, 2)
         assertEquals(1, l.k)
         assertFalse(l.stacked)
-        assertEquals(149, l.panel.width)
+        assertEquals(157, l.panel.width) // the fold row's: four buttons that hold "coin"
         assertEquals(105, l.panel.height)
-        assertEquals(IRect(156, 120, 311, 231), l.panelOuter) // 155×111 (was 163×153 with num-l)
+        assertEquals(IRect(152, 120, 315, 231), l.panelOuter) // 163×111 (was 163×153 with num-l)
         assertEquals(27, l.fold.height)
         assertEquals(37, l.faces[0].height)
-        assertEquals(IRect(164, 194, 208, 222), l.resultBox[0]) // 44×28: two num-m digits at 2×
+        assertEquals(IRect(160, 194, 204, 222), l.resultBox[0]) // 44×28: two num-m digits at 2×
     }
 
     @Test fun nomadMetrics1x() {
         val l = layout(4, 1)
         assertTrue(l.stacked) // the label sits under the small result
-        assertEquals(141, l.panel.width) // the fold row's minimum
+        assertEquals(157, l.panel.width)
         assertEquals(99, l.panel.height)
-        assertEquals(IRect(160, 123, 307, 228), l.panelOuter) // 147×105
+        assertEquals(IRect(152, 123, 315, 228), l.panelOuter) // 163×105
         assertEquals(34, l.faces[0].height)
         assertEquals(35, l.resultBox[0].width) // as wide as "nat 20"
         assertEquals(14, l.resultBox[0].height)
@@ -122,7 +122,8 @@ class DiceLayoutTest {
                 for (c in b + 1 until DiceLayout.BUTTONS) assertFalse(hit.meets(l.buttonHit[c]))
                 // Labels fit inside (two faces, one per half of the button).
                 val t = DiceLayout.toolOf(b) ?: continue
-                assertTrue("S=$s ${t.label}", l.ui.widthOf(t.label.length, l.k) <= bt.width - 2)
+                assertTrue("S=$s ${t.label}", t.label.length <= DiceLayout.LONGEST_BUTTON_LABEL)
+                assertTrue("S=$s ${t.label} air", l.ui.widthOf(t.label.length, l.k) + 2 + 2 * PlayLayout.Chrome.size(DiceLayout.BTN_AIR, s) <= bt.width)
                 assertTrue("S=$s half", l.ui.capHeight * l.k <= l.cy - (bt.top + 1))
             }
             assertTrue(l.foldRect.inside(l.fold))
