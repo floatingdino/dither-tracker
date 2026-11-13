@@ -79,7 +79,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T25a | done | T03 | Personality copy tables in core: original quips (KO lines by reason, dice/coin lines, reset confirm, empty history, default player names) with a pure picker taking `Random`; length-checked against the `ui` face budget. | `core/src/**/flavour/` |
 | T25b | todo | T25a T15 T16 | Show quips at their call sites (KO panel, tools, reset confirm, history) as static text; "quips" setting. | call sites |
 | T29 | wip | T03 | Core: per-seat undo grouping so interleaved taps from different seats don't split one seat's burst into several undo steps/log entries. JVM-only. | `core/src/` |
-| T26 | wip | — | Hero numeral exploration: 4–5 heavier, more characterful candidates for life totals, rendered in-context at device pixels for Sam to pick. | `design/font/candidates/` (or `design/font-candidates/`) |
+| T26 | done | — | Hero numeral exploration: 4–5 heavier, more characterful candidates for life totals, rendered in-context at device pixels for Sam to pick. | `design/font/candidates/` (or `design/font-candidates/`) |
 | T28a | wip | — | Hit/heal effect sprites: 3–4 damage and 2–3 heal effect concepts (swipe, crunch, fizzle, sparkle…), 2–4 frames each as 1-bit ASCII frames, with offline previews (frame strips + in-context mock). | `design/fx/` |
 | T28b | todo | T28a T07 + Sam's pick | Effect player in the play screen: frame scheduler (injectable clock), small-region invalidation, cancel on tap, trigger rule (on delta commit / big hits), settings toggle; tune hold time on device and film it. | `play/`, `app/**/fx/` |
 | T27 | todo | T26 + Sam's pick | Replace `num-l` with the chosen design; re-derive play layout; verify on device. | `design/font/num-l/`, `play/` |
@@ -118,6 +118,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - Quips (T25a) are in `design/copy/quips.md` for Sam to mark up. Least sure: "All quiet on the
   battlefield", "Took it personally", "Tails never fails, they say", "Drew nothing but lands" (close in
   spirit to Lotus's "flooded").
+
+- **Pick a hero numeral** (T26): `design/font/candidates/comparison.png` and `in-context-<name>.png`.
+  Candidates: gumdrop (agent's pick), sticker (runner-up; dither shadow needs a renderer change),
+  slab and chamfer (drop-in, no layout change), scoreboard (weakest). T27 applies the pick.
 
 ## Tick log
 
@@ -188,3 +192,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   first repeat absorbs the tap's 1 (39 -> 30 -> 20). Known core issue: `History` has one open group,
   so interleaved seats split undo steps -> T29. Dispatched T08 (device) and T29 (JVM-only).
   T26, T28a still running.
+- 2026-11-13 — Tick 15: T26 reviewed (comparison sheet eyeballed) and committed; awaiting Sam's pick.
+  Sam's hold feedback forwarded to the T08 agent (owns play/): no +/-1 on touch-down — tap applies on
+  release, a hold applies only +/-10; repeat interval raised to ~1000 ms to stop overshoot.
