@@ -96,7 +96,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T28e | done | T28b | Engine support for round-two effects: `x` (invert under mask), tile-filled layers at global phase, `anchor tile`; promote chosen options from `design/fx/options/` to `design/fx/`. JVM-only. | `app/**/fx/`, `design/fx/` |
 | T28f | todo | T28c | More effects in the round-two style (Sam: "continue building out more animations in this style after all the current set"): dither shading in overlays and numeral interactions, cut-outs, tile-wide reach; new damage/heal variety, counter-specific hits (poison, commander damage), monarch/initiative gained, turn pass, dice/coin reveals. Design then promote. | `design/fx/` |
 | T33 | done | T30 (owns flavour) | Quip tone pass: make the whole table a smidge more combative ("uh oh", "whoops", "beefed it") per SPEC Tone; keep length/charset rules and the doc mirror. | `core/**/flavour/`, `design/copy/quips.md` |
-| T37 | wip | T27 | Mini sticker numeral face (Sam, 2026-11-13): a small numeral set in the sticker style **without the shadow**, for the target's life total in commander mode (replacing `num-m` there, no black strip behind it) so it keeps its connection to the main life total; consider it for the readout and peeks too. Design candidates as mocks, then build. | `design/font/`, `type/` |
+| T37 | review | T27 | Mini sticker numeral face (Sam, 2026-11-13): a small numeral set in the sticker style **without the shadow**, for the target's life total in commander mode (replacing `num-m` there, no black strip behind it) so it keeps its connection to the main life total; consider it for the readout and peeks too. Design candidates as mocks, then build. | `design/font/`, `type/` |
 | T28d | done | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
 | T27 | done | T08 | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
@@ -134,6 +134,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - Quips (T25a) are in `design/copy/quips.md` for Sam to mark up. Least sure: "All quiet on the
   battlefield", "Took it personally", "Tails never fails, they say", "Drew nothing but lands" (close in
   spirit to Lotus's "flooded").
+
+- **Pick mini sticker numerals** (T37): `design/font/candidates/mini/comparison.png`, in-context
+  boards, README. Candidates: `half` 15x27 (agent's pick for the target tile and the readout),
+  `plump` 19x27, `pocket` 13x19 (agent's pick for peeks and drawer values). Build after the pick.
 
 ## Tick log
 
@@ -304,3 +308,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   (fix noted on T09). Settings to drop — always on: commander damage hits life, auto knock-out,
   effects, quips (SPEC updated; no toggles in T12/T15/T25b/T28c).
 - 2026-11-13 — Sam: starting life is a segmented [40] [30] [20] choice, not a - 40 + stepper (SPEC, T12).
+- 2026-11-13 — Tick 30: T37 design half reviewed (comparison sheet eyeballed; 7 commits by the
+  agent). Awaiting Sam's pick; the build half (new faces in `design/font/`, swap `lifeFont`, readout,
+  peeks/drawer values) follows. Running: T34 (device).
