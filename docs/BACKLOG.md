@@ -414,3 +414,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   updated T41 to the 1 px halo.
 - 2026-11-14 — Sam: the retro game quotes should be verbatim, not pastiche. SPEC and T42 updated;
   the agent told to use only lines it is certain of, exactly as written, and to list them for checking.
+- 2026-11-14 — Sam on the verbatim quotes: give it a shot and come back with a list of candidates;
+  the quip may be too thin to read clearly. T42 agent told: quotes are a proposal (table with exact
+  wording, source, category, confidence; ship only the certain ones) and to compare the scaled `ui`
+  face against a bold caps display face for the hero quip.
