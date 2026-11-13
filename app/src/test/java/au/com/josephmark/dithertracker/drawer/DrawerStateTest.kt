@@ -36,6 +36,15 @@ class DrawerStateTest {
         assertEquals(1, st.page(2))
     }
 
+    @Test fun firstPageRewindsFromAnywhere() {
+        st.setPaging(0, 20, 6) // 4 pages
+        assertFalse(st.firstPage(0))
+        st.nextPage(0); st.nextPage(0); st.nextPage(0)
+        assertEquals(3, st.page(0)); assertFalse(st.hasNext(0))
+        assertTrue(st.firstPage(0))
+        assertEquals(0, st.page(0)); assertEquals(6, st.itemsOnPage(0))
+    }
+
     @Test fun openCloseIsPerSeat() {
         st.toggle(0); st.toggle(3)
         assertTrue(st.isOpen(0)); assertFalse(st.isOpen(1)); assertTrue(st.isOpen(3))

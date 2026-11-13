@@ -39,14 +39,8 @@ class PlayLayoutTest {
         assertEquals(IRect(13, 176 + 77, 33, 176 + 97), l.minusGlyph[3])
         assertEquals(IRect(46, 176 + 59, 186, 176 + 115), l.numberSlot[3])
         assertEquals(IRect(200, 176 + 77, 220, 176 + 97), l.plusGlyph[3])
-        // Commander button (T30): 22×22 card 4 px in from the bottom-right corner, 30×30 hit.
-        assertEquals(IRect(207, 176 + 149, 229, 176 + 171), l.cmdVis[3])
-        assertEquals(IRect(203, 176 + 145, 233, 351), l.cmdHit[3])
-        assertEquals(IRect(210, 176 + 152, 226, 176 + 168), l.cmdIcon[3])
-        // Under-number row: between the number (bottom 115) and the button hit (top 145).
+        // Under-number row: between the number (bottom 115) and the tab's hit band (top 146).
         assertEquals(IRect(8, 176 + 121, 225, 176 + 139), l.underRow[3])
-        // Rotated seat: button in the screen's top-left corner of its panel.
-        assertEquals(IRect(4, 4, 26, 26), l.cmdVis[0])
         assertEquals(IRect(72, 330, 161, 351), l.tab[3]) // 89×21 (T06: 55×12)
         assertEquals(IRect(58, 176 + 15, 174, 176 + 43), l.readoutSlot[3]) // 6 × num-m at k=2, above the number
         assertEquals(2, l.readoutK)
@@ -322,33 +316,14 @@ class PlayLayoutTest {
         }
     }
 
-    // ---- T30/T32: commander button and the under-number row ---------------------------------
-
-    @Test fun commanderButtonIsFingertipSizedAndClearOfEverything() {
-        for (l in nomadScales.filter { it.comfortable } + layouts().filter { it.comfortable }.toList()) for (s in 0 until 4) {
-            val S = l.grid.scale
-            val hit = l.cmdHit[s]
-            assertTrue("$l btn ${hit.width}", minOf(hit.width, hit.height) * S >= PlayLayout.MIN_TOUCH_DEVICE_PX)
-            assertTrue(inside(hit, l.panels[s])); assertTrue(inside(l.cmdVis[s], hit)); assertTrue(inside(l.cmdIcon[s], l.cmdVis[s]))
-            for (other in listOf(l.numberSlot[s], l.minusGlyph[s], l.plusGlyph[s], l.readoutSlot[s], l.tabHit[s], l.diamond, l.underRow[s])) {
-                assertFalse("$l seat $s $hit vs $other", overlaps(hit, other))
-            }
-            assertFalse(l.inDiamondHit(hit.left, hit.top)); assertFalse(l.inDiamondHit(hit.right - 1, hit.bottom - 1))
-            // In the player's bottom-right corner: touching the near edge and the player's right edge.
-            if (l.rotation[s] == 0) {
-                assertEquals(l.panels[s].bottom, hit.bottom); assertEquals(l.panels[s].right, hit.right)
-            } else {
-                assertEquals(l.panels[s].top, hit.top); assertEquals(l.panels[s].left, hit.left)
-            }
-        }
-    }
+    // ---- T30/T32: the under-number row ---------------------------------
 
     @Test fun underRowSitsBetweenNumberAndTab() {
         for (l in nomadScales.filter { it.comfortable } + layouts().filter { it.comfortable }.toList()) for (s in 0 until 4) {
             val row = l.underRow[s]
             if (row.width == 0) continue
             assertTrue(inside(row, l.panels[s]))
-            for (other in listOf(l.numberSlot[s], l.minusGlyph[s], l.plusGlyph[s], l.readoutSlot[s], l.tabHit[s], l.cmdHit[s], l.diamond)) {
+            for (other in listOf(l.numberSlot[s], l.minusGlyph[s], l.plusGlyph[s], l.readoutSlot[s], l.tabHit[s], l.diamond)) {
                 assertFalse("$l seat $s $row vs $other", overlaps(row, other))
             }
             assertEquals(PlayLayout.ICON * l.tk + 2 * l.halo, row.height)

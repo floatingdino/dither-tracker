@@ -108,7 +108,9 @@ class DrawerLayoutTest {
                 assertTrue(inside(d.bar[s], d.drawer[s])); assertTrue(inside(d.body[s], d.drawer[s]))
                 assertFalse(overlaps(d.bar[s], d.body[s]))
                 assertTrue(inside(d.dotsBacking[s], d.barSeg[s * 3 + 1]))
-                for (i in 0 until 2) assertTrue("$d chevron", inside(d.chevron[s * 2 + i], d.barSeg[s * 3 + i * 2]))
+                assertTrue("$d page icon", inside(d.pageIcon[s], d.barSeg[s * 3 + 2]))
+                // The commander button: an ink card inside the bar's left segment, its icon inside the card.
+                assertTrue("$d cmd", inside(d.cmdVis[s], d.barSeg[s * 3])); assertTrue("$d cmd icon", inside(d.cmdIcon[s], d.cmdVis[s]))
                 val cells = (0 until d.perPage).map { d.cellVis[s * DrawerZones.MAX_SLOTS + it] }
                 for ((a, ca) in cells.withIndex()) {
                     assertTrue(inside(ca, d.body[s]))
@@ -166,13 +168,22 @@ class DrawerLayoutTest {
             val u = mid(d.lifeZones[s * 2 + PlayLayout.PLUS])
             assertEquals(PlayLayout.zone(s, PlayLayout.PLUS), d.hitTest(u[0], u[1], st))
         }
-        // page 0 of 2: prev isn't there (closes), next pages
-        val p = mid(d.barSeg[3 * 3])
-        assertEquals(DrawerZones.zone(3, DrawerZones.TAB), d.hitTest(p[0], p[1], st))
+        // The bar's left segment is the commander button (T30), on every seat, whichever way up.
+        for (s in 0 until 4) {
+            val b = mid(d.cmdVis[s])
+            assertEquals(au.com.josephmark.dithertracker.play.CommanderZones.zone(s, au.com.josephmark.dithertracker.play.CommanderZones.BUTTON), d.hitTest(b[0], b[1], st))
+        }
+        // page 0 of 2: the right segment pages on
         val n = mid(d.barSeg[3 * 3 + 2])
         assertEquals(DrawerZones.zone(3, DrawerZones.NEXT), d.hitTest(n[0], n[1], st))
         // the bar's hit extends upward by the tab's hit pad
         assertEquals(DrawerZones.zone(3, DrawerZones.NEXT), d.hitTest(n[0], d.bar[3].top - d.barHitPad, st))
+        // on the last page it goes back to the first; with one page it closes
+        st.setPaging(3, d.perPage + 1, d.perPage); st.nextPage(3)
+        assertFalse(st.hasNext(3))
+        assertEquals(DrawerZones.zone(3, DrawerZones.PREV), d.hitTest(n[0], n[1], st))
+        st.setPaging(3, 3, d.perPage)
+        assertEquals(DrawerZones.zone(3, DrawerZones.TAB), d.hitTest(n[0], n[1], st))
         // diamond still reserved
         assertEquals(PlayLayout.RESERVED, d.hitTest(d.play.diamondCx, d.play.diamondCy, st))
     }

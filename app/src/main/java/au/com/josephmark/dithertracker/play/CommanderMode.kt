@@ -5,7 +5,6 @@ import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.flavour.Flavour
 import au.com.josephmark.dithertracker.core.flavour.RecentPicks
-import au.com.josephmark.dithertracker.drawer.DrawerItems
 import kotlin.random.Random
 
 /**
@@ -24,7 +23,8 @@ import kotlin.random.Random
  *
  * Damage taps go through [Host.dispatchDamage] as
  * `ChangeCommanderDamage(target = X, source = that seat's player, slot, ±1, linkLife = null)`:
- * tap ±1 on release, hold [HOLD_STEP] per repeat (the drawer's slow repeat timing, `PlayInput`).
+ * tap ±1 on release, hold [holdStep] per repeat (±10 like life, with life's slow repeat timing,
+ * `PlayInput`).
  */
 class CommanderMode(
     private val scheduler: Scheduler,
@@ -41,6 +41,9 @@ class CommanderMode(
         /** The target changed from [old] to [new] (either may be [NONE]): redraw the tiles, close drawers. */
         fun onModeChanged(old: Int, new: Int)
     }
+
+    /** Damage per hold repeat: the life hold step (the View keeps it in step with its own). */
+    var holdStep: Int = PlayInput.DEFAULT_HOLD_STEP
 
     /** Idle time before the mode ends by itself. */
     var idleMillis: Long = IDLE_MS
@@ -122,7 +125,8 @@ class CommanderMode(
     fun onRepeat(zone: Int): Boolean {
         if (!repeats(zone)) return false
         val local = CommanderZones.localOf(zone)
-        val step = if (CommanderZones.sideOf(local) == PlayLayout.PLUS) HOLD_STEP else -HOLD_STEP
+        if (holdStep <= 0) return false
+        val step = if (CommanderZones.sideOf(local) == PlayLayout.PLUS) holdStep else -holdStep
         return apply(CommanderZones.seatOf(zone), local, step)
     }
 
@@ -156,8 +160,6 @@ class CommanderMode(
          */
         const val IDLE_MS = 45_000L
 
-        /** Damage per hold repeat (same as drawer counters). */
-        const val HOLD_STEP = DrawerItems.HOLD_STEP
 
         /** The one place the quips on/off choice is made for the mode; T12 wires the setting here. */
         fun flavour(quips: Boolean = true): Flavour = Flavour.of(quips)

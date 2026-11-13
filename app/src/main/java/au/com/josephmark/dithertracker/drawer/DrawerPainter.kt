@@ -16,8 +16,9 @@ import au.com.josephmark.dithertracker.type.TextRenderer
  * icon at the current glyph scale (see [prewarm]).
  *
  * Look:
- * - bar: `TAB` dither, the tab's three dots on a paper backing in the middle (= close), chevron
- *   icons (opaque, paper square) at the ends only when there is a page that way;
+ * - bar: `TAB` dither; on the left the commander button (solid ink card, imp icon in paper, T30);
+ *   the tab's three dots on a paper backing in the middle (= close); on the right the page chevron
+ *   (opaque, paper square): `›` with a next page, `‹` on the last page of several;
  * - body: `DRAWER` (sparse) dither;
  * - cell: paper card. Non-zero values get a 1-px ink frame and the value in `num-m`; at 0 the card
  *   is frameless and the value hidden, so active counters stand out. Poison at 8+ is a solid ink
@@ -39,8 +40,10 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
         r.fill(Role.TAB, l.bar[seat])
         r.rect(l.dotsBacking[seat], ink = false)
         for (i in 0 until 3) r.rect(l.dots[seat * 3 + i], ink = true)
-        if (st.hasPrev(seat)) icon(l.tk, Icon.CHEVRON_LEFT, l.chevron[seat * 2], rot, invert = false, opaque = true)
-        if (st.hasNext(seat)) icon(l.tk, Icon.CHEVRON_RIGHT, l.chevron[seat * 2 + 1], rot, invert = false, opaque = true)
+        r.rect(l.cmdVis[seat], ink = true)
+        icon(l.tk, Icon.COMMANDER, l.cmdIcon[seat], rot, invert = true, opaque = false)
+        if (st.hasNext(seat)) icon(l.tk, Icon.CHEVRON_RIGHT, l.pageIcon[seat], rot, invert = false, opaque = true)
+        else if (st.hasPrev(seat)) icon(l.tk, Icon.CHEVRON_LEFT, l.pageIcon[seat], rot, invert = false, opaque = true)
 
         // Body.
         r.fill(Role.DRAWER, l.body[seat])
@@ -122,7 +125,7 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
         }
 
         private val WARM_ICONS = COUNTER_ICONS + arrayOf(
-            Icon.COMMANDER_TAX, Icon.PARTNER, Icon.COMMANDER, Icon.CHEVRON_LEFT, Icon.CHEVRON_RIGHT, Icon.LIFE,
+            Icon.COMMANDER_TAX, Icon.PARTNER, Icon.COMMANDER, Icon.CHEVRON_LEFT, Icon.CHEVRON_RIGHT, Icon.LIFE, Icon.CLOSE,
         )
     }
 }

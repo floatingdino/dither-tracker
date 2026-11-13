@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.drawer
 
 import au.com.josephmark.dithertracker.dither.IRect
+import au.com.josephmark.dithertracker.play.CommanderZones
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.type.Fonts
@@ -16,7 +17,7 @@ import au.com.josephmark.dithertracker.type.Fonts
  *  0          ┌──────────────────────────────┐
  *             │ readout (num-m, [readoutK])  │  upper area: life total and ± still live here
  *             │ −   number ([numberK])    +  │  (left half = −, right half = +, hold works)
- *  upper      ├────┬───────── ••• ────────┬──┤  bar (TAB dither): ‹ prev · close · next ›
+ *  upper      ├[imp]┬─────── ••• ────────┬ › ┤  bar (TAB dither): commander · close · page
  *  bodyTop    │ cell │ cell │ cell │ cell     │  body (DRAWER dither): [cols] × [rows] grid of
  *             │ cell │ cell │ cell │ cell     │  tray cells (commander tax + counters)
  *  panelH     └──────────────────────────────┘
@@ -28,8 +29,11 @@ import au.com.josephmark.dithertracker.type.Fonts
  * fits means `V_MIN + readoutH + gap + numberH + barHitPad ≤ upper`, where the bar hit extension
  * ([PlayLayout.Chrome.tabHitPad]) stays clear of the number.
  *
- * Commander damage left the drawer in T30 (it is a mode on the main tiles now, see `play.CommanderMode`),
- * so the tray has the whole body: no header button.
+ * Commander damage is a mode on the main tiles (T30, see `play.CommanderMode`); the drawer only
+ * holds its entry point: the bar's left segment is the commander button ([cmdVis]: a solid ink card
+ * with the imp icon in paper), which makes this player the target. The bar's right segment pages
+ * the tray: `›` while there is a next page, `‹` (back to the first page) on the last page of
+ * several, otherwise it closes like the middle. So the tray keeps the whole body (8 cells a page).
  *
  * Touch targets: every hit rect (each cell half, bar segments incl. their extension) is at
  * least [target] dither px (≈ 9 mm, [MIN_TOUCH_DEVICE_PX]) in its short dimension: columns are
@@ -108,12 +112,16 @@ class DrawerLayout(val play: PlayLayout) {
     val plusGlyph: Array<IRect> = Array(P) { IRect() }
     val lifeZones: Array<IRect> = Array(P * 2) { IRect() }
 
-    /** Bar segments `seat * 3 + i` (0 prev, 1 close, 2 next): visible part and hit (grown upwards). */
+    /** Bar segments `seat * 3 + i` (0 commander button, 1 close, 2 page): visible part and hit (grown upwards). */
     val barSeg: Array<IRect> = Array(P * 3) { IRect() }
     val barHit: Array<IRect> = Array(P * 3) { IRect() }
 
-    /** Chevron icon footprints: `seat * 2 + 0` prev, `+ 1` next. */
-    val chevron: Array<IRect> = Array(P * 2) { IRect() }
+    /** The commander button in the bar's left segment: solid ink card and its (paper) imp icon. */
+    val cmdVis: Array<IRect> = Array(P) { IRect() }
+    val cmdIcon: Array<IRect> = Array(P) { IRect() }
+
+    /** The page chevron in the bar's right segment (› next, or ‹ back to the first page). */
+    val pageIcon: Array<IRect> = Array(P) { IRect() }
 
     /** Close glyph on the bar: three dots (`seat * 3 + i`) on one paper backing. */
     val dots: Array<IRect> = Array(P * 3) { IRect() }
@@ -234,7 +242,7 @@ class DrawerLayout(val play: PlayLayout) {
             pl.mapRect(s, 0, 0, half, upperH, lifeZones[s * 2 + PlayLayout.MINUS])
             pl.mapRect(s, half, 0, W - half, upperH, lifeZones[s * 2 + PlayLayout.PLUS])
 
-            // Bar: prev | close | next.
+            // Bar: commander button | close | page.
             val segX = intArrayOf(0, segW, W - segW, W)
             for (i in 0 until 3) {
                 val x0 = segX[i]
@@ -242,8 +250,10 @@ class DrawerLayout(val play: PlayLayout) {
                 pl.mapRect(s, x0, upperH, w, barH, barSeg[s * 3 + i])
                 pl.mapRect(s, x0, upperH - barHitPad, w, barH + barHitPad, barHit[s * 3 + i])
             }
-            pl.mapRect(s, (segW - iconSize) / 2, iconY, iconSize, iconSize, chevron[s * 2])
-            pl.mapRect(s, W - segW + (segW - iconSize) / 2, iconY, iconSize, iconSize, chevron[s * 2 + 1])
+            // The ink card fills the segment less `inset` at the sides and 1 px top and bottom.
+            pl.mapRect(s, inset, upperH + 1, segW - 2 * inset, barH - 2, cmdVis[s])
+            pl.mapRect(s, (segW - iconSize) / 2, iconY, iconSize, iconSize, cmdIcon[s])
+            pl.mapRect(s, W - segW + (segW - iconSize) / 2, iconY, iconSize, iconSize, pageIcon[s])
             for (i in 0 until 3) pl.mapRect(s, dotX + i * (c.dot + c.dotGap), dotY, c.dot, c.dot, dots[s * 3 + i])
             pl.mapRect(s, dotX - c.dotHalo, dotY - c.dotHalo, dotsW + 2 * c.dotHalo, c.dot + 2 * c.dotHalo, dotsBacking[s])
 
@@ -294,7 +304,8 @@ class DrawerLayout(val play: PlayLayout) {
     /**
      * Zone id ([DrawerZones]) under dither (gx, gy) given the drawers' [state]; [PlayLayout.RESERVED]
      * for the centre diamond (T09), [PlayLayout.NONE] for dividers, margins and empty drawer areas.
-     * Priority inside an open panel: bar (incl. its upward extension) → cells → life halves.
+     * Priority inside an open panel: bar (incl. its upward extension) → cells → life halves. The bar's
+     * left segment returns the commander button's zone ([CommanderZones.BUTTON], T30).
      */
     fun hitTest(gx: Int, gy: Int, state: DrawerState): Int {
         val pl = play
@@ -306,11 +317,14 @@ class DrawerLayout(val play: PlayLayout) {
                 if (pl.tabHit[s].contains(gx, gy)) return DrawerZones.zone(s, DrawerZones.TAB)
                 return lifeZone(s, gx, gy)
             }
-            if (barHit[s * 3].contains(gx, gy)) {
-                return DrawerZones.zone(s, if (state.hasPrev(s)) DrawerZones.PREV else DrawerZones.TAB)
-            }
+            if (barHit[s * 3].contains(gx, gy)) return CommanderZones.zone(s, CommanderZones.BUTTON)
             if (barHit[s * 3 + 2].contains(gx, gy)) {
-                return DrawerZones.zone(s, if (state.hasNext(s)) DrawerZones.NEXT else DrawerZones.TAB)
+                val z = when {
+                    state.hasNext(s) -> DrawerZones.NEXT
+                    state.hasPrev(s) -> DrawerZones.PREV
+                    else -> DrawerZones.TAB
+                }
+                return DrawerZones.zone(s, z)
             }
             if (barHit[s * 3 + 1].contains(gx, gy)) return DrawerZones.zone(s, DrawerZones.TAB)
             val n = minOf(state.itemsOnPage(s), perPage)
@@ -348,8 +362,7 @@ class DrawerLayout(val play: PlayLayout) {
         when {
             local == DrawerZones.TAB -> copy(if (open) barSeg[s * 3 + 1] else play.tab[s], out)
             !open -> return false
-            local == DrawerZones.PREV -> copy(barSeg[s * 3], out)
-            local == DrawerZones.NEXT -> copy(barSeg[s * 3 + 2], out)
+            local == DrawerZones.PREV || local == DrawerZones.NEXT -> copy(barSeg[s * 3 + 2], out)
             else -> {
                 val slot = DrawerZones.slotOf(local)
                 if (slot >= perPage) return false

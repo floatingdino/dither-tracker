@@ -25,9 +25,7 @@ import au.com.josephmark.dithertracker.type.TextLayout
  * core life limits) at [kMax], so ± never move and a value never overlaps them; [numberK] still
  * drops k for anything wider (defensive, and for future faces). Above the number (towards the far
  * edge, the Lotus convention) sits the pending-delta [readoutSlot]; the drawer tab is on the near
- * edge; the centre diamond takes one far corner. T30/T32 add the commander button in the near-right
- * corner beside the tab ([cmdHit]: the near edge is the one place every seat keeps clear of the
- * diamond, and the corner leaves the tab centred) and the [underRow] between number and tab, which
+ * edge; the centre diamond takes one far corner. T30/T32 add the [underRow] between number and tab, which
  * holds counter peeks normally and the commander-mode labels in the mode.
  *
  * Choice of k (by maths, not by eye; T27): the hero face is the sticker `num-l`, drawn natively at
@@ -68,9 +66,8 @@ class PlayLayout private constructor(
     val playerCount: Int get() = PLAYERS
 
     /**
-     * False when even k = 1 breaks the spacing minimums, the commander button's hit square would
-     * touch the tab's, or there is no room for the [underRow] (screen too small at this S): content
-     * may touch, and the mode labels / peeks are not drawn.
+     * False when even k = 1 breaks the spacing minimums, or there is no room for the [underRow]
+     * (screen too small at this S): content may touch, and peeks / partner icons are not drawn.
      */
     val comfortable: Boolean
 
@@ -110,16 +107,7 @@ class PlayLayout private constructor(
     val halo: Int = Chrome.size(HALO, grid.scale)
 
     /**
-     * Commander-damage button (T30) in the player's bottom-right corner, beside the tab: visible card
-     * ([cmdVis]: paper, 1-px ink frame, the commander icon at [tk]), the icon footprint ([cmdIcon]) and
-     * the hit square ([cmdHit], ≥ [target], running to the panel's corner).
-     */
-    val cmdVis: Array<IRect> = Array(PLAYERS) { IRect() }
-    val cmdIcon: Array<IRect> = Array(PLAYERS) { IRect() }
-    val cmdHit: Array<IRect> = Array(PLAYERS) { IRect() }
-
-    /**
-     * The row under the number (player frame: between the number slot and the tab/button hit areas,
+     * The row under the number (player frame: between the number slot and the tab's hit area,
      * [V_MIN] clear of both), one icon tall plus a paper rim. Counter peeks (T32) and the commander
      * mode labels (T30) live here. Empty (zero size) when the band is too short for it.
      */
@@ -208,23 +196,12 @@ class PlayLayout private constructor(
         val dotY = tabY + (tabH - c.dot) / 2
         val half = panelW / 2
 
-        // Commander button: icon + pad + 1-px frame, BTN_MARGIN from the bottom-right corner; the hit
-        // square runs to the corner: the card plus its margin all round, trimmed (never below
-        // `target`) to the space beside the tab's hit area on small panels.
+        // Under-number row: centred in the band between the number slot and the tab's hit top (V_MIN
+        // clear of each). (The T30 commander button lives in the open drawer's bar, not on the tile.)
         val iconS = ICON * tk
-        val btnPad = Chrome.size(BTN_PAD, grid.scale)
-        val btnVis = iconS + 2 * (btnPad + 1)
-        val btnMargin = Chrome.size(BTN_MARGIN, grid.scale)
-        val besideTab = panelW - (tabX + tabW + c.tabHitPad)
-        val btnHit = minOf(maxOf(target, minOf(btnVis + 2 * btnMargin, besideTab)), panelW, panelH)
-        val btnX = panelW - btnMargin - btnVis
-        val btnY = panelH - btnMargin - btnVis
-
-        // Under-number row: centred in the band between the number slot and the higher of the tab's
-        // and the button's hit tops (V_MIN clear of each).
         val rowH = iconS + 2 * halo
         val bandTop = slotY + slotH + V_MIN
-        val bandBottom = minOf(tabY - c.tabHitPad, panelH - btnHit) - V_MIN
+        val bandBottom = tabY - c.tabHitPad - V_MIN
         if (bandBottom - bandTop >= rowH) {
             underH = rowH
             underY = bandTop + (bandBottom - bandTop - rowH) / 2
@@ -233,10 +210,8 @@ class PlayLayout private constructor(
         } else {
             underH = 0; underY = 0; underX = 0; underW = 0
         }
-        val tabHitRight = tabX + tabW + c.tabHitPad
-        // The under row is required too: commander mode's labels and the target's life live there.
-        comfortable = fits(font, pmFont, kMax, panelW, panelH, c.tabH) && tabHitRight <= panelW - btnHit &&
-            btnVis <= btnHit && underH > 0
+        // The under row is required too: counter peeks and the partner slot icons live there.
+        comfortable = fits(font, pmFont, kMax, panelW, panelH, c.tabH) && underH > 0
 
         for (s in 0 until PLAYERS) {
             map(s, pmX, pmY, pmW, pmH, minusGlyph[s])
@@ -249,9 +224,6 @@ class PlayLayout private constructor(
             map(s, dotX - c.dotHalo, dotY - c.dotHalo, dotsW + 2 * c.dotHalo, c.dot + 2 * c.dotHalo, tabDotsBacking[s])
             map(s, 0, 0, half, panelH, zones[zone(s, MINUS)])
             map(s, half, 0, panelW - half, panelH, zones[zone(s, PLUS)])
-            map(s, btnX, btnY, btnVis, btnVis, cmdVis[s])
-            map(s, btnX + btnPad + 1, btnY + btnPad + 1, iconS, iconS, cmdIcon[s])
-            map(s, panelW - btnHit, panelH - btnHit, btnHit, btnHit, cmdHit[s])
             map(s, underX, underY, underW, underH, underRow[s])
         }
 
@@ -490,8 +462,6 @@ class PlayLayout private constructor(
 
         /** Icon art size (16×16) and small-chrome design values at S = 4 (converted per S like [Chrome]). */
         const val ICON = 16
-        const val BTN_PAD = 2
-        const val BTN_MARGIN = 4
         const val HALO = 1
 
         const val MINUS = 0

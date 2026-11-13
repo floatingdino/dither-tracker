@@ -98,6 +98,10 @@ class PlayView(context: Context, private val session: GameSession) :
 
     /** Life per hold-repeat step (`AppSettings.holdRepeatStep`, T12); ≤ 0 disables hold on life. */
     var holdStep: Int = PlayInput.DEFAULT_HOLD_STEP
+        set(value) {
+            field = value
+            mode.holdStep = value // commander damage holds step like life (designer, T30 pass 2)
+        }
 
     private var layout: PlayLayout? = null
     private var dl: DrawerLayout? = null
@@ -224,17 +228,16 @@ class PlayView(context: Context, private val session: GameSession) :
         val op = old.players
         val np = new.players
         if (t !in np.indices) { mode.exit(); return }
-        if (np[t].life != op[t].life) invalidateDither(l.underRow[t])
+        if (np[t].life != op[t].life) invalidateDither(c.lifeRow[t])
         for (s in np.indices) {
             if (s == t) continue
-            if (np[s].partner != op[s].partner || np[s].name != op[s].name) {
+            if (np[s].partner != op[s].partner) {
                 invalidateDither(l.panels[s]); continue
             }
             if (mode.damage(s, Commander.PRIMARY, old) != mode.damage(s, Commander.PRIMARY, new) ||
                 mode.damage(s, Commander.PARTNER, old) != mode.damage(s, Commander.PARTNER, new)
             ) invalidateDither(c.content[s])
         }
-        if (np[t].name != op[t].name) for (s in np.indices) invalidateDither(l.underRow[s])
     }
 
     override fun onSettingsChanged(old: au.com.josephmark.dithertracker.core.serial.AppSettings, new: au.com.josephmark.dithertracker.core.serial.AppSettings) {
@@ -273,6 +276,7 @@ class PlayView(context: Context, private val session: GameSession) :
         pending.commitAll()
         if (new != CommanderMode.NONE) drawer.closeAll()
         for (s in 0 until l.playerCount) invalidateDither(l.panels[s])
+        invalidateDither(l.diamond) // menu bars ↔ close X
         if (trace) Log.d(TAG, "commander mode $old -> $new '${mode.quip}'")
     }
 
@@ -334,7 +338,7 @@ class PlayView(context: Context, private val session: GameSession) :
     override fun hitTest(gx: Int, gy: Int): Int {
         val d = dl ?: return PlayLayout.NONE
         val c = cl ?: return PlayLayout.NONE
-        val z = c.hitTest(gx, gy, mode.target, session.state.players, drawers)
+        val z = c.hitTest(gx, gy, mode.target, session.state.players)
         return if (z != CommanderLayout.DELEGATE) z else d.hitTest(gx, gy, drawers)
     }
 
@@ -393,6 +397,15 @@ class PlayView(context: Context, private val session: GameSession) :
     private fun feedbackRect(zone: Int, out: IRect): Boolean {
         val d = dl ?: return false
         val c = cl ?: return false
+        if (CommanderZones.isCommander(zone) && zone != CommanderZones.DIAMOND &&
+            CommanderZones.localOf(zone) == CommanderZones.BUTTON
+        ) {
+            // The commander button lives in the open drawer's bar.
+            val s = CommanderZones.seatOf(zone)
+            if (!drawers.isOpen(s)) return false
+            out.set(d.cmdVis[s].left, d.cmdVis[s].top, d.cmdVis[s].right, d.cmdVis[s].bottom)
+            return true
+        }
         return if (CommanderZones.isCommander(zone)) c.feedbackRect(zone, session.state.players, out) else d.feedbackRect(zone, drawers, out)
     }
 
@@ -434,14 +447,10 @@ class PlayView(context: Context, private val session: GameSession) :
         }
 
         // Press feedback, broad zones first (life / damage halves, the target tile): the closed tab
-        // and the commander button are drawn back on top of them.
+        // is drawn back on top of them. In commander mode there are no tabs and the diamond is a close X.
         for (z in 0 until CommanderZones.END) if (isBroadZone(z) && input.isPressed(z)) invertZone(canvas, l, d, z, players)
 
-        for (s in 0 until n) {
-            if (drawers.isOpen(s)) continue
-            if (hit(l.tab[s])) drawTab(l, s)
-            if (hit(l.cmdVis[s])) drawCommanderButton(l, s)
-        }
+        if (!mode.active) for (s in 0 until n) if (!drawers.isOpen(s) && hit(l.tab[s])) drawTab(l, s)
         if (hit(l.diamond)) drawDiamond(l)
 
         for (z in DrawerZones.LIFE until CommanderZones.END) if (!isBroadZone(z) && input.isPressed(z)) invertZone(canvas, l, d, z, players)
@@ -467,7 +476,7 @@ class PlayView(context: Context, private val session: GameSession) :
         r.withInverted {
             r.clear()
             drawSeat(l, d, s, players)
-            if (!drawers.isOpen(s)) { drawTab(l, s); drawCommanderButton(l, s) }
+            if (!drawers.isOpen(s) && !mode.active) drawTab(l, s)
         }
         canvas.restore()
     }
@@ -513,24 +522,21 @@ class PlayView(context: Context, private val session: GameSession) :
         val rot = l.rotation[s]
         if (t !in players.indices) return
         if (s == t) {
-            // The target: a quip where the life total was, life in an ink band underneath.
+            // The target: one composed block — the quip in caps, then the life on paper.
             val q = mode.quip
-            if (hit(c.content[s])) {
-                val k = c.quipFootprint(s, q.length, fp)
-                text.draw(c.ui, q, fp.left, fp.top, k, rot)
-            }
-            if (l.underH > 0 && hit(l.underRow[s])) {
-                c.bandRect(s, fb)
-                r.rect(fb, ink = true)
+            if (hit(c.lifeRow[s])) {
+                label.set("", q, q.length)
+                val k = c.quipFootprint(s, label.length, fp)
+                text.draw(c.ui, label, fp.left, fp.top, k, rot)
                 val life = players[s].life
-                c.lifeFootprint(s, life, fi, fp)
-                painter.icon(c.tk, Icon.LIFE, fi, rot, invert = true, opaque = false)
-                text.drawInt(c.num, life, fp.left, fp.top, c.tk, rot, invert = true)
+                val lk = c.lifeFootprint(s, label.length, life, fi, fp)
+                painter.icon(c.tk, Icon.LIFE, fi, rot, invert = false, opaque = false)
+                text.drawInt(c.lifeFont, life, fp.left, fp.top, lk, rot)
             }
             return
         }
+        // Opponents: just the damage number(s) and ± (partner tiles: a small icon per commander).
         val src = players[s]
-        val name = players[t].name
         if (!src.partner) {
             val v = mode.damage(s, Commander.PRIMARY)
             if (l.pmVisible) {
@@ -540,12 +546,6 @@ class PlayView(context: Context, private val session: GameSession) :
             if (hit(l.numberSlot[s])) {
                 val k = l.numberFootprint(s, v, fp)
                 drawDamage(c, v, k, rot)
-            }
-            if (l.underH > 0 && hit(l.underRow[s])) {
-                label.set(CommanderLayout.TO, name, c.labelChars)
-                c.labelFootprint(s, label.length, fi, fp)
-                painter.icon(c.tk, Icon.COMMANDER, fi, rot, invert = false, opaque = false)
-                text.draw(c.ui, label, fp.left, fp.top, c.tk, rot)
             }
         } else {
             for (slot in 0..1) {
@@ -564,9 +564,6 @@ class PlayView(context: Context, private val session: GameSession) :
             if (l.underH > 0 && hit(l.underRow[s])) {
                 painter.icon(c.tk, Icon.COMMANDER, c.partnerIcon[s * 2], rot, invert = false, opaque = false)
                 painter.icon(c.tk, Icon.PARTNER, c.partnerIcon[s * 2 + 1], rot, invert = false, opaque = false)
-                label.set(CommanderLayout.TO, name, c.partnerLabelChars)
-                c.partnerLabelFootprint(s, label.length, fp)
-                text.draw(c.ui, label, fp.left, fp.top, c.tk, rot)
             }
         }
     }
@@ -580,14 +577,6 @@ class PlayView(context: Context, private val session: GameSession) :
             r.rect(fp.left - pad, fp.top - pad, fp.width + 2 * pad, fp.height + 2 * pad, ink = true)
         }
         text.drawInt(f, v, fp.left, fp.top, k, rot, invert = lethal)
-    }
-
-    private fun drawCommanderButton(l: PlayLayout, s: Int) {
-        val on = mode.target == s
-        val v = l.cmdVis[s]
-        r.rect(v, ink = on)
-        if (!on) r.frame(v, 1, ink = true)
-        painter.icon(l.tk, Icon.COMMANDER, l.cmdIcon[s], l.rotation[s], invert = on, opaque = false)
     }
 
     // ---- counter peeks (T32) --------------------------------------------------------------------
@@ -637,6 +626,12 @@ class PlayView(context: Context, private val session: GameSession) :
         for (dy in -l.diamondHalf..l.diamondHalf) {
             val hw = l.diamondRowHalf(dy)
             r.fill(Role.MENU, cx - hw, cy + dy, 2 * hw + 1, 1)
+        }
+        val c = cl
+        if (mode.active && c != null) {
+            // Commander mode: the menu gives way to a close X (opaque, on its paper square).
+            painter.icon(c.tk, Icon.CLOSE, c.closeIcon, 0, invert = false, opaque = true)
+            return
         }
         r.rect(l.menuBarsBacking, ink = false)
         for (b in l.menuBars) r.rect(b, ink = true)

@@ -8,7 +8,8 @@ import au.com.josephmark.dithertracker.play.PlayLayout
  *
  * - `0 until LIFE` — life zones, `seat * 2 + side` exactly as [PlayLayout.zone].
  * - `LIFE until COUNT` — one block of [PER_SEAT] ids per seat: [TAB] (the closed tab, or the open
- *   bar's close area), [PREV]/[NEXT] (page chevrons), then two ids per cell on the current page:
+ *   bar's close area), [PREV] (back to the first page) / [NEXT] (the bar's page chevron), then two
+ *   ids per cell on the current page:
  *   `CELL0 + slot * 2 + half` (half 0 = the player's left = `−`, 1 = right = `+`).
  * - `COUNT until` [CommanderZones][au.com.josephmark.dithertracker.play.CommanderZones]`.END`: the
  *   commander-damage button and mode zones (T30).

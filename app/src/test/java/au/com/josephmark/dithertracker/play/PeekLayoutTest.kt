@@ -79,7 +79,7 @@ class PeekLayoutTest {
                         rects += IRect(chip.left, chip.top, chip.right, chip.bottom)
                     }
                     for (i in rects.indices) for (j in i + 1 until rects.size) assertFalse(overlaps(rects[i], rects[j]))
-                    for (r in rects) for (o in listOf(l.numberSlot[s], l.minusGlyph[s], l.plusGlyph[s], l.readoutSlot[s], l.cmdHit[s], l.tabHit[s], l.diamond)) {
+                    for (r in rects) for (o in listOf(l.numberSlot[s], l.minusGlyph[s], l.plusGlyph[s], l.readoutSlot[s], l.tabHit[s], l.diamond)) {
                         assertFalse("$l $r vs $o", overlaps(r, o))
                     }
                 }

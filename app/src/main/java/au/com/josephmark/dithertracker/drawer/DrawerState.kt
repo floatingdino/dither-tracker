@@ -47,6 +47,14 @@ class DrawerState(val seats: Int) {
         return true
     }
 
+    /** Back to the first page (the bar's `‹` on the last page). Returns true if the page changed. */
+    fun firstPage(seat: Int): Boolean {
+        if (!hasPrev(seat)) return false
+        page[seat * MODES + mode[seat]] = 0
+        setPaging(seat, itemCount[seat], perPage[seat])
+        return true
+    }
+
     fun prevPage(seat: Int): Boolean {
         if (!hasPrev(seat)) return false
         page[seat * MODES + mode[seat]]--

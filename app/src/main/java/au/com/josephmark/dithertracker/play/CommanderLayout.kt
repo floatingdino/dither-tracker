@@ -4,7 +4,6 @@ import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.CommanderSlot
 import au.com.josephmark.dithertracker.core.Player
 import au.com.josephmark.dithertracker.dither.IRect
-import au.com.josephmark.dithertracker.drawer.DrawerState
 import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.type.Fonts
 import au.com.josephmark.dithertracker.type.TextLayout
@@ -14,34 +13,41 @@ import au.com.josephmark.dithertracker.type.TextLayout
  * JVM-tested; everything is laid out in the player's frame and mapped with [PlayLayout.mapRect], so
  * a top-row tile is the exact 180° image of an upright one.
  *
- * While player X is the target:
- * - **Opponent tile** (source S): where the life total was, the damage S's commander has dealt X,
- *   in the same hero face, at the same place and size; −/+ are the tile's halves as usual. When S
- *   has a partner, the tile splits into two halves, one per commander, each a 2-digit number slot
- *   centred in its half with its own − / + quarter zones and half-size ± glyphs when they fit
- *   ([partnerPmVisible]). Under the number, in [PlayLayout.underRow]: the commander icon and
- *   `TO <X's name>` (partner: an icon under each number, the text between them).
- * - **Target tile** (X): a quip in the `ui` face, as large as fits ([quipFootprint]), centred on
- *   the number's cap band; under it, in the under row, a solid ink band ([bandRect]) with the life
- *   icon and X's current life in `num-m` (paper), so the life lost to linked damage stays visible.
+ * While player X is the target (designer pass 2):
+ * - **Opponent tile** (source S): only the damage S's commander has dealt X, in the same hero face,
+ *   at the same place and size, with the ± glyphs; −/+ are the tile's halves (the whole tile: tabs
+ *   are hidden in the mode). When S has a partner, the tile splits into two halves, one per
+ *   commander, each a 2-digit number slot centred in its half with its own − / + quarter zones and
+ *   half-size ± glyphs when they fit ([partnerPmVisible]); a small commander / partner icon under
+ *   each number ([partnerIcon], in [PlayLayout.underRow]) tells the two apart. No other labels.
+ * - **Target tile** (X): a composed block, centred between the readout and the tab band
+ *   ([targetTop]..[targetBottom]): the quip in ALL CAPS in the `ui` face ([quipFootprint]: one
+ *   size below the largest that fits, but not below [quipKMin]), [quipGap] of paper, then X's life
+ *   on paper — the life icon and the number in [lifeFont] at [lifeK] ([lifeFootprint]) — so the life
+ *   lost to linked damage stays visible.
  * - Lethal damage (≥ 21 from one commander) is drawn on a solid ink card ([lethalPad] round the
  *   number) with the number in paper.
+ * - The centre diamond shows a close X ([closeIcon]) instead of the menu bars.
+ *
+ * [lifeFont] is a parameter so the target's life can switch to a mini sticker face (T37) in one line.
  *
  * Hit-testing ([hitTest]) only claims what is the mode's; everything else is left to the drawer
  * layout ([DELEGATE]).
  */
-class CommanderLayout(val play: PlayLayout) {
+class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
 
     val ui: Font = Fonts.UI
-    val num: Font = Fonts.NUM_M
     val tk: Int = play.tk
     val iconSize: Int = PlayLayout.ICON * tk
 
     /** Gap between an icon and its text in the under row. */
     val iconGap: Int = PlayLayout.Chrome.size(ICON_GAP, play.grid.scale)
 
-    /** Paper-free margin inside the target's life band, each side of its content. */
-    val bandPad: Int = PlayLayout.Chrome.size(BAND_PAD, play.grid.scale)
+    /** Paper between the quip's cap band and the life row on the target tile. */
+    val quipGap: Int = PlayLayout.Chrome.size(QUIP_GAP, play.grid.scale)
+
+    /** Smallest quip scale (a long line keeps this rather than dropping a size). */
+    val quipKMin: Int = maxOf(1, PlayLayout.Chrome.size(QUIP_K_MIN, play.grid.scale))
 
     /** Ink margin round a lethal number's footprint. */
     val lethalPad: Int = PlayLayout.Chrome.size(LETHAL_PAD, play.grid.scale)
@@ -70,9 +76,21 @@ class CommanderLayout(val play: PlayLayout) {
     /** Whether the partner ± glyphs fit beside 2-digit numbers with [PARTNER_GAP] clear. */
     val partnerPmVisible: Boolean
 
-    /** Max name chars after `TO ` in the under row: single source, and between partner icons. */
-    val labelChars: Int
-    val partnerLabelChars: Int
+    /** Player-frame band the target tile's block is centred in: below the readout, above the tab band. */
+    val targetTop: Int
+    val targetBottom: Int
+
+    /** Glyph scale of the target's life ([lifeFont]): the readout's scale, stepped down to fit. */
+    val lifeK: Int
+
+    /** Height of the target's life row (icon or numerals, whichever is taller). */
+    val lifeRowH: Int
+
+    /** Full-width rect of the target's life row on each seat for the longest quip layout (invalidate on a life change). */
+    val lifeRow: Array<IRect> = Array(P) { IRect() }
+
+    /** The close X on the centre diamond while the mode is on (opaque icon, screen rect). */
+    val closeIcon = IRect()
 
     private val slotY = play.numberSlotY
     private val k = play.kMax
@@ -106,89 +124,71 @@ class CommanderLayout(val play: PlayLayout) {
             val q = intArrayOf(0, W / 4, half, half + (W - half) / 2, W)
             for (i in 0 until 4) play.mapRect(s, q[i], 0, q[i + 1] - q[i], H, quarter[s * 4 + i])
         }
-        val adv = ui.advance * tk
-        // No under row (only on layouts that are not comfortable): no labels at all.
-        val row = play.underH > 0
-        labelChars = if (!row) 0 else maxOf(0, (play.underW - iconSize - iconGap + ui.tracking * tk) / adv - TO.length)
-        // Between the two partner icons, iconGap clear of each.
-        val iconA = half / 2 + iconSize / 2
-        val iconB = half + (W - half) / 2 - iconSize / 2
-        partnerLabelChars = if (!row) 0 else maxOf(0, (iconB - iconA - 2 * iconGap + ui.tracking * tk) / adv - TO.length)
+        // Target block region: V_MIN below the readout slot, V_MIN above the tab's hit band.
+        val roH = play.readoutFont.height(play.readoutK)
+        targetTop = TextLayout.centre(slotY, roH) + roH + PlayLayout.V_MIN
+        targetBottom = H - play.chrome.tabH - play.chrome.tabHitPad - PlayLayout.V_MIN
+        var lk = play.readoutK
+        while (lk > 1 && maxOf(iconSize, lifeFont.height(lk)) + quipGap + ui.capHeight > targetBottom - targetTop) lk--
+        lifeK = lk
+        lifeRowH = maxOf(iconSize, lifeFont.height(lk))
+        // The life row moves with the quip's height: cover every position it can take.
+        for (s in 0 until P) play.mapRect(s, 0, targetTop, W, maxOf(0, targetBottom - targetTop), lifeRow[s])
+        val cx = play.diamondCx
+        val cy = play.diamondCy
+        closeIcon.setXywh(cx - iconSize / 2, cy - iconSize / 2, iconSize, iconSize)
     }
 
     // ---- footprints (draw-time; write `out`, never allocate) -------------------------------------
 
     /**
-     * The `TO <name>` label (single source): icon then text as one unit, centred in the under row.
-     * Writes the icon footprint to [icon] and the text footprint (for [chars] chars incl. `TO `) to [text].
-     */
-    fun labelFootprint(seat: Int, chars: Int, icon: IRect, text: IRect) {
-        val tw = ui.widthOf(chars, tk)
-        val unit = iconSize + iconGap + tw
-        val x = play.underX + (play.underW - unit) / 2
-        play.mapRect(seat, x, play.underY + (play.underH - iconSize) / 2, iconSize, iconSize, icon)
-        play.mapRect(seat, x + iconSize + iconGap, textY(), tw, ui.height(tk), text)
-    }
-
-    /** The `TO <name>` label of a partner tile: text only, centred between the two icons. */
-    fun partnerLabelFootprint(seat: Int, chars: Int, text: IRect) {
-        val tw = ui.widthOf(chars, tk)
-        play.mapRect(seat, (W - tw) / 2, textY(), tw, ui.height(tk), text)
-    }
-
-    private fun textY(): Int = play.underY + TextLayout.centre(play.underH, ui.capHeight * tk) - ui.capTop * tk
-
-    /**
-     * The target's life band: a solid ink pill in the under row, [bandPad] wider than its content
-     * on each side, sized for the widest life (`−999`) so it never changes size as life changes.
-     */
-    fun bandRect(seat: Int, out: IRect) {
-        val w = minOf(play.underW, iconSize + iconGap + num.widthOf(4, tk) + 2 * bandPad)
-        play.mapRect(seat, play.underX + (play.underW - w) / 2, play.underY, w, play.underH, out)
-    }
-
-    /**
-     * The target band's content: life icon then [life] in `num-m`, centred in the under row.
-     * Returns the glyph scale ([tk]).
-     */
-    fun lifeFootprint(seat: Int, life: Int, icon: IRect, number: IRect): Int {
-        val nw = num.measureInt(life, tk)
-        val unit = iconSize + iconGap + nw
-        val x = play.underX + (play.underW - unit) / 2
-        play.mapRect(seat, x, play.underY + (play.underH - iconSize) / 2, iconSize, iconSize, icon)
-        play.mapRect(seat, x + iconSize + iconGap, play.underY + (play.underH - num.height(tk)) / 2, nw, num.height(tk), number)
-        return tk
-    }
-
-    /**
-     * Glyph scale of a quip of [len] chars: the largest ≤ [quipKMax] whose box fits the number slot
-     * — no wider than the tile less [PlayLayout.EDGE_MIN] each side, and, cap band centred on the
-     * number's, its whole box (descenders included) inside the slot's height. Never below 1.
+     * Glyph scale of a quip of [len] chars (drawn in caps): one size below the largest ≤ [quipKMax]
+     * that fits ([quipFits]), but never below [quipKMin] (nor above what fits). Designer: the
+     * largest size felt shouty; long lines are already at the floor.
      */
     fun quipK(len: Int): Int {
+        val fit = quipFitK(len)
+        return maxOf(fit - 1, minOf(fit, quipKMin))
+    }
+
+    /** Largest scale ≤ [quipKMax] at which the quip and the life row fit the target block region. */
+    fun quipFitK(len: Int): Int {
         var q = quipKMax
         while (q > 1 && !quipFits(len, q)) q--
         return q
     }
 
-    private fun quipFits(len: Int, q: Int): Boolean {
-        if (ui.widthOf(len, q) > W - 2 * PlayLayout.EDGE_MIN) return false
-        val top = quipTop(q)
-        return top >= slotY && top + ui.height(q) <= slotY + play.font.height(k)
-    }
+    private fun quipFits(len: Int, q: Int): Boolean =
+        ui.widthOf(len, q) <= W - 2 * PlayLayout.EDGE_MIN && blockH(q) <= targetBottom - targetTop
 
-    /** Player-frame top of a quip box at scale [q], its cap band centred on the number's. */
-    private fun quipTop(q: Int): Int {
-        val capMid2 = 2 * (slotY + play.font.capTop * k) + play.font.capHeight * k
-        return (capMid2 - ui.capHeight * q) / 2 - ui.capTop * q
-    }
+    /** Height of the target block: quip caps, gap, life row. */
+    private fun blockH(q: Int): Int = ui.capHeight * q + quipGap + lifeRowH
 
-    /** Footprint of a quip of [len] chars on [seat]'s tile: cap band centred on the number's. Returns k. */
+    /** Player-frame top of the target block (the quip's cap top) for quip scale [q]. */
+    fun blockTop(q: Int): Int = targetTop + (targetBottom - targetTop - blockH(q)) / 2
+
+    /** Footprint of a quip of [len] chars on [seat]'s tile, centred in the target block. Returns k. */
     fun quipFootprint(seat: Int, len: Int, out: IRect): Int {
         val q = quipK(len)
         val tw = ui.widthOf(len, q)
-        play.mapRect(seat, (W - tw) / 2, quipTop(q), tw, ui.height(q), out)
+        play.mapRect(seat, (W - tw) / 2, blockTop(q) - ui.capTop * q, tw, ui.height(q), out)
         return q
+    }
+
+    /**
+     * The target's life under a quip of [quipLen] chars: life icon then [life] in [lifeFont] at
+     * [lifeK], centred as one unit, [quipGap] below the quip's caps. Returns the glyph scale.
+     */
+    fun lifeFootprint(seat: Int, quipLen: Int, life: Int, icon: IRect, number: IRect): Int {
+        val q = quipK(quipLen)
+        val y = blockTop(q) + ui.capHeight * q + quipGap
+        val nw = lifeFont.measureInt(life, lifeK)
+        val nh = lifeFont.height(lifeK)
+        val unit = iconSize + iconGap + nw
+        val x = (W - unit) / 2
+        play.mapRect(seat, x, y + (lifeRowH - iconSize) / 2, iconSize, iconSize, icon)
+        play.mapRect(seat, x + iconSize + iconGap, y + (lifeRowH - nh) / 2, nw, nh, number)
+        return lifeK
     }
 
     /**
@@ -212,22 +212,19 @@ class CommanderLayout(val play: PlayLayout) {
 
     /**
      * Zone under dither (gx, gy) for the commander layer, or [DELEGATE] when it is not the mode's.
-     * [target] is the current target seat or [CommanderMode.NONE]. Buttons work in and out of the
-     * mode (not on a seat whose drawer is open); in the mode, tabs are inert ([PlayLayout.NONE]),
-     * the target's tile is [CommanderZones.TARGET], opponents' tiles are slot zones (quarters for a
-     * partnered source), and the diamond is [CommanderZones.DIAMOND].
+     * [target] is the current target seat or [CommanderMode.NONE]: outside the mode everything is
+     * [DELEGATE] (the commander button lives in the drawer bar, `DrawerLayout`). In the mode the
+     * target's tile is [CommanderZones.TARGET], opponents' whole tiles are slot zones (tabs are
+     * hidden; quarters for a partnered source) and the diamond is [CommanderZones.DIAMOND] (close).
      */
-    fun hitTest(gx: Int, gy: Int, target: Int, players: List<Player>, drawers: DrawerState): Int {
+    fun hitTest(gx: Int, gy: Int, target: Int, players: List<Player>): Int {
         val pl = play
-        val on = target != CommanderMode.NONE
-        if (pl.inDiamondHit(gx, gy)) return if (on) CommanderZones.DIAMOND else DELEGATE
+        if (target == CommanderMode.NONE) return DELEGATE
+        if (pl.inDiamondHit(gx, gy)) return CommanderZones.DIAMOND
         for (s in 0 until P) {
             val p = pl.panels[s]
             if (!p.contains(gx, gy)) continue
-            if (!drawers.isOpen(s) && pl.cmdHit[s].contains(gx, gy)) return CommanderZones.zone(s, CommanderZones.BUTTON)
-            if (!on) return DELEGATE
             if (s == target) return CommanderZones.zone(s, CommanderZones.TARGET)
-            if (pl.tabHit[s].contains(gx, gy)) return PlayLayout.NONE
             val lx = if (pl.rotation[s] == 180) p.right - 1 - gx else gx - p.left
             val partner = s < players.size && players[s].partner
             return if (partner) {
@@ -242,17 +239,16 @@ class CommanderLayout(val play: PlayLayout) {
                 CommanderZones.zone(s, if (lx < half) CommanderZones.A_MINUS else CommanderZones.A_PLUS)
             }
         }
-        return if (on) PlayLayout.NONE else DELEGATE
+        return PlayLayout.NONE
     }
 
     /** The rect a pressed commander [zone] inverts. False for none. */
     fun feedbackRect(zone: Int, players: List<Player>, out: IRect): Boolean {
         if (!CommanderZones.isCommander(zone)) return false
-        if (zone == CommanderZones.DIAMOND) { copy(play.menuBarsBacking, out); return true }
+        if (zone == CommanderZones.DIAMOND) { copy(closeIcon, out); return true }
         val s = CommanderZones.seatOf(zone)
         val local = CommanderZones.localOf(zone)
         when {
-            local == CommanderZones.BUTTON -> copy(play.cmdVis[s], out)
             local == CommanderZones.TARGET -> copy(play.panels[s], out)
             CommanderZones.isSlot(local) -> {
                 val partner = s < players.size && players[s].partner
@@ -272,13 +268,11 @@ class CommanderLayout(val play: PlayLayout) {
 
     override fun toString(): String =
         "CommanderLayout(S=${play.grid.scale} tk $tk, partner slots ${pW}w pm ${if (partnerPmVisible) "shown" else "hidden"}, " +
-            "labelChars $labelChars / partner $partnerLabelChars, quipKMax $quipKMax)"
+            "target block $targetTop..$targetBottom, life ${lifeFont.name} k$lifeK, quip k $quipKMin..$quipKMax)"
 
     companion object {
         /** "Not a commander zone": let the drawer layout hit-test it. */
         const val DELEGATE = Int.MIN_VALUE
-
-        const val TO = "TO "
 
         /** Digits a partner number slot is sized for (commander damage past 99 is not a real game). */
         const val PARTNER_CHARS = 2
@@ -286,8 +280,9 @@ class CommanderLayout(val play: PlayLayout) {
         /** Design values at S = 4 (converted per S). */
         const val ICON_GAP = 3
         const val LETHAL_PAD = 3
-        const val BAND_PAD = 8
+        const val QUIP_GAP = 10
         const val QUIP_K_MAX = 4
+        const val QUIP_K_MIN = 2
 
         /** Minimum paper between a partner number and its ± glyphs (tighter than [PlayLayout.GAP_MIN]: two numbers share a tile). */
         const val PARTNER_GAP = 2

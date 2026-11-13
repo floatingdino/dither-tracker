@@ -4,12 +4,15 @@ import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.Player
+import au.com.josephmark.dithertracker.core.flavour.Flavour
+import au.com.josephmark.dithertracker.core.flavour.QuipKind
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.IRect
-import au.com.josephmark.dithertracker.drawer.DrawerState
 import au.com.josephmark.dithertracker.drawer.DrawerZones
+import au.com.josephmark.dithertracker.type.Fonts
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -21,6 +24,8 @@ class CommanderLayoutTest {
         for ((w, h) in screens) for (s in 2..6) yield(CommanderLayout(PlayLayout.compute(DitherGrid(w, h, s))))
     }.filter { it.play.comfortable }.toList()
 
+    private val quips = Flavour.quippy.lines(QuipKind.COMMANDER_TARGET) + Flavour.plain.lines(QuipKind.COMMANDER_TARGET)
+
     private fun inside(inner: IRect, outer: IRect) =
         inner.left >= outer.left && inner.top >= outer.top && inner.right <= outer.right && inner.bottom <= outer.bottom
 
@@ -31,14 +36,12 @@ class CommanderLayoutTest {
 
     private val players: List<Player> = GameState.create(4).players
     private val partnered: List<Player> = players.mapIndexed { i, p -> if (i == 1 || i == 0) p.copy(partner = true) else p }
-    private val closed = DrawerState(4)
 
     @Test fun theSweepsReallyCoverTheNomadScales() {
         // The S = 2..6 sweeps below only see comfortable layouts: make sure that is not an empty set.
         assertTrue("${all.size}", all.size >= 7) // 20 screen/S combinations, 7 comfortable
         for (s in 2..4) assertTrue("S=$s", nomad[s - 2].play.comfortable && nomad[s - 2].play.underH > 0)
-        for (s in 2..4) assertTrue("S=$s", all.any { it.play === nomad[s - 2].play || it.play.toString() == nomad[s - 2].play.toString() })
-        for (c in all) assertTrue("$c", c.labelChars >= 8 && c.partnerLabelChars >= 1)
+        for (s in 2..4) assertTrue("S=$s", all.any { it.play.toString() == nomad[s - 2].play.toString() })
     }
 
     @Test fun nomadAtScale4() {
@@ -52,64 +55,85 @@ class CommanderLayoutTest {
         assertEquals(IRect(2, 176 + 77, 22, 176 + 97), c.partnerMinus[3 * 2])
         assertEquals(IRect(94, 176 + 77, 114, 176 + 97), c.partnerPlus[3 * 2])
         assertEquals(l.underRow[3].top + 1, c.partnerIcon[3 * 2].top)
-        // "TO " + 8 name chars ("PLAYER 1") fits both label layouts.
-        assertTrue("${c.labelChars}", c.labelChars >= 8)
-        assertTrue("${c.partnerLabelChars}", c.partnerLabelChars >= 8)
-        assertEquals(4, c.quipKMax)
-        assertEquals(2, c.quipK("Here it comes".length)) // k = 3 would be 231 wide > 233 − 2·8
-        assertEquals(4, c.quipK("Uh oh".length))
+        // Target block: below the readout (15..43) + 4, above the tab band (154 − 8) − 4.
+        assertEquals(47, c.targetTop); assertEquals(142, c.targetBottom)
+        assertSame(Fonts.NUM_M, c.lifeFont); assertEquals(2, c.lifeK); assertEquals(28, c.lifeRowH)
+        assertEquals(10, c.quipGap)
+        // One size below the largest that fits (designer), never below 2.
+        assertEquals(4, c.quipFitK("Uh oh".length)); assertEquals(3, c.quipK("Uh oh".length))
+        assertEquals(2, c.quipFitK("Here it comes".length)); assertEquals(2, c.quipK("Here it comes".length))
         assertEquals(2, c.quipK("Should've ducked".length))
+        // "UH OH" at k = 3: caps 65..86 centred, then 10 px, then the life row 96..124.
+        val fp = IRect(); val icon = IRect(); val num = IRect()
+        assertEquals(3, c.quipFootprint(3, 5, fp))
+        assertEquals(IRect((233 - 87) / 2, 176 + 65, (233 - 87) / 2 + 87, 176 + 65 + 27), fp)
+        assertEquals(2, c.lifeFootprint(3, 5, 40, icon, num))
+        // icon 16 + gap 3 + "40" (36) = 55 wide, centred at x 89
+        assertEquals(IRect(89, 176 + 102, 105, 176 + 118), icon)
+        assertEquals(IRect(108, 176 + 96, 144, 176 + 124), num)
+        // The close X sits centred on the diamond.
+        assertEquals(IRect(225, 167, 241, 183), c.closeIcon)
     }
 
-    @Test fun everyQuipFitsTheTileAtS2to6() {
-        val lines = au.com.josephmark.dithertracker.core.flavour.Flavour.quippy.lines(
-            au.com.josephmark.dithertracker.core.flavour.QuipKind.COMMANDER_TARGET,
-        ) + "Target"
-        val fp = IRect()
-        for (c in all) for (s in 0 until 4) for (q in lines) {
-            val k = c.quipFootprint(s, q.length, fp)
-            assertTrue("$c $q", k >= 1)
-            assertTrue("$c '$q' $fp", inside(fp, c.content[s]))
-            for (o in listOf(c.play.readoutSlot[s], c.play.underRow[s], c.play.cmdHit[s], c.play.tabHit[s], c.play.diamond)) {
-                assertFalse("$c '$q' $fp vs $o", overlaps(fp, o))
+    @Test fun lifeFontIsAParameter() {
+        val c = CommanderLayout(PlayLayout.compute(DitherGrid(1872, 1404, 4)), lifeFont = Fonts.UI)
+        assertSame(Fonts.UI, c.lifeFont)
+        assertEquals(maxOf(c.iconSize, Fonts.UI.height(c.lifeK)), c.lifeRowH)
+    }
+
+    @Test fun targetTileIsComposedAndClearAtS2to6() {
+        val fp = IRect(); val icon = IRect(); val num = IRect()
+        for (c in all) {
+            val l = c.play
+            for (s in 0 until 4) for (q in quips) {
+                val k = c.quipFootprint(s, q.length, fp)
+                assertTrue("$c $q", k in 1..c.quipKMax)
+                assertTrue("$c $q", k <= c.quipFitK(q.length))
+                assertTrue("$c '$q' $fp", inside(fp, l.panels[s]))
+                assertTrue("$c '$q' $fp", inside(fp, c.lifeRow[s]))
+                c.lifeFootprint(s, q.length, -999, icon, num)
+                for (r in listOf(icon, num)) {
+                    assertTrue("$c '$q' $r", inside(r, c.lifeRow[s]))
+                    assertFalse("$c '$q' quip vs life", overlaps(r, fp))
+                }
+                assertFalse(overlaps(icon, num))
+                // Deliberate spacing: exactly quipGap between the quip's caps and the life row.
+                val capBottom = if (l.rotation[s] == 0) fp.top + c.ui.capHeight * k else fp.bottom - c.ui.capHeight * k
+                val lifeTop = if (l.rotation[s] == 0) minOf(icon.top, num.top) else maxOf(icon.bottom, num.bottom)
+                assertEquals("$c '$q'", c.quipGap, if (l.rotation[s] == 0) lifeTop - capBottom else capBottom - lifeTop)
+                // Clear of the readout, the tab band and the diamond.
+                for (o in listOf(l.readoutSlot[s], l.tabHit[s], l.diamond)) {
+                    for (r in listOf(fp, icon, num)) assertFalse("$c '$q' $r vs $o", overlaps(r, o))
+                }
+                // Centred across the tile (±1 for odd leftovers).
+                val p = l.panels[s]
+                assertTrue(Math.abs((fp.left - p.left) - (p.right - fp.right)) <= 1)
             }
         }
     }
 
-    @Test fun modeContentNeverCollidesAtS2to6() {
-        val icon = IRect(); val text = IRect(); val num = IRect(); val band = IRect()
+    @Test fun opponentContentNeverCollidesAtS2to6() {
         for (c in all) {
             val l = c.play
             for (s in 0 until 4) {
                 val p = l.panels[s]
-                // Partner numbers and their ± stay in their half and clear of each other and the chrome.
                 val parts = ArrayList<IRect>()
                 for (i in 0..1) {
                     parts += c.partnerSlot[s * 2 + i]
                     if (c.partnerPmVisible) { parts += c.partnerMinus[s * 2 + i]; parts += c.partnerPlus[s * 2 + i] }
+                    parts += c.partnerIcon[s * 2 + i]
                 }
                 for (a in parts) {
                     assertTrue("$c $a", inside(a, p))
-                    for (o in listOf(l.readoutSlot[s], l.underRow[s], l.cmdHit[s], l.tabHit[s], l.diamond)) assertFalse("$c $a vs $o", overlaps(a, o))
+                    for (o in listOf(l.readoutSlot[s], l.tabHit[s], l.diamond)) assertFalse("$c $a vs $o", overlaps(a, o))
                 }
                 for (i in parts.indices) for (j in i + 1 until parts.size) assertFalse("$c ${parts[i]} ${parts[j]}", overlaps(parts[i], parts[j]))
-                if (l.underH == 0) continue
-                // Labels sit inside the under row.
-                c.labelFootprint(s, CommanderLayout.TO.length + c.labelChars, icon, text)
-                assertTrue("$c $icon", inside(icon, l.underRow[s])); assertTrue("$c $text", inside(text, l.underRow[s]))
-                assertFalse(overlaps(icon, text))
-                c.partnerLabelFootprint(s, CommanderLayout.TO.length + c.partnerLabelChars, text)
-                assertTrue(inside(text, l.underRow[s]))
-                for (i in 0..1) {
-                    assertTrue(inside(c.partnerIcon[s * 2 + i], l.underRow[s]))
-                    assertFalse("$c label vs icon", overlaps(text, c.partnerIcon[s * 2 + i]))
-                }
-                for (life in intArrayOf(40, 0, -999, 9999)) {
-                    c.lifeFootprint(s, life, icon, num)
-                    c.bandRect(s, band)
-                    assertTrue(inside(band, l.underRow[s]))
-                    if (life >= -999 && life <= 999) { assertTrue("$c $life", inside(icon, band)); assertTrue("$c $life", inside(num, band)) }
-                }
+                for (i in 0..1) assertTrue(inside(c.partnerIcon[s * 2 + i], l.underRow[s]))
+            }
+            assertTrue("$c close X inside the diamond", inside(c.closeIcon, l.diamond))
+            for (y in c.closeIcon.top until c.closeIcon.bottom) {
+                val hw = l.diamondRowHalf(y - l.diamondCy)
+                assertTrue("$c", c.closeIcon.left >= l.diamondCx - hw && c.closeIcon.right - 1 <= l.diamondCx + hw)
             }
         }
     }
@@ -117,60 +141,54 @@ class CommanderLayoutTest {
     @Test fun hitTestRotatedSeatsAndPartnerQuarters() {
         val c = nomad[2]
         val l = c.play
-        // Outside the mode: only the buttons are the mode's.
+        // Outside the mode nothing is the mode's (the commander button is in the drawer bar).
         for (s in 0 until 4) {
-            val b = mid(l.cmdHit[s])
-            assertEquals(CommanderZones.zone(s, CommanderZones.BUTTON), c.hitTest(b[0], b[1], CommanderMode.NONE, players, closed))
             val n = mid(l.numberSlot[s])
-            assertEquals(CommanderLayout.DELEGATE, c.hitTest(n[0], n[1], CommanderMode.NONE, players, closed))
+            assertEquals(CommanderLayout.DELEGATE, c.hitTest(n[0], n[1], CommanderMode.NONE, players))
         }
-        assertEquals(CommanderLayout.DELEGATE, c.hitTest(l.diamondCx, l.diamondCy, CommanderMode.NONE, players, closed))
-        // A drawer open on seat 2 hides its button.
-        val open = DrawerState(4).apply { setOpen(2, true) }
-        val b2 = mid(l.cmdHit[2])
-        assertEquals(CommanderLayout.DELEGATE, c.hitTest(b2[0], b2[1], CommanderMode.NONE, players, open))
+        assertEquals(CommanderLayout.DELEGATE, c.hitTest(l.diamondCx, l.diamondCy, CommanderMode.NONE, players))
 
         // Target 3 (upright, BL).
         val t = 3
         val n3 = mid(l.numberSlot[3])
-        assertEquals(CommanderZones.zone(3, CommanderZones.TARGET), c.hitTest(n3[0], n3[1], t, players, closed))
-        assertEquals(CommanderZones.DIAMOND, c.hitTest(l.diamondCx, l.diamondCy, t, players, closed))
-        val tab = mid(l.tab[2])
-        assertEquals(PlayLayout.NONE, c.hitTest(tab[0], tab[1], t, players, closed)) // tabs inert
+        assertEquals(CommanderZones.zone(3, CommanderZones.TARGET), c.hitTest(n3[0], n3[1], t, players))
+        assertEquals(CommanderZones.DIAMOND, c.hitTest(l.diamondCx, l.diamondCy, t, players))
+        // Tabs are hidden in the mode: the tab area is part of the tile's half.
+        val tab = l.tab[2]
+        assertEquals(CommanderZones.zone(2, CommanderZones.A_MINUS), c.hitTest(tab.left + 2, tab.top + 2, t, players))
         // Upright seat 2: screen-left half is −.
         val p2 = l.panels[2]
-        assertEquals(CommanderZones.zone(2, CommanderZones.A_MINUS), c.hitTest(p2.left + 10, n3[1], t, players, closed))
-        assertEquals(CommanderZones.zone(2, CommanderZones.A_PLUS), c.hitTest(p2.right - 10, n3[1], t, players, closed))
+        assertEquals(CommanderZones.zone(2, CommanderZones.A_MINUS), c.hitTest(p2.left + 10, n3[1], t, players))
+        assertEquals(CommanderZones.zone(2, CommanderZones.A_PLUS), c.hitTest(p2.right - 10, n3[1], t, players))
         // Rotated seat 0: screen-left is the player's right → +.
         val p0 = l.panels[0]
         val y0 = mid(l.numberSlot[0])[1]
-        assertEquals(CommanderZones.zone(0, CommanderZones.A_PLUS), c.hitTest(p0.left + 10, y0, t, players, closed))
-        assertEquals(CommanderZones.zone(0, CommanderZones.A_MINUS), c.hitTest(p0.right - 10, y0, t, players, closed))
-        // Partners: quarters, in the player's frame (seat 0 rotated, seat 1 rotated).
+        assertEquals(CommanderZones.zone(0, CommanderZones.A_PLUS), c.hitTest(p0.left + 10, y0, t, players))
+        assertEquals(CommanderZones.zone(0, CommanderZones.A_MINUS), c.hitTest(p0.right - 10, y0, t, players))
+        // Partners: quarters, in the player's frame (seats 0 and 1 are rotated).
         fun q(s: Int, i: Int) = mid(c.quarter[s * 4 + i])
         val want = intArrayOf(CommanderZones.A_MINUS, CommanderZones.A_PLUS, CommanderZones.B_MINUS, CommanderZones.B_PLUS)
         for (s in intArrayOf(0, 1)) for (i in 0 until 4) {
             val m = q(s, i)
-            assertEquals("seat $s quarter $i", CommanderZones.zone(s, want[i]), c.hitTest(m[0], m[1], t, partnered, closed))
+            assertEquals("seat $s quarter $i", CommanderZones.zone(s, want[i]), c.hitTest(m[0], m[1], t, partnered))
         }
         // The player-frame first quarter of a rotated seat is on the screen's right.
         assertTrue(c.quarter[0].left > c.quarter[3].left)
-        // The button still wins inside the mode.
-        val b0 = mid(l.cmdHit[0])
-        assertEquals(CommanderZones.zone(0, CommanderZones.BUTTON), c.hitTest(b0[0], b0[1], t, partnered, closed))
+        // Dividers and margins are nothing.
+        assertEquals(PlayLayout.NONE, c.hitTest(l.dividerV.left, 20, t, players))
     }
 
     @Test fun feedbackRects() {
         val c = nomad[2]
         val l = c.play
         val out = IRect()
-        assertTrue(c.feedbackRect(CommanderZones.zone(1, CommanderZones.BUTTON), players, out)); assertEquals(l.cmdVis[1], out)
+        assertFalse(c.feedbackRect(CommanderZones.zone(1, CommanderZones.BUTTON), players, out)) // the drawer bar's
         assertTrue(c.feedbackRect(CommanderZones.zone(1, CommanderZones.TARGET), players, out)); assertEquals(l.panels[1], out)
         assertTrue(c.feedbackRect(CommanderZones.zone(1, CommanderZones.A_PLUS), players, out))
         assertEquals(l.zones[PlayLayout.zone(1, PlayLayout.PLUS)], out)
         assertFalse(c.feedbackRect(CommanderZones.zone(2, CommanderZones.B_PLUS), players, out))
         assertTrue(c.feedbackRect(CommanderZones.zone(1, CommanderZones.B_PLUS), partnered, out)); assertEquals(c.quarter[1 * 4 + 3], out)
-        assertTrue(c.feedbackRect(CommanderZones.DIAMOND, players, out)); assertEquals(l.menuBarsBacking, out)
+        assertTrue(c.feedbackRect(CommanderZones.DIAMOND, players, out)); assertEquals(c.closeIcon, out)
         assertFalse(c.feedbackRect(DrawerZones.zone(1, DrawerZones.TAB), players, out))
     }
 
@@ -203,9 +221,12 @@ class CommanderLayoutTest {
 
     @Test fun upperLabelTruncatesAndUppercases() {
         val l = UpperLabel()
-        l.set(CommanderLayout.TO, "  Gandalf the Grey ", 7)
+        l.set("TO ", "  Gandalf the Grey ", 7)
         assertEquals("TO GANDALF", l.toString())
         assertEquals(10, l.length)
+        // the quip path: no prefix, whole line, in caps
+        l.set("", "It's you", 99)
+        assertEquals("IT'S YOU", l.toString())
         l.set("", "ab", 0)
         assertEquals(0, l.length)
         // a partner flag from core reaches the hit test (sanity)

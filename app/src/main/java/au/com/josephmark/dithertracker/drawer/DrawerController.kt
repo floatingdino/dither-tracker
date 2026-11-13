@@ -115,7 +115,7 @@ class DrawerController(val state: DrawerState, private val host: Host) {
             }
             !state.isOpen(s) -> return false
             local == DrawerZones.PREV || local == DrawerZones.NEXT -> {
-                val moved = if (local == DrawerZones.PREV) state.prevPage(s) else state.nextPage(s)
+                val moved = if (local == DrawerZones.PREV) state.firstPage(s) else state.nextPage(s)
                 if (!moved) return false
                 pageChanged(s)
             }

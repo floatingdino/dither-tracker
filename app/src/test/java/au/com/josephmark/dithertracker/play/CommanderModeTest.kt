@@ -81,14 +81,20 @@ class CommanderModeTest {
         assertEquals(life - 2, session.state.players[3].life) // refunded
     }
 
-    @Test fun holdRepeatsByFiveAndTapsOnTheTargetDoNothing() {
+    @Test fun holdRepeatsByTenLikeLifeAndTapsOnTheTargetDoNothing() {
         button(3)
         val z = CommanderZones.zone(1, CommanderZones.A_PLUS)
         assertTrue(mode.repeats(z))
         assertFalse(mode.repeats(CommanderZones.zone(1, CommanderZones.BUTTON)))
         assertFalse(mode.repeats(CommanderZones.DIAMOND))
-        repeat(4) { mode.onRepeat(z) }
+        assertEquals(PlayInput.DEFAULT_HOLD_STEP, mode.holdStep)
+        repeat(2) { mode.onRepeat(z) } // +10, +10
+        assertEquals(20, mode.damage(1, Commander.PRIMARY))
         mode.onTap(z)
+        assertEquals(21, mode.damage(1, Commander.PRIMARY))
+        mode.onRepeat(CommanderZones.zone(1, CommanderZones.A_MINUS))
+        assertEquals(11, mode.damage(1, Commander.PRIMARY))
+        mode.onTap(CommanderZones.zone(1, CommanderZones.A_PLUS)); repeat(9) { mode.onTap(z) }
         assertEquals(21, mode.damage(1, Commander.PRIMARY))
         assertTrue(session.state.isKo(id(3))) // 21 from one commander: core's auto-KO rule
         assertEquals(21, session.state.players[3].maxCommanderDamage)
@@ -97,6 +103,17 @@ class CommanderModeTest {
         mode.exit()
         assertFalse(mode.repeats(z))
         assertFalse(mode.onTap(z))
+    }
+
+    @Test fun holdStepFollowsTheLifeSettingAndZeroDisablesIt() {
+        button(3)
+        val z = CommanderZones.zone(2, CommanderZones.A_PLUS)
+        mode.holdStep = 5
+        mode.onRepeat(z)
+        assertEquals(5, mode.damage(2, Commander.PRIMARY))
+        mode.holdStep = 0
+        assertFalse(mode.onRepeat(z))
+        assertEquals(5, mode.damage(2, Commander.PRIMARY))
     }
 
     @Test fun partnerSlotNeedsAPartner() {
