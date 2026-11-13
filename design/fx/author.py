@@ -488,6 +488,7 @@ def write(name, frames, anchor, holds, doc):
         f.write(f'# {name}: {doc}\n')
         f.write(f'size {frames[0].w} {frames[0].h}\n')
         f.write(f'frames {len(frames)}\n')
+        f.write(f'role {ROLES[name]}\n')
         f.write(f'anchor {ref} {dx} {dy}\n')
         f.write('hold_ms ' + ' '.join(str(h) for h in holds) + '\n')
     glyphs = render.load_glyphs()
@@ -506,9 +507,17 @@ def write(name, frames, anchor, holds, doc):
     return fl
 
 
+# T28c: only these round-one effects still ship from this script. pow, crack and twinkle in
+# design/fx/ are now the round-two refits (from options/author2.py); claw, wham and zap are retired.
+# Re-authoring those names here would overwrite the shipped frames, so it is refused.
+ROLES = {'heart': 'heal', 'sprout': 'heal', 'fizzle': 'ko'}
+
+
 def main():
-    names = sys.argv[1:] or list(EFFECTS)
+    names = sys.argv[1:] or list(ROLES)
     for n in names:
+        if n not in ROLES:
+            sys.exit(f'{n}: not authored here any more (T28c: see design/fx/README.md)')
         frames, anchor, holds = EFFECTS[n]()
         fl = write(n, frames, anchor, holds, EFFECTS[n].__doc__.strip())
         print(f'{n:8s} {frames[0].w}x{frames[0].h} frames={len(frames) + 1} flips={fl} total={sum(fl)}')

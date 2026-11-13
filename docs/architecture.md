@@ -135,9 +135,11 @@ arrays with index loops / `for (x in array)`, never `List` iterators, lambdas or
 6. One line in `PlayScreen` at the KO slot. Tests: build `PlayRig` (test/play) and assert
    `rig.hit(x, y)`, draw order with a recording `Frame`, invalidations on `rig.platform.invalidated`.
 
-Effects (T28c) are the same shape: `Kind.EFFECT`, no zones, cancel on `Events.TOUCH_DOWN` for the
-seat, trigger in `onStateChanged` when a readout commits (or add an event), timers via `timers`,
-draw after the number (its slot is at the end of the `TILE` list).
+Effects (T28c, `fx/FxComponent`) are the same shape: `Kind.EFFECT`, no zones, cancel on
+`Events.TOUCH_DOWN` for the seat, trigger on `Events.READOUT_COMMITTED` (the readout's commit),
+timers via `timers`, draw after the number (registered right after the drawer, before the KO tile),
+and hold the KO tile off with `Events.KO_HOLD` / `KO_RELEASE` while a KO flourish plays. See
+`fx/README.md`.
 
 ## How to add a screen overlay (example: table menu, T09)
 
