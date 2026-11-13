@@ -81,10 +81,13 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 `settings`, `history`, `players`, `menu`, `more` (…), `plus`, `minus`, `close`, `check`,
 `chevron-left/right/up/down`, `invert`, `scale`, `rotate`, `partner`, `refresh`.
 
-## Open questions for Sam
+## Decisions
 
-- Typeface: Figma uses a regular monospace (anti-aliased). Plan (T05) is a true bitmap font on the dither grid — confirm, or name a font to convert.
-- Is a physical Nomad available over `adb` for on-device checks, or emulator-only for now?
+- Typeface: true bitmap font on the dither grid (T05) — confirmed by Sam 2026-11-13.
+- Device: a physical Supernote Nomad is connected over USB (`~/Library/Android/sdk/platform-tools/adb`,
+  serial `<device-serial>`; Android 11 / API 30, 1404x1872 @ 300dpi, arm64-v8a). Screen tasks must be
+  checked on it: `adb install -r` the debug APK, launch, `adb exec-out screencap -p` and run the
+  pixel-purity check on the capture. Only install/launch/screencap this app — touch nothing else on the device.
 
 ## Tick log
 
