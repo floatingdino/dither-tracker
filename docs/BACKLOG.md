@@ -16,6 +16,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - Commits: the coordinator (only) commits each verified task to the `build` branch, one commit
   per task (`T07: …`), staging only that task's files. Never push; never commit to `main`.
   (Approved by Sam 2026-11-13.)
+- **The Nomad is a single shared resource.** At most one running task may use the device
+  (install/launch/tap/screencap); other concurrent tasks must be JVM-test-only and the coordinator
+  does their device check afterwards. (Two agents tapping at once corrupted each other's runs in tick 11.)
 - Agents: work only inside the task's **Files**; don't edit this file; don't commit; finish by
   reporting what was built, how it was verified, and anything left open.
 - "Verified" always means `./gradlew :core:test :app:assembleDebug` passes, plus the task's own check.
@@ -43,7 +46,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T08 | todo | T06 T02 | Player drawer: bottom tab, opens (no animation) to tracker tray; counters with icon + value + −/+; `COMMANDER DAMAGE` button → per-opponent damage view (partner aware, optional life link). | `app/src/main/**/drawer/` |
 | T09 | todo | T06 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
 | T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
-| T10b | wip | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
+| T10b | review | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
 
 ### Phase 2 — Layouts & settings
 
@@ -168,3 +171,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   no-repeat via `RecentPicks`. NewGame and Reset share one confirm category. T07, T10b, T26 running.
 - 2026-11-13 — Sam: consider small limited-frame overlay effects for damage/healing. SPEC rule 4
   amended (narrow exception with e-ink constraints). Added T28a (dispatched) and T28b.
+- 2026-11-13 — Tick 13: T10b reported done (96 app tests pass on the mixed tree). Left in `review`,
+  uncommitted: its files are interleaved with T07's in-progress edits (`GameSession.kt`) and T07 is
+  using the device, so the coordinator's on-device restore check and the commit wait for T07.
+  Design: `data/SaveStore` (atomic write + backup, 1 s debounce, 10 s cap), `Persistence` (worker
+  thread, `onPause`/`onStop` flush, restore once per process), `SettingsHolder.shared`.
+  Cold restore ~30 ms sync in `onCreate`. Known: a force-stop/crash within 1 s of a tap can lose it.
