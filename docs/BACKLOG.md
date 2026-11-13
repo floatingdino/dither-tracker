@@ -335,3 +335,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-14 — Sam: the menu/commander X is thin next to the chunky numerals; fit the paper cut-out
   around the glyph instead of the square backing; other icons need more weight -> T40 (design-only
   candidates, dispatched) and T41 (after T34).
+- 2026-11-14 — Sam: `monarch` and `night` can be filled — it was the silhouettes that were liked, not
+  the outline treatment. Forwarded to the T40 agent (solid versions keeping the current shapes).
