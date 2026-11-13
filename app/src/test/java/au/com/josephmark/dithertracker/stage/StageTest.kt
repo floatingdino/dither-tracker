@@ -20,8 +20,14 @@ class StageTest {
     class FakePlatform : Stage.Platform {
         val invalidated = ArrayList<IRect>()
         var all = 0
+        /** False: [invalidate] only counts (no allocation, for the T20 allocation tests). */
+        var record = true
+        var count = 0
         val clock = FakeScheduler(1024) // the real component list at six seats needs ~330 ids (T11)
-        override fun invalidate(left: Int, top: Int, right: Int, bottom: Int) { invalidated += IRect(left, top, right, bottom) }
+        override fun invalidate(left: Int, top: Int, right: Int, bottom: Int) {
+            count++
+            if (record) invalidated += IRect(left, top, right, bottom)
+        }
         override fun invalidateAll() { all++ }
         override fun schedule(id: Int, delayMillis: Long) = clock.schedule(id, delayMillis)
         override fun cancel(id: Int) = clock.cancel(id)

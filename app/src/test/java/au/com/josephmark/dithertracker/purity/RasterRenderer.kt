@@ -33,7 +33,9 @@ class RasterRenderer(grid: DitherGrid) : DitherRenderer() {
 
     var scratch = false
 
-    private val clips = ArrayList<IRect>()
+    // Saved clips, four ints each (no allocation per clipTo: the T20 allocation tests draw through this).
+    private var clips = IntArray(4 * 8)
+    private var clipDepth = 0
     // The current clip; unbounded at the base (an out-of-grid draw is recorded, not silently clipped).
     private var cl = Int.MIN_VALUE
     private var ct = Int.MIN_VALUE
@@ -50,11 +52,13 @@ class RasterRenderer(grid: DitherGrid) : DitherRenderer() {
 
     private fun inClip(x: Int, y: Int) = x >= cl && y >= ct && x < cr && y < cb
 
-    private fun put(x: Int, y: Int, v: Byte, op: String) {
+    // The op label is a constant plus an optional tile, formatted only for a note: nothing is built
+    // per pixel (the T20 allocation tests draw whole screens through this).
+    private fun put(x: Int, y: Int, v: Byte, op: String, tile: Tile? = null) {
         if (scratch) return
         if (!inClip(x, y)) return
         if (x < 0 || y < 0 || x >= width || y >= height) {
-            if (outside++ < 3) outsideNotes += "$op wrote ($x,$y) outside the ${width}x$height grid"
+            if (outside++ < 3) outsideNotes += "${if (tile == null) op else "$op($tile)"} wrote ($x,$y) outside the ${width}x$height grid"
             return
         }
         px[y * width + x] = v
@@ -79,7 +83,7 @@ class RasterRenderer(grid: DitherGrid) : DitherRenderer() {
 
     override fun fillPattern(tile: Tile, x: Int, y: Int, w: Int, h: Int) {
         if (scratch) return
-        for (gy in y until y + h) for (gx in x until x + w) put(gx, gy, ink(tile.isInkAt(gx, gy)), "fill($tile)")
+        for (gy in y until y + h) for (gx in x until x + w) put(gx, gy, ink(tile.isInkAt(gx, gy)), "fill", tile)
     }
 
     override fun solidRect(x: Int, y: Int, w: Int, h: Int, ink: Boolean) {
@@ -123,7 +127,7 @@ class RasterRenderer(grid: DitherGrid) : DitherRenderer() {
             if (!mask.isInk(mx, my)) continue
             val gx = x + mx
             val gy = y + my
-            put(gx, gy, if (tile.isInkAt(gx, gy) != inv) INK else PAPER, "fillMask($tile)")
+            put(gx, gy, if (tile.isInkAt(gx, gy) != inv) INK else PAPER, "fillMask", tile)
         }
     }
 
@@ -136,25 +140,28 @@ class RasterRenderer(grid: DitherGrid) : DitherRenderer() {
             val t = tile.isInkAt(gx, gy)
             when (op) {
                 MaskOp.INVERT -> flip(gx, gy, "drawMask(INVERT)")
-                MaskOp.TILE_INK -> if (t) put(gx, gy, ink(true), "drawMask(TILE_INK $tile)")
-                MaskOp.TILE_PAPER -> if (t) put(gx, gy, ink(false), "drawMask(TILE_PAPER $tile)")
-                MaskOp.TILE_FILL -> put(gx, gy, ink(t), "drawMask(TILE_FILL $tile)")
+                MaskOp.TILE_INK -> if (t) put(gx, gy, ink(true), "drawMask TILE_INK", tile)
+                MaskOp.TILE_PAPER -> if (t) put(gx, gy, ink(false), "drawMask TILE_PAPER", tile)
+                MaskOp.TILE_FILL -> put(gx, gy, ink(t), "drawMask TILE_FILL", tile)
             }
         }
     }
 
     override fun clipTo(r: IRect) {
-        clips += IRect(cl, ct, cr, cb)
+        if (4 * clipDepth == clips.size) clips = clips.copyOf(clips.size * 2)
+        val i = 4 * clipDepth++
+        clips[i] = cl; clips[i + 1] = ct; clips[i + 2] = cr; clips[i + 3] = cb
         cl = maxOf(cl, r.left); ct = maxOf(ct, r.top); cr = minOf(cr, r.right); cb = minOf(cb, r.bottom)
     }
 
     override fun unclip() {
-        val c = clips.removeAt(clips.size - 1)
-        cl = c.left; ct = c.top; cr = c.right; cb = c.bottom
+        check(clipDepth > 0) { "unclip without clipTo" }
+        val i = 4 * --clipDepth
+        cl = clips[i]; ct = clips[i + 1]; cr = clips[i + 2]; cb = clips[i + 3]
     }
 
     /** No clip left open (every [clipTo] was paired with an [unclip]). */
-    val clipBalanced: Boolean get() = clips.isEmpty()
+    val clipBalanced: Boolean get() = clipDepth == 0
 
     /** Writes the raster as a PNG at [s] px per dither px (debug output). */
     fun writePng(file: File, s: Int = 1) {

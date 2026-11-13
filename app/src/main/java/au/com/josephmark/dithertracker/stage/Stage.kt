@@ -398,6 +398,7 @@ class Stage(
     }
 
     override fun onTimer(id: Int) {
+        log?.invoke("timer $id")
         if (id in armed.indices) armed[id] = false
         enter(if (id < zoneCount) Cause.HOLD else Cause.TIMER)
         try {

@@ -4,6 +4,9 @@ import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
+import android.os.Process
+import android.os.SystemClock
+import android.util.Log
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -26,9 +29,12 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val trace = intent?.getBooleanExtra("trace", false) == true
+        val t0 = SystemClock.elapsedRealtimeNanos()
         // Once per process: load the save synchronously (a few ms) so the first frame is the restored
         // game, then save changes in the background. No-op on activity recreation.
         Persistence.start(applicationContext)
+        val t1 = SystemClock.elapsedRealtimeNanos()
         // Debug/QA hooks (not reachable from the UI). "Debuggable builds only" ones are gated on the
         // compile-time BuildConfig.DEBUG, so R8 drops them (and DitherDemoView) from release; `inverted`
         // and `trace` stay in release (harmless; `trace` is how release onDraw times are measured).
@@ -67,11 +73,19 @@ class MainActivity : Activity() {
         } else {
             // The game lives in GameSession.shared (process memory, restored from disk by Persistence).
             PlayView(this, GameSession.shared, debugRandom() ?: Random(System.nanoTime())).apply {
-                trace = intent?.getBooleanExtra("trace", false) == true
+                this.trace = trace
                 setInverted(inverted)
             }
         }
         setContentView(root)
+        if (trace) {
+            val t2 = SystemClock.elapsedRealtimeNanos()
+            Log.d(
+                "PlayView",
+                "onCreate: persistence ${(t1 - t0) / 1000}us, the rest ${(t2 - t1) / 1000}us; " +
+                    "${SystemClock.uptimeMillis() - Process.getStartUptimeMillis()}ms after process start",
+            )
+        }
     }
 
     /** Debug-only capture hook: `--el seed N` makes the commander-mode quip picks reproducible. */

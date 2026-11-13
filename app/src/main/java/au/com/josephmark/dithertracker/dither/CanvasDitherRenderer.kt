@@ -264,6 +264,16 @@ class CanvasDitherRenderer : DitherRenderer() {
         return p
     }
 
+    /** Scaled masks cached at the current S (trace / tests: memory accounting). */
+    val maskCount: Int get() = masks.size
+
+    /** Bytes held by the cached masks ([Bitmap.getAllocationByteCount]). */
+    fun maskBytes(): Long {
+        var n = 0L
+        for (b in masks.values) n += b.allocationByteCount
+        return n
+    }
+
     private fun mask(img: MonoImage): Bitmap {
         masks[img]?.let { return it }
         val s = grid.scale

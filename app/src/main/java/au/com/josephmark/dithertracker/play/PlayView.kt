@@ -8,6 +8,7 @@ import android.graphics.Rect
 import android.os.Debug
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import android.view.MotionEvent
@@ -174,13 +175,19 @@ class PlayView(
         val app = stage.settings.current
         val players = stage.session.state.players.size
         val s = PlayLayout.chooseScale(w, h, resources.displayMetrics.densityDpi, app.scale, players, app.layout)
+        val t0 = SystemClock.elapsedRealtimeNanos()
         val grid = DitherGrid(w, h, s)
         r.setGrid(grid)
         r.prewarm()
         val l = PlayLayout.compute(grid, players, app.layout)
         stage.layout(l)
+        val t1 = SystemClock.elapsedRealtimeNanos()
         prewarm()
-        if (trace) Log.d(TAG, "layout $l")
+        if (trace) {
+            val t2 = SystemClock.elapsedRealtimeNanos()
+            Log.d(TAG, "layout $l")
+            Log.d(TAG, "layout took ${(t1 - t0) / 1000}us, prewarm ${(t2 - t1) / 1000}us; masks=${r.maskCount} bytes=${r.maskBytes()}")
+        }
     }
 
     /**
@@ -227,12 +234,18 @@ class PlayView(
         r.clear()
         stage.draw(frame)
         this.canvas = null
+        if (trace && !firstDrawLogged) {
+            firstDrawLogged = true
+            Log.d(TAG, "first onDraw ${SystemClock.uptimeMillis() - Process.getStartUptimeMillis()}ms after process start")
+        }
         if (trace) {
             val us = (SystemClock.elapsedRealtimeNanos() - t0) / 1000
             val n = allocs() - a0
             Log.d(TAG, "onDraw hw=${canvas.isHardwareAccelerated} clip=$clipDev allocs=$n took ${us}us")
         }
     }
+
+    private var firstDrawLogged = false
 
     /** Objects allocated on this thread so far (trace only: counting starts when [trace] is set). */
     @Suppress("DEPRECATION")
