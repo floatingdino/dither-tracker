@@ -166,6 +166,7 @@ class PlayView(
         stage.detach()
         stage.settings.removeListener(settingsListener)
         mainHandler.removeCallbacks(relayoutTask)
+        mainHandler.removeCallbacks(prewarmLater)
         super.onDetachedFromWindow()
     }
 
@@ -222,9 +223,25 @@ class PlayView(
      * drawing them once into a throwaway 1×1 canvas — so nothing is built or allocated in onDraw.
      */
     private fun prewarm() {
-        val scratch = Canvas(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
         r.begin(scratch)
-        stage.prewarm(frame)
+        stage.prewarm(frame, Stage.Prewarm.FIRST_FRAME)
+        mainHandler.removeCallbacks(prewarmLater)
+        mainHandler.post(prewarmLater)
+    }
+
+    private val scratch by lazy { Canvas(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)) }
+
+    /**
+     * Effects and overlays (T20): built just after the first frame (posted from the layout pass, so it
+     * runs once that traversal has drawn), not before it. Nothing can show them earlier; if something
+     * did, the renderer would build the missing masks on first use.
+     */
+    private val prewarmLater = Runnable {
+        if (stage.layout == null) return@Runnable
+        val t0 = if (trace) SystemClock.elapsedRealtimeNanos() else 0L
+        r.begin(scratch)
+        stage.prewarm(frame, Stage.Prewarm.LATER)
+        if (trace) Log.d(TAG, "prewarm later took ${(SystemClock.elapsedRealtimeNanos() - t0) / 1000}us; masks=${r.maskCount} bytes=${r.maskBytes()}")
     }
 
     @SuppressLint("ClickableViewAccessibility")

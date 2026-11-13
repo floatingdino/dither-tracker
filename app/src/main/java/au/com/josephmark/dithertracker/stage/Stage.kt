@@ -251,13 +251,31 @@ class Stage(
         } finally { exit() }
     }
 
-    fun prewarm(f: Frame) {
+    /** Prewarms every component ([Prewarm.ALL]). */
+    fun prewarm(f: Frame) = prewarm(f, Prewarm.ALL)
+
+    /**
+     * Prewarms the components [phase] selects. [Prewarm.FIRST_FRAME]: everything that can be on screen
+     * when the screen first appears; [Prewarm.LATER]: effects and screen overlays, which cannot be
+     * showing yet (nothing plays or opens before a touch), so the host builds them after the first
+     * frame (T20: they were ~60% of the prewarm, i.e. of the cold start).
+     */
+    fun prewarm(f: Frame, phase: Int) {
         val lg = log
         for (c in comps) {
+            val later = c.kind == Kind.EFFECT || c.layer == Layer.OVERLAY
+            if (phase == Prewarm.FIRST_FRAME && later || phase == Prewarm.LATER && !later) continue
             val t0 = if (lg != null) System.nanoTime() else 0L
             c.prewarm(f)
             if (lg != null) lg("prewarm ${c.javaClass.simpleName} ${(System.nanoTime() - t0) / 1000}us")
         }
+    }
+
+    /** [prewarm] phases. */
+    object Prewarm {
+        const val ALL = 0
+        const val FIRST_FRAME = 1
+        const val LATER = 2
     }
 
     // ---- services for components -------------------------------------------------------------
