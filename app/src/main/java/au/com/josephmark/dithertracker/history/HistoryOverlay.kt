@@ -110,7 +110,8 @@ class HistoryOverlay(
         val k = WidgetMetrics(l.grid.scale).k
         for (ic in HistoryFormat.ICONS) p.c.blit(p.scaledIcon(ic, k), 0, 0, 0, false, false)
         for (ic in PREWARM_ICONS) p.c.blit(p.scaledIcon(ic, k), 0, 0, 0, false, false)
-        p.c.blit(HistoryArrow.of(k), 0, 0, 0, false, false)
+        p.c.blit(HistoryArrow.heavy(k), 0, 0, 0, false, false)
+        p.c.blit(HistoryArrow.thin(k), 0, 0, 0, false, false)
         // Every glyph a row can show: the whole ui face (player names are free text) and num-m.
         f.text.draw(Fonts.UI, UI_CHARS, 0, 0, k)
         f.text.draw(Fonts.NUM_M, NUM_CHARS, 0, 0, k)

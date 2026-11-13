@@ -75,7 +75,9 @@ class HistoryCard {
     val screenFeedback: Array<IRect> = Array(ZONES) { IRect() }
     val live = BooleanArray(ZONES)
 
-    var arrow: HistoryArrow = HistoryArrow.of(1)
+    var arrow: HistoryArrow = HistoryArrow.heavy(1)
+        private set
+    var pairArrow: HistoryArrow = HistoryArrow.thin(1)
         private set
 
     val isEmpty: Boolean get() = index.size == 0
@@ -87,7 +89,8 @@ class HistoryCard {
     fun layout(scale: Int, screen: IRect, rotation: Int, log: List<LogEntry>, state: GameState, canUndo: Boolean) {
         if (!::metrics.isInitialized || metrics.scale != scale) metrics = WidgetMetrics(scale)
         val m = metrics
-        arrow = HistoryArrow.of(m.k)
+        arrow = HistoryArrow.heavy(m.k)
+        pairArrow = HistoryArrow.thin(m.k)
         side = sideFor(m, screen.width, screen.height)
         frame.setCentred(screen, rotation, side, side)
         frame.map(0, 0, side, side, screenCard)
@@ -122,10 +125,14 @@ class HistoryCard {
         val m = metrics
         undo.enabled = canUndo
         list.count = index.size
-        list.layout(m, body.left, body.top, body.width, body.height)
+        // Whole rows only, centred in the body: the leftover px sit evenly above and below the list
+        // rather than as a gap over the pager.
+        val pitch = m.rowH + 1
+        val listH = maxOf(m.rowH, ((body.height + 1) / pitch) * pitch - 1)
+        list.layout(m, body.left, body.top + (body.height - listH) / 2, body.width, listH)
         for (i in 0 until list.visibleCount) {
             index.fill(list.firstIndex + i, state, rows[i])
-            rows[i].layout(m, list.slots[i], arrow.width, arrow.height)
+            rows[i].layout(m, list.slots[i], arrow.width, arrow.height, pairArrow.width, pairArrow.height)
         }
         emptyChars = TextFit.fit(emptyLine, m.ui, m.k, body.width - 2 * m.padX)
         emptyRect.set(body.left, body.top, body.right, body.bottom)
@@ -208,21 +215,21 @@ class HistoryCard {
         p.text(f, m, m.ui, r.who, 0, r.whoChars, r.whoRect, start, invert = false, opaque = false)
         val w2 = r.who2
         if (w2 != null && r.who2Chars > 0) {
-            blitArrow(p, r.pairArrow)
+            blitArrow(p, pairArrow, r.pairArrow)
             p.text(f, m, m.ui, w2, 0, r.who2Chars, r.who2Rect, start, invert = false, opaque = false)
         }
         r.note?.let { p.text(f, m, m.ui, it, 0, r.noteChars, r.noteRect, start, invert = false, opaque = false) }
         if (r.hasDelta) p.text(f, m, m.num, r.deltaText, 0, r.deltaText.length, r.deltaRect, start, invert = false, opaque = false)
-        if (r.hasDelta && r.hasValue) blitArrow(p, r.arrowRect)
+        if (r.hasDelta && r.hasValue) blitArrow(p, arrow, r.arrowRect)
         if (r.hasValue) p.text(f, m, m.num, r.valueText, 0, r.valueText.length, r.valueRect, start, invert = false, opaque = false)
     }
 
     private val tmp = IRect()
 
-    private fun blitArrow(p: WidgetPainter, local: IRect) {
+    private fun blitArrow(p: WidgetPainter, img: HistoryArrow, local: IRect) {
         if (local.isEmpty) return
         frame.map(local, tmp)
-        p.c.blit(arrow, tmp.left, tmp.top, frame.rotation, invert = false, opaque = false)
+        p.c.blit(img, tmp.left, tmp.top, frame.rotation, invert = false, opaque = false)
     }
 
     companion object {

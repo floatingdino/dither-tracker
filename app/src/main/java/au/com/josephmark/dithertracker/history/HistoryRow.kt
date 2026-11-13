@@ -104,9 +104,9 @@ class HistoryRow {
 
     /**
      * Places the parts in [slot] (local px, a list row) with metrics [m]; [arrowW]/[arrowH] is the
-     * arrow image's size at the metrics' k.
+     * heavy value arrow's size at the metrics' k, [pairW]/[pairH] the thin name-pair arrow's.
      */
-    fun layout(m: WidgetMetrics, slot: IRect, arrowW: Int, arrowH: Int) {
+    fun layout(m: WidgetMetrics, slot: IRect, arrowW: Int, arrowH: Int, pairW: Int = arrowW, pairH: Int = arrowH) {
         for (r in parts) r.set(0, 0, 0, 0)
         whoChars = 0; who2Chars = 0; noteChars = 0
         val top = slot.top
@@ -171,7 +171,7 @@ class HistoryRow {
             return
         }
         // A pair: share the room, lending what the shorter name doesn't need to the other.
-        val names = room - arrowW - 2 * ag
+        val names = room - pairW - 2 * ag
         if (names <= 0) return
         val nat1 = m.ui.widthOf(who.length, k)
         val nat2 = m.ui.widthOf(w2.length, k)
@@ -180,7 +180,7 @@ class HistoryRow {
         whoChars = TextFit.fit(who, m.ui, k, a1)
         val used1 = m.ui.widthOf(whoChars, k)
         whoRect.set(nameLeft, top, nameLeft + used1, top + h)
-        pairArrow.setXywh(whoRect.right + ag, arrowY, arrowW, arrowH)
+        pairArrow.setXywh(whoRect.right + ag, top + (h - pairH) / 2, pairW, pairH)
         val x2 = pairArrow.right + ag
         who2Chars = TextFit.fit(w2, m.ui, k, nameRight - x2)
         who2Rect.set(x2, top, x2 + m.ui.widthOf(who2Chars, k), top + h)
@@ -238,18 +238,18 @@ class HistoryRow {
 }
 
 /**
- * The little `→` between a delta and its result (and between a pair of names): a 9×6 heavy arrow
- * matching `num-m`'s 2-px horizontals. Stable instances per k (the renderer caches per instance).
+ * The little arrows: [heavy] `→` between a delta and its result (a 9×6 arrow matching `num-m`'s 2-px
+ * horizontals) and [thin] `→` between a pair of names (7×5, the `ui` face's 1-px pen), so a
+ * commander row's "source → target" never reads as a second number change. Stable instances per k
+ * (the renderer caches per instance).
  */
-class HistoryArrow private constructor(private val k: Int) : MonoImage {
-    override val width: Int = W * k
-    override val height: Int = H * k
-    override fun isInk(x: Int, y: Int): Boolean = ROWS[y / k][x / k] == '#'
+class HistoryArrow private constructor(private val rows: Array<String>, private val k: Int) : MonoImage {
+    override val width: Int = rows[0].length * k
+    override val height: Int = rows.size * k
+    override fun isInk(x: Int, y: Int): Boolean = rows[y / k][x / k] == '#'
 
     companion object {
-        const val W = 9
-        const val H = 6
-        private val ROWS = arrayOf(
+        private val HEAVY = arrayOf(
             "......#..",
             "......##.",
             "#########",
@@ -257,11 +257,22 @@ class HistoryArrow private constructor(private val k: Int) : MonoImage {
             "......##.",
             "......#..",
         )
-        private val cache = arrayOfNulls<HistoryArrow>(8)
+        private val THIN = arrayOf(
+            "....#..",
+            ".....#.",
+            "#######",
+            ".....#.",
+            "....#..",
+        )
+        private val heavyCache = arrayOfNulls<HistoryArrow>(8)
+        private val thinCache = arrayOfNulls<HistoryArrow>(8)
 
-        fun of(k: Int): HistoryArrow {
-            if (k !in cache.indices) return HistoryArrow(k)
-            return cache[k] ?: HistoryArrow(k).also { cache[k] = it }
+        fun heavy(k: Int): HistoryArrow = of(HEAVY, heavyCache, k)
+        fun thin(k: Int): HistoryArrow = of(THIN, thinCache, k)
+
+        private fun of(rows: Array<String>, cache: Array<HistoryArrow?>, k: Int): HistoryArrow {
+            if (k !in cache.indices) return HistoryArrow(rows, k)
+            return cache[k] ?: HistoryArrow(rows, k).also { cache[k] = it }
         }
     }
 }
