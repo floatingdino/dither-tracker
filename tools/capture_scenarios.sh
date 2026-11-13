@@ -46,10 +46,19 @@ cap_pressed() { # name x y
   wait $pid
 }
 
+# A fresh game, launched with these extras. The app goes home first: killing it while it is the top
+# task (an install, a clear) can make System UI relaunch it on its own, without extras, and our start
+# then only reaches it as a new intent: the partner flag, seed or inverted launch were lost (T49).
+fresh() {
+  $A shell input keyevent KEYCODE_HOME
+  sleep 1
+  $A shell am force-stop $P
+  $A shell pm clear $P >/dev/null
+  $A shell am start -S -n $P/.MainActivity "$@" >/dev/null
+}
+
 if [ -z "${NO_INSTALL:-}" ]; then $A install -r "$APK" >/dev/null; fi
-$A shell am force-stop $P
-$A shell pm clear $P >/dev/null
-$A shell am start -n $P/.MainActivity --el seed 7 --es partners 1 >/dev/null
+fresh --el seed 7 --es partners 1
 sleep 4
 cap 01_fresh
 
@@ -75,7 +84,8 @@ tap 1694 162                        # tax + (2)
 tap 1230 162; tap 1230 162; tap 1230 162  # poison + x3
 hold 1230 162 1000                  # poison +5 -> 8 (warning)
 cap 06_drawers_open
-cap_pressed 07_press_tax_cell 58 1242   # seat 3 tax "-" held (drawer cell inversion); release: tax 0
+cap_pressed 07_press_tax_cell 174 1242  # seat 3 tax "+" half held (its inversion); release: tax 4.
+                                    # (T49: the "-" half repeats while held, so it would empty the cell.)
 tap 1052 258                        # seat 1 page chevron: page 2
 tap 1694 162                        # generic + on page 2
 cap 08_drawer1_page2
@@ -98,9 +108,10 @@ sleep 1
 cap 12_mode_enter
 tap 1650 1050; tap 1650 1050; tap 1650 1050  # seat 2 (upright) "+" x3
 sleep 5                             # seat 2's and the target's readouts commit
-hold 1520 350 2000                  # seat 1 primary "+" (partner quarters, rotated): +20
-tap 1520 350                        # +1 -> 21 lethal
+hold 1520 350 2000                  # seat 1 primary "+" (partner quarters, rotated): +20, not lethal
 cap 13_mode_damage                  # readouts on seat 1 and the target
+                                    # (T49: 21 is lethal and KOs the target since T15, so its tile then
+                                    # arms REVIVE? on a press instead of leaving the mode: 15-19 drifted)
 sleep 4
 cap 14_mode_committed
 cap_pressed 15_press_target 466 1050  # target tile held (whole tile inverted); release leaves the mode
@@ -121,9 +132,7 @@ if [ -n "${BASE_ONLY:-}" ]; then echo "done: $(ls "$OUT"/*.png | wc -l) captures
 # CLEAN 1166 702, UNDO 818 818, SETUP 1050 818, FIRST 934 934; centre X 934 702.
 # Starts from a fresh game, so these states do not depend on where the 19 above ended.
 sleep 4
-$A shell am force-stop $P
-$A shell pm clear $P >/dev/null
-$A shell am start -n $P/.MainActivity --el seed 7 --es partners 1 >/dev/null
+fresh --el seed 7 --es partners 1
 sleep 4
 tap 700 1050; tap 700 1050          # seat 3 "+" x2: something to undo
 tap 466 1362; tap 406 1242; tap 638 1242; tap 466 1146   # seat 3 drawer: poison +, energy +, close
@@ -203,9 +212,7 @@ sleep 5
 cap 43_winner
 
 # --- dark mode at launch (fresh game), a drawer and the gem inverted -----------------------------------
-$A shell am force-stop $P
-$A shell pm clear $P >/dev/null       # a fresh game (all four seats alive)
-$A shell am start -n $P/.MainActivity --el seed 7 --ez inverted true >/dev/null
+fresh --el seed 7 --ez inverted true   # a fresh game (all four seats alive)
 sleep 4
 cap 44_inverted
 tap 466 1362                        # seat 3 tab: open
