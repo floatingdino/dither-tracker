@@ -14,7 +14,8 @@ import statistics
 import sys
 
 SCREEN = 1872 * 1404
-DRAW = re.compile(r"onDraw hw=\w+ clip=Rect\((-?\d+), (-?\d+) - (-?\d+), (-?\d+)\) allocs=(-?\d+) took (\d+)us")
+DRAW = re.compile(r"onDraw hw=\w+ clip=Rect\((-?\d+), (-?\d+) - (-?\d+), (-?\d+)\) allocs=(-?\d+) took (\d+)us(?: masks=(\d+))?")
+INVAL = re.compile(r"inval (?:all|(-?\d+) (-?\d+) (-?\d+) (-?\d+))")
 TOUCH = re.compile(r"touch handled allocs=(-?\d+)")
 MARK = re.compile(r"MARK (\S+)")
 FX = re.compile(r"fx gallery: (\S+) for")
@@ -35,14 +36,20 @@ def sections(path, marker):
             cur = m.group(1)
             if cur not in out:
                 order.append(cur)
-                out[cur] = {"draws": [], "touch": []}
+                out[cur] = {"draws": [], "touch": [], "inval": []}
             continue
         if cur is None:
             continue
         d = DRAW.search(line)
         if d:
-            l, t, r, b, a, us = map(int, d.groups())
+            l, t, r, b, a, us = map(int, d.groups()[:6])
             out[cur]["draws"].append(((r - l) * (b - t), a, us))
+            if d.group(7):
+                out[cur].setdefault("masks", []).append(int(d.group(7)))
+            continue
+        v = INVAL.search(line)
+        if v:
+            out[cur]["inval"].append(SCREEN if v.group(1) is None else (int(v.group(3)) - int(v.group(1))) * (int(v.group(4)) - int(v.group(2))))
             continue
         t = TOUCH.search(line)
         if t:
@@ -51,20 +58,30 @@ def sections(path, marker):
 
 
 def table(title, order, data):
+    prev_masks = [None]
+    for s in order:  # the mask count before the first section (its first draw's count)
+        ms = data[s].get("masks", [])
+        if ms:
+            prev_masks[0] = ms[0]
+            break
     print(f"\n### {title}\n")
-    print("| section | frames | onDraw median µs | max µs | dirty median % | dirty max % | dirty sum (screens) | allocs/draw max | allocs/touch max |")
-    print("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+    print("| section | frames | onDraw median µs | max µs | invalidations | invalidated median % | max % | sum (screens) | allocs/draw max | allocs/touch max | masks built in onDraw |")
+    print("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for s in order:
         d = data[s]["draws"]
         tch = data[s]["touch"]
-        if not d and not tch:
-            print(f"| {s} | 0 | | | | | | | {max(tch) if tch else ''} |")
+        if not d and not tch and not data[s]["inval"]:
+            print(f"| {s} | 0 | | | | | | | | | |")
             continue
-        areas = [x[0] for x in d]
+        areas = data[s]["inval"]
+        ms = data[s].get("masks", [])
+        built = (ms[-1] - prev_masks[0]) if ms and prev_masks[0] is not None else ""
+        if ms:
+            prev_masks[0] = ms[-1]
         print(
-            f"| {s} | {len(d)} | {med([x[2] for x in d]):.0f} | {max([x[2] for x in d], default=0)} | "
+            f"| {s} | {len(d)} | {med([x[2] for x in d]):.0f} | {max([x[2] for x in d], default=0)} | {len(areas)} | "
             f"{100 * med(areas) / SCREEN:.1f} | {100 * max(areas, default=0) / SCREEN:.1f} | {sum(areas) / SCREEN:.2f} | "
-            f"{max([x[1] for x in d], default=0)} | {max(tch) if tch else ''} |"
+            f"{max([x[1] for x in d], default=0)} | {max(tch) if tch else ''} | {built} |"
         )
 
 

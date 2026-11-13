@@ -52,11 +52,15 @@ class PlayView(
 
     private val platform = object : Stage.Platform {
         override fun invalidate(left: Int, top: Int, right: Int, bottom: Int) {
+            if (trace) Log.d(TAG, "inval $left $top $right $bottom")
             @Suppress("DEPRECATION")
             this@PlayView.invalidate(left, top, right, bottom)
         }
 
-        override fun invalidateAll() = this@PlayView.invalidate()
+        override fun invalidateAll() {
+            if (trace) Log.d(TAG, "inval all")
+            this@PlayView.invalidate()
+        }
         override fun schedule(id: Int, delayMillis: Long) = timers.schedule(id, delayMillis)
         override fun cancel(id: Int) = timers.cancel(id)
         override fun cancelAllTimers() = timers.cancelAll()
@@ -241,7 +245,7 @@ class PlayView(
         if (trace) {
             val us = (SystemClock.elapsedRealtimeNanos() - t0) / 1000
             val n = allocs() - a0
-            Log.d(TAG, "onDraw hw=${canvas.isHardwareAccelerated} clip=$clipDev allocs=$n took ${us}us")
+            Log.d(TAG, "onDraw hw=${canvas.isHardwareAccelerated} clip=$clipDev allocs=$n took ${us}us masks=${r.maskCount}")
         }
     }
 
