@@ -95,7 +95,9 @@ Icons must read clearly at S=2..6 and when inverted.
 - Per-player counters (drawer): poison, energy, experience, rad, storm, commander tax (per commander), tickets, generic.
 - Player state toggles: monarch, initiative, city's blessing, day/night (global), ring-bearer.
 - Auto-KO marker: life ≤ 0, poison ≥ 10, commander damage ≥ 21 — panel renders in a "dead" dither. Toggleable.
-- Player names + per-player background pattern choice (the 1-bit substitute for player colours).
+- No player names (Sam, 2026-11-14): a seat is identified by the **seat glyph** — a miniature of the
+  table with that seat filled in, turned to match the reader. Optional per-player background pattern
+  (the 1-bit substitute for player colours).
 
 **Table tools (centre menu)**
 - New game / reset (with confirm), choose starting player at random, dice (d6/d20/custom), coin flip,

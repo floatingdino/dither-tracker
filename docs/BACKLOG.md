@@ -77,7 +77,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 |----|--------|------|------|-------|
 | T11 | todo | T06 | Layout engine for 2–6 players, portrait + landscape, per-seat rotation (0/90/180/270), all on the dither grid with leftover px as margin. Render tests per layout. | `app/src/main/**/layout/` |
 | T12 | review | T34 T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life as a segmented [40] [30] [20] choice (not a stepper), counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
-| T13 | todo (scope under question — seats are now shown by glyph, T44; confirm with Sam whether custom names are still wanted) | T08 T12 | Player customisation: name entry (in-app 1-bit keyboard — no system IME, see SPEC rule 7), per-player background pattern picker. | `app/src/main/**/player/` |
+| T13 | dropped | — | ~~Player names (in-app keyboard)~~ — Sam, 2026-11-14: player names are dropped; seats are identified by the seat glyph (T44). What remains of player customisation is the per-player background pattern, moved to T45. | — |
+| T45 | todo | T12 T11 | Per-player background pattern picker (the 1-bit stand-in for player colours): choose a light dither/texture per seat from `Patterns.playerBackgrounds`; reachable from settings or the drawer; must stay legible under numerals, peeks and effects. Confirm with Sam that this is still wanted before building. | `settings/` or `drawer/`, `life/` |
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | done | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
 | T42 | wip | T15 | **KO / winner tile: the quip replaces the life total** (Sam, 2026-11-14) — on a dead tile and on the winner's tile the quip takes the hero position at a large size instead of the (ringed, hollow) number; cause/final life becomes the small detail. Plus a copy exploration: death and victory lines in a classic 8/16-bit game-text voice (**verbatim** famous one-liners, per Sam — exact wording only, short lines). Dead tiles use a **light ordered dither, not crosshatch** (Sam: crosshatch is not part of the dither language) — change `Role.DEAD`. Also fix: the centre diamond and dividers must keep their outline against dead tiles' crosshatch. Emulator 5564. | `ko/`, `core/**/flavour/`, `design/copy/quips.md` |
@@ -436,3 +437,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   overlay card. Running: T42, T43, T16.
 - 2026-11-14 — Sam: default player names are meaningless; show the affected seat with an icon that has
   that spot filled in. -> T44 dispatched. T13 (names) flagged for a scope decision.
+- 2026-11-14 — Sam: player names can be dropped. T13 dropped; pattern picker split out as T45 (to
+  confirm); SPEC updated; T44 agent told to show no names anywhere.
