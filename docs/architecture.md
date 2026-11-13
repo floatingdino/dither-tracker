@@ -11,7 +11,7 @@ stage/             The host core (pure Kotlin, JVM-tested): Stage, Component, Co
                    PlayInput (press tracker), IconPainter, Readouts, Events, Origin, Layer, Kind.
 play/              Shared context: PlayLayout (tile geometry), TileSlots (where things are now),
                    Diamond (centre shape), GameSession, Scheduler/HandlerScheduler.
-life/ readout/ drawer/ peeks/ commander/ chrome/      Features (components + their pure classes).
+life/ readout/ drawer/ peeks/ toggles/ commander/ chrome/   Features (components + their pure classes).
 ```
 
 ## The contract: `stage.Component`
@@ -68,8 +68,9 @@ owner's inverted inside the rect instead.
 Hit-testing is the reverse: at each touch-down the stage collects every visible component's zones
 (layer order, then registration order, then declaration order) and the **last** containing rect wins.
 A `block` rect returns "nothing" (no press, nothing below). Current `TILE` order:
-`LifeComponent` (halves) < `CommanderTile` < `ReadoutComponent` < `PeeksComponent` <
-`DrawerComponent` (block, cells, bar) — then `DrawerTab`, then `MenuDiamond` (block) / `CommanderClose`.
+`LifeComponent` (halves) < `CommanderTile` < `ReadoutComponent` < `PeeksComponent` < `BadgesComponent` (T14, no
+zones) < `DrawerComponent` (block, cells, bar) — then `DrawerTab`, then `MenuDiamond` (block) / `DayNightMark`
+(T14, no zones: draws day/night over the diamond) / `CommanderClose`.
 
 ## Zone ids
 

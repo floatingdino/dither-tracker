@@ -80,7 +80,7 @@ class DrawerState(val seats: Int) {
         /** Counters + commander tax. (Commander damage moved to the main tiles in T30.) */
         const val TRAY = 0
 
-        /** Reserved for T14 (monarch, initiative, city's blessing, ring-bearer) / T13 (partner): not built. */
+        /** Reserved (T13 partner setup?). T14's toggles are tray items after the counters, not a separate view. */
         const val TOGGLES = 1
 
         const val MODES = 2

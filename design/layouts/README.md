@@ -132,6 +132,7 @@ so it favours nobody.
 | Life total | `−` · number · `+` | number only; the two halves are still − / + (no glyphs) |
 | Readout, hold ±10 | as before | as before |
 | Counter peeks | three chips per near corner (unchanged) | **off** (the corners beside the tab are 11 px wide) — counters only in the drawer |
+| Toggle badges (T14) | icons in the under-number row between the peek corners | the under-number row less `EDGE_MIN` each side (139 px: room for all four) |
 | Drawer tray | 4 columns × 2 rows = 8 a page (2×2); 6 × 1 at 2 players, 5 × 1 at 3 — the readout drops below a mid-edge diamond, leaving room for one row | **2 columns × 1 row = 2 cells a page** (9 items = 5 pages; the `›` chevron pages as before) |
 | Commander mode | partner numbers with ± each | partner ± hidden (two 2-digit numbers and their icons) |
 | KO / winner tile | quip at the one size | the same size; long quips wrap to more lines |
