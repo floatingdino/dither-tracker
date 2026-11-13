@@ -38,12 +38,12 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
-| T06 | wip | T03 T04 T05 | Play screen for 4 players landscape: 2×2 panels, top row rotated 180°, dotted dividers, life total, −/+ hit zones (whole left/right half), inversion press feedback, dirty-rect redraws. | `app/src/main/**/play/` |
-| T07 | todo | T06 | Hold-to-repeat (±10 steps) and pending-delta readout with idle commit. | `play/`, `core/` reducer hooks |
+| T06 | done | T03 T04 T05 | Play screen for 4 players landscape: 2×2 panels, top row rotated 180°, dotted dividers, life total, −/+ hit zones (whole left/right half), inversion press feedback, dirty-rect redraws. | `app/src/main/**/play/` |
+| T07 | wip | T06 | Hold-to-repeat (±10 steps) and pending-delta readout with idle commit. | `play/`, `core/` reducer hooks |
 | T08 | todo | T06 T02 | Player drawer: bottom tab, opens (no animation) to tracker tray; counters with icon + value + −/+; `COMMANDER DAMAGE` button → per-opponent damage view (partner aware, optional life link). | `app/src/main/**/drawer/` |
 | T09 | todo | T06 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
 | T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
-| T10b | todo | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
+| T10b | wip | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
 
 ### Phase 2 — Layouts & settings
 
@@ -73,7 +73,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T21 | todo | T04 T02 | App icon (1-bit, adaptive + legacy) and launcher label from the icon set / dither patterns. | `app/src/main/res/` |
 | T22 | todo | all | Full pixel-purity regression suite: render every screen at S=2..6, both orientations, inverted and not; fail on any non-#000/#FFF pixel or any off-grid edge. | `app/src/test/` |
 | T24 | done | — | Icon redesign per Sam's feedback: redo `poison` (ugly), `rads` (too large in the set), refine `storm`; rework `experience`, `life`, `energy`, `commander` (too simplistic/off); add weight and a slightly cutesy/wacky character across the set, keeping the filled-arrow feel of `refresh`/`reset`. | `design/icons/` |
-| T25 | todo | T15 T16 | Personality copy: `core` quip tables (KO lines by reason, dice/coin lines, reset confirm, empty history) picked via injected `Random`; shown as static `ui`-face text; "quips" setting. Original lines only. | `core/src/**/flavour/`, call sites |
+| T25a | wip | T03 | Personality copy tables in core: original quips (KO lines by reason, dice/coin lines, reset confirm, empty history, default player names) with a pure picker taking `Random`; length-checked against the `ui` face budget. | `core/src/**/flavour/` |
+| T25b | todo | T25a T15 T16 | Show quips at their call sites (KO panel, tools, reset confirm, history) as static text; "quips" setting. | call sites |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
 
 ## Task notes
@@ -101,6 +102,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - Icon redesign (T24) is awaiting Sam's eye: `design/icons/contact-sheet.png` vs `contact-sheet-before.png`.
   Coordinator's notes: `storm` is now the only outline icon in a mostly solid set; `partner` is busy;
   `initiative` still cone-like.
+
+- Play screen look (T06, `design/captures/t06-play.png`) for Sam: numbers are ~2x the mock (largest
+  integer multiple that fits "-999"); the -/+ glyphs are half the number's scale and look light;
+  the diamond/tab fill (D6) is fainter than the mock; a tap inverts the half-panel including half the number.
 
 ## Tick log
 
@@ -139,3 +144,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   `screenRefresh`. Added SPEC rule 7 (single window). Forwarded to the T06 agent. T06, T24 running.
 - 2026-11-13 — Tick 10: T24 reviewed (validator: 43 icons, 0 problems; sheet eyeballed) and
   committed. 30 icons redrawn as solid shapes with cut-out details; arrows share filled heads. T06 running.
+- 2026-11-13 — Tick 11: T06 verified (96 core + 57 app tests; fresh install on Nomad, 10 scripted
+  taps across four zones gave exactly 37/42/41/36 incl. rotated row; capture 1872x1404 passes checker)
+  and committed. One View kept (measured full re-record ~0.8 ms median; HWUI ignores dirty rects).
+  Life applies on touch-down. Seats clockwise from TL: 0 TL, 1 TR, 2 BR, 3 BL. Hooks: `PlayInput`
+  onZonePressed/Released (T07), `RESERVED` hits for tab/diamond (T08/T09), `GameSession.replace` (T10b).
+  Agent saw one unreproduced run with 3 lost taps under adb injection — watch for it.
+  Dispatched T07, T10b, T25a. Play-view files are single-writer: T08, T09, T11, T15 queue behind T07.

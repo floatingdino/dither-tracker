@@ -1,21 +1,36 @@
 package au.com.josephmark.dithertracker
 
 import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import au.com.josephmark.dithertracker.play.GameSession
+import au.com.josephmark.dithertracker.play.PlayView
 
 class MainActivity : Activity() {
 
-    private lateinit var root: DitherDemoView
+    private lateinit var root: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        root = DitherDemoView(this)
-        // Debug/QA hook: `am start ... --ez inverted true` starts in dark mode.
-        root.setInverted(intent?.getBooleanExtra("inverted", false) == true)
+        // Debug/QA hooks (not reachable from the UI):
+        //   --ez inverted true  start in dark mode
+        //   --ez demo true      the T04/T05 engine + type demo instead of the Play screen (portrait)
+        //   --ez trace true     log Play onDraw clip + duration (tag PlayView)
+        val inverted = intent?.getBooleanExtra("inverted", false) == true
+        root = if (intent?.getBooleanExtra("demo", false) == true) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            DitherDemoView(this).apply { setInverted(inverted) }
+        } else {
+            // The game lives in GameSession.shared (process memory), so recreation keeps it.
+            PlayView(this, GameSession.shared).apply {
+                trace = intent?.getBooleanExtra("trace", false) == true
+                setInverted(inverted)
+            }
+        }
         setContentView(root)
     }
 
