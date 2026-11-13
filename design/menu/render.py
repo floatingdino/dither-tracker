@@ -571,7 +571,161 @@ def gem(base):
     k1.blit_c(knock(icon('close')), CX, CY)
     out['key1'] = k1
     out['allsides'] = gem_open(base, seats='NSEW')
+    out['pressed'] = gem_open(base, pressed='new')
+    out['confirm'] = confirm_screen(base)
+    out['dice'] = dice_screen(base)
+    out['settings'] = settings_screen(base)
+    out['settings-north'] = settings_screen(base, 'N')
     return out
+
+
+# ---------------------------------------------------------------- second level (gem)
+FOLD = 29           # the fold row of a tent panel: the divider runs through its middle row
+
+
+def tent_label_button(w, label, inv=False, h=FOLD - 2):
+    """Fold-row button: the label upright in the lower half, 180 degrees in the upper half."""
+    sp = Sprite(w, h, 'o')
+    sp.frame(0, 0, w, h)
+    lw = text_w(UI, label)
+    half = Sprite(w - 2, h // 2 - 1, '.')
+    half.text(UI, label, (w - 2 - lw) // 2, (half.h - 7) // 2 + 1)
+    sp.put(half.p, 1, h // 2 + 1)
+    sp.put([r[::-1] for r in half.p[::-1]], 1, 1)
+    if inv:
+        sp.invert(1, 1, w - 2, h - 2)
+    return sp
+
+
+def tent_panel(sc, w, face, fold_items, rim=3):
+    """A two-faced panel centred on the crossing: `face` (an upright Sprite, w-2 wide) is drawn
+    for the near side below the fold and turned 180 degrees for the far side above it. The fold
+    row keeps the close diamond at the crossing (back / cancel) with fold_items either side."""
+    fh = face.h
+    h = 1 + fh + 1 + FOLD + 1 + fh + 1
+    x0, y0 = CX - w // 2, CY - FOLD // 2 - fh - 2
+    if rim:
+        sc.rect(x0 - rim, y0 - rim, w + 2 * rim, h + 2 * rim, 'm')
+        sc.frame(x0 - rim - 1, y0 - rim - 1, w + 2 * rim + 2, h + 2 * rim + 2)
+    sc.rect(x0, y0, w, h, '#')
+    sc.rect(x0 + 1, y0 + 1, w - 2, h - 2, 'o')
+    fy = y0 + 1 + fh
+    sc.rect(x0, fy, w, 1, '#')
+    sc.rect(x0, fy + FOLD + 1, w, 1, '#')
+    sc.blit(face, x0 + 1, fy + FOLD + 2, 'S')
+    sc.blit(face, x0 + 1, y0 + 1, 'N')
+    restore_dividers(sc, x0 + 1, CY, x0 + w - 1, CY + 1)
+    # fold row: [left ...] diamond [right ...]
+    left, right = fold_items
+    gx = 4
+    x = CX - FOLD // 2 - 2 - gx
+    for sp in left:                       # inner -> outer
+        x -= sp.w
+        sc.blit(sp, x, fy + 2)
+        x -= gx
+    x = CX + FOLD // 2 + 3 + gx
+    for sp in right:
+        sc.blit(sp, x, fy + 2)
+        x += sp.w + gx
+    sc.diamond(CX, CY, FOLD // 2 + 1, '#', 2)
+    return x0, y0, w, h
+
+
+def confirm_screen(base):
+    sc = base.copy()
+    w = 191
+    face = Sprite(w - 2, 30, '.')
+    face.ctext(UI, 'New game?', (w - 2) // 2, 6)
+    face.ctext(UI, 'Shuffle up, we go again', (w - 2) // 2, 17)
+    bw = 70
+    tent_panel(sc, w, face, ([tent_label_button(bw, 'Keep going')], [tent_label_button(bw, 'Start over', inv=True)]))
+    sc.blit_c(knock(icon('close')), CX, CY)
+    return sc
+
+
+def dice_screen(base, value='17', die='d20', quip='No take-backs'):
+    sc = base.copy()
+    w = 157
+    face = Sprite(w - 2, 56, '.')
+    face.put(text_rows(NUM_L, value), 2, 0)
+    tx = 2 + text_w(NUM_L, value) + 5
+    face.text(UI, die, tx, 12)
+    face.rect(tx, 22, text_w(UI, die), 1, '#')
+    q1, q2 = quip.rsplit(' ', 1) if text_w(UI, quip) > w - 2 - tx - 2 else (quip, '')
+    face.text(UI, q1, tx, 30)
+    if q2:
+        face.text(UI, q2, tx, 41)
+    bw = 50
+    tent_panel(sc, w, face, ([tent_label_button(bw, 'D6')], [tent_label_button(bw, 'Coin')]), rim=1)
+    sc.blit_c(knock(icon('dice')), CX, CY)
+    return sc
+
+
+def toggle(on):
+    sp = Sprite(29, 15, 'o')
+    sp.frame(0, 0, 29, 15)
+    if on:
+        sp.rect(1, 1, 27, 13, '#')
+        sp.text(UI, 'ON', 9, 4, ink='o')
+    else:
+        sp.text(UI, 'OFF', 6, 4)
+    return sp
+
+
+def stepper(value):
+    sp = Sprite(71, 21, '.')
+    for x, g in ((0, 'minus'), (50, 'plus')):
+        sp.rect(x, 0, 21, 21, 'o')
+        sp.frame(x, 0, 21, 21)
+        ic = crop_icon(g)
+        sp.put(ic, x + (21 - len(ic[0])) // 2, (21 - len(ic)) // 2)
+    sp.put(text_rows(NUM_M, value), 35 - text_w(NUM_M, value) // 2, 4)
+    return sp
+
+
+def settings_card():
+    w = h = 227
+    sp = Sprite(w, h, 'o')
+    sp.frame(0, 0, w, h)
+    head = 29
+    sp.rect(1, 1, w - 2, head - 1, 'm')
+    sp.rect(0, head, w, 1, '#')
+    # header: [turn]  SETTINGS  [close]
+    for x, name in ((1, 'rotate'), (w - 1 - 28, 'close')):
+        sp.rect(x, 1, 28, 28, 'o')
+        sp.icon(name, x + 6, 7)
+    sp.rect(29, 1, 1, 28, '#')
+    sp.rect(w - 1 - 29, 1, 1, 28, '#')
+    sp.invert(w - 1 - 28, 1, 28, 28)       # close = the menu's black diamond, as a square
+    sp.rect(w // 2 - 29, 10, 58, 11, 'o')
+    sp.ctext(UI, 'SETTINGS', w // 2, 12)
+    rows = [('Players', stepper('4')), ('Starting life', stepper('40')),
+            ('Commander damage hits life', toggle(True)), ('Auto knock-out', toggle(True)),
+            ('Effects', toggle(True)), ('Quips', toggle(True))]
+    y = head + 1
+    for label, widget in rows:
+        sp.text(UI, label, 8, y + 10)
+        sp.put(widget.p, w - 8 - widget.w, y + (27 - widget.h) // 2)
+        y += 27
+        for x in range(8, w - 8, 2):
+            sp.p[y][x] = '#'
+        y += 1
+    # footer: page 1/2 with chevrons
+    for x, g in ((1, 'chevron-left'), (w - 1 - 28, 'chevron-right')):
+        sp.icon(g, x + 6, y + 6)
+    sp.ctext(UI, '1 / 2', w // 2, y + 10)
+    sp.rect(0, h - 1, w, 1, '#')
+    return sp
+
+
+def settings_screen(base, facing='S'):
+    sc = gem_open(base, pressed='setup')
+    sp = settings_card()
+    x, y = CX - sp.w // 2, CY - sp.h // 2
+    sc.rect(x - 4, y - 4, sp.w + 8, sp.h + 8, 'm')
+    sc.frame(x - 5, y - 5, sp.w + 10, sp.h + 10)
+    sc.blit(sp, x, y, facing)
+    return sc
 
 
 # ---------------------------------------------------------------- 2 pinwheel block
