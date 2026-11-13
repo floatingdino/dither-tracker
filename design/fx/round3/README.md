@@ -23,7 +23,7 @@ a pool in `FxPolicy` (see "Needs from the runtime" below).
   each beat is labelled with its flips. Every sheet passes `tools/check_1bit.py --scale 4`.
 - Frame format: unchanged from round two (`. # o x 1-9`, `tile <d> <TILE> ink|paper|fill`). Every
   shading is a tile layer from the predefined set (`D1`, `D2`, `D4`, `D8`, `D12`, `CHECKER`,
-  `HLINES`), so nothing is baked into a frame. `CROSSHATCH` is not used.
+  `HLINES`), so nothing is baked into a frame. `CROSSHATCH` is not used (retired from the set in T50).
   - The one exception is the chequered flag in `start-flag`. Its 5 px squares are a drawn motif,
     like `winner`'s confetti, not a shading.
 - `meta.txt` holds the round-two keys plus a proposed `role`, a `# trigger:` comment, and the

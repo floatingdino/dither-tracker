@@ -24,7 +24,6 @@ DOTS         4x4   25.0
 HLINES       1x2   50.0
 VLINES       2x1   50.0
 DIAG         4x4   25.0
-CROSSHATCH   8x8   25.0
 #
 # role        tile
 SURFACE      D0

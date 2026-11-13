@@ -42,7 +42,6 @@ class PatternsTest {
         check(Patterns.HLINES, 1, 2, 1)
         check(Patterns.VLINES, 2, 1, 1)
         check(Patterns.DIAG, 4, 4, 4)
-        check(Patterns.CROSSHATCH, 8, 8, 16)
     }
 
     @Test fun registryIsDenseAndUnique() {

@@ -68,7 +68,7 @@ hand-tuned named tiles: `CHECKER` (50%), `SPARSE` (drawer body), `DOTS`, `HLINES
 mapped to tiles — never to raw tiles directly.
 
 **As built (T04, `app/.../dither/`):** tiles `D0..D16`, `CHECKER` (== `D8`), `SPARSE`, `DOTS`, `HLINES`,
-`VLINES`, `DIAG`, `CROSSHATCH`; roles `SURFACE`, `INK`, `TAB`, `MENU`, `DRAWER`, `DISABLED`, `SELECTED`,
+`VLINES`, `DIAG` (an 8×8 `CROSSHATCH` was retired in T50: not our language); roles `SURFACE`, `INK`, `TAB`, `MENU`, `DRAWER`, `DISABLED`, `SELECTED`,
 `DEAD`, `DOTTED`. ASCII mirror + index in `design/patterns/`. All drawing goes through `DitherRenderer`
 in dither-px coordinates. Rules that follow from the engine:
 - **Never `Canvas.rotate/scale`.** The renderer assumes root-view coordinates; rotated seats rotate

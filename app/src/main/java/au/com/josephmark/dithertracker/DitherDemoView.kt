@@ -22,7 +22,7 @@ import au.com.josephmark.dithertracker.type.TextRenderer
  *
  * Page 1 — engine test card (T04). Top to bottom, all in dither px:
  *  1. Bayer D0..D16, left→right, wrapping.
- *  2. Named tiles in [Patterns.named] order (CHECKER, SPARSE, DOTS, HLINES, VLINES, DIAG, CROSSHATCH).
+ *  2. Named tiles in [Patterns.named] order (CHECKER, SPARSE, DOTS, HLINES, VLINES, DIAG).
  *  3. Roles in [Role] order.
  *  4. A drawer mock (TAB bar over DRAWER body, ink button) abutting a MENU block — seams must be
  *     invisible — crossed by a dotted horizontal + vertical divider.

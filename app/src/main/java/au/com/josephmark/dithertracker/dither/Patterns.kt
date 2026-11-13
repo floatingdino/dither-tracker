@@ -115,23 +115,6 @@ object Patterns {
         "#...",
     )
 
-    /**
-     * 25% X-hatch on an 8×8 cell. Added (not in the SPEC's proposed list) for the "dead" panel:
-     * it reads as "struck out" rather than "shaded", so a KO'd seat can't be confused with a
-     * player's chosen background texture.
-     */
-    @JvmField val CROSSHATCH = reg(
-        "CROSSHATCH",
-        "#......#",
-        ".#....#.",
-        "..#..#..",
-        "...##...",
-        "...##...",
-        "..#..#..",
-        ".#....#.",
-        "#......#",
-    )
-
     /** Every tile, indexed by [Tile.id]. */
     @JvmField val all: List<Tile> = registry.toList()
 
@@ -165,7 +148,7 @@ enum class Role(val tile: Tile) {
     DISABLED(Patterns.DIAG),
     /** Selected item: solid ink; content on it is drawn inverted. */
     SELECTED(Patterns.D[16]),
-    /** Auto-KO'd seat field: a light ordered dither (T42; was CROSSHATCH — Sam: not our language). */
+    /** Auto-KO'd seat field: a light ordered dither (T42; was an X-hatch tile, retired in T50 — Sam: not our language). */
     DEAD(Patterns.D[2]),
     /** Dotted divider lines (a 1-px slice of a checkerboard = 1 on / 1 off, globally phased). */
     DOTTED(Patterns.CHECKER),
