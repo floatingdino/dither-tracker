@@ -5,6 +5,9 @@ import au.com.josephmark.dithertracker.core.Counter
 /** Screen orientation preference. [AUTO] follows the device sensor / system rotation. */
 enum class Orientation { AUTO, LANDSCAPE, PORTRAIT }
 
+/** What the turn tab's minutes count (T17): nothing, since tracking started, or since this turn began. */
+enum class TurnTimer { OFF, GAME, TURN }
+
 /**
  * Non-rule UI settings (SPEC "Settings"). Rule settings (starting life, commander damage affects
  * life, auto-KO) live in [au.com.josephmark.dithertracker.core.GameSettings] inside the game state,
@@ -38,6 +41,13 @@ data class AppSettings(
      * (like starting life). The running game's own count is its player list.
      */
     val playerCount: Int = DEFAULT_PLAYER_COUNT,
+    /**
+     * Turn tracker (T17): the active seat's turn tab, once a starting player is picked. On by default
+     * (it shows nothing until then); off hides it and its timer (core keeps tracking turns either way).
+     */
+    val turnTracker: Boolean = true,
+    /** Minutes on the turn tab (T17): none, the game clock, or the time on the current turn. Off by default. */
+    val turnTimer: TurnTimer = TurnTimer.OFF,
 ) {
     init {
         require(scale == SCALE_AUTO || scale in SCALE_MIN..SCALE_MAX) { "scale out of range: $scale" }

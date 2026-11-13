@@ -167,14 +167,30 @@ data class GameSettings(
 /**
  * Turn tracking. [number] is the count of individual turns taken (0 = tracking not started);
  * [round] increments each time play passes back to (or beyond) [startingPlayer].
+ *
+ * The turn clock (T17): [startedAt] is when tracking started (turn 1 began) and [turnStartedAt] when
+ * the current turn number began, both wall-clock ms taken from the timestamp passed to
+ * [Game.apply] / [History.dispatch] (the reducer itself never knows the time, so a bare [reduce]
+ * leaves them [NO_TIME]). A correction ([Action.SetActivePlayer]) keeps both; a pass stamps
+ * [turnStartedAt]; (re)starting tracking stamps both. Undo restores them with the rest of the state.
  */
 data class TurnState(
     val activePlayer: PlayerId? = null,
     val startingPlayer: PlayerId? = null,
     val number: Int = 0,
     val round: Int = 0,
+    val startedAt: Long = NO_TIME,
+    val turnStartedAt: Long = NO_TIME,
 ) {
     val started: Boolean get() = number > 0
+
+    /** This state without its clock stamps (compare turns by who and how many, not when). */
+    fun unstamped(): TurnState = if (startedAt == NO_TIME && turnStartedAt == NO_TIME) this else copy(startedAt = NO_TIME, turnStartedAt = NO_TIME)
+
+    companion object {
+        /** "Not stamped": tracking not started, or a state built by a bare [reduce]. */
+        const val NO_TIME = Long.MIN_VALUE
+    }
 }
 
 /**

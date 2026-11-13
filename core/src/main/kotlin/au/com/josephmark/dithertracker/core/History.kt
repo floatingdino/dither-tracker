@@ -4,7 +4,7 @@ package au.com.josephmark.dithertracker.core
 data class Game(val state: GameState, val log: List<LogEntry> = emptyList()) {
     /** Applies [action] and appends its log entries. Returns this instance for a no-op. */
     fun apply(action: Action, timestamp: Long): Game {
-        val next = reduce(state, action)
+        val next = reduceAt(state, action, timestamp)
         if (next === state) return this
         val entries = describe(state, next, action, timestamp)
         return Game(next, if (action.startsFreshLog) entries else log + entries)
@@ -130,7 +130,7 @@ class History private constructor(
 
     fun dispatch(action: Action, timestamp: Long, coalesceKey: String? = null): History {
         val before = present.state
-        val next = reduce(before, action)
+        val next = reduceAt(before, action, timestamp)
         if (next === before) return this
         val entries = describe(before, next, action, timestamp)
 
@@ -269,7 +269,7 @@ class History private constructor(
         for (j in i0 + 1 until timeline.size) {
             val r = timeline[j]
             if (r.step == id) continue
-            val n = reduce(s, r.action)
+            val n = reduceAt(s, r.action, r.timestamp)
             out += Rec(r.action, r.timestamp, r.step, s, n, if (n === s) emptyList() else describe(s, n, r.action, r.timestamp))
             replayed[r.step] = (replayed[r.step] ?: false) || n !== s
             s = n

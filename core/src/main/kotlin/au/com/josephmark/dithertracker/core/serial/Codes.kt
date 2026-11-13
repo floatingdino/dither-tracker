@@ -69,4 +69,12 @@ internal object Codes {
     }
 
     fun orientation(code: Int): Orientation? = Orientation.entries.firstOrNull { orientation(it) == code }
+
+    fun turnTimer(t: TurnTimer): Int = when (t) {
+        TurnTimer.OFF -> 0
+        TurnTimer.GAME -> 1
+        TurnTimer.TURN -> 2
+    }
+
+    fun turnTimer(code: Int): TurnTimer? = TurnTimer.entries.firstOrNull { turnTimer(it) == code }
 }

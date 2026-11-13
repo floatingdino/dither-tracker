@@ -14,6 +14,7 @@ import au.com.josephmark.dithertracker.core.LogEntry
 import au.com.josephmark.dithertracker.core.LogEvent
 import au.com.josephmark.dithertracker.core.LogEvent.*
 import au.com.josephmark.dithertracker.core.Toggle
+import au.com.josephmark.dithertracker.core.TurnState
 import au.com.josephmark.dithertracker.core.reduce
 import java.util.zip.CRC32
 import kotlin.random.Random
@@ -409,16 +410,17 @@ class SaveCodecTest {
     }
 
     @Test fun version1SavesStillLoadAndKeepTheirGamesCount() {
-        // The v1 body is the v2 body without the count after the settings: rebuild one from a v2 encoding.
         for (seats in listOf(2, 4, 6)) {
             val game = Game(GameState.create(seats))
             val settings = richSettings()
-            val v2 = SaveCodec.encode(SaveFile(game, settings.copy(playerCount = 3)))
+            val v2 = SaveCodec.encodeAs(2, SaveFile(game, settings.copy(playerCount = 3)))
+            // The v1 body is the v2 body without the count after the settings (byte surgery, as T11 did).
             val settingsOnly = ByteWriter().also { it.bytes("DTSV".encodeToByteArray()); it.u16(2) }.toByteArray().size +
                 settingsSize(settings)
             val v1 = v2.copyOfRange(0, settingsOnly) + v2.copyOfRange(settingsOnly + 1, v2.size) // drop the 1-byte count
             v1[5] = 1 // version 1
             fixCrc(v1)
+            assertTrue(v1.contentEquals(SaveCodec.encodeAs(1, SaveFile(game, settings))), "encodeAs(1) writes the v1 layout")
             val r = SaveCodec.decode(v1)
             assertIs<DecodeResult.Success>(r, "v1 decode failed: $r")
             assertEquals(1, r.version)
@@ -489,8 +491,8 @@ class SaveCodecTest {
     @Test fun version1And2SavesKeepTheirTogglesAndDayNight() {
         for (g in toggledGames()) {
             val settings = richSettings().copy(playerCount = g.state.players.size)
-            val v2 = SaveCodec.encode(SaveFile(g, settings))
-            assertEquals(2, ((v2[4].toInt() and 0xFF) shl 8) or (v2[5].toInt() and 0xFF), "T14 needs no new layout: still v2")
+            val v2 = SaveCodec.encodeAs(2, SaveFile(g, settings))
+            assertEquals(2, ((v2[4].toInt() and 0xFF) shl 8) or (v2[5].toInt() and 0xFF))
             val r2 = SaveCodec.decode(v2)
             assertIs<DecodeResult.Success>(r2)
             assertEquals(g, r2.save.game)
@@ -523,5 +525,64 @@ class SaveCodecTest {
         val decoded = SaveCodec.decodeOrNull(bytes) ?: fail("did not decode")
         assertEquals(DayNight.NIGHT, decoded.game.state.dayNight)
         assertEquals(s.players[1].toggles, decoded.game.state.players[1].toggles)
+    }
+
+    // ---- v3 (T17): turn settings and the turn clock ----------------------------------------------------
+
+    /** A game whose turn clock is stamped: tracking from seat 2 at t0, two passes and a correction. */
+    private fun clockedGame(t0: Long = 1_700_000_000_000L): Game {
+        var h = History(GameState.create(4))
+        h = h.dispatch(SetStartingPlayer(2), t0)
+        h = h.dispatch(NextTurn, t0 + 125_000)
+        h = h.dispatch(NextTurn, t0 + 410_000)
+        h = h.dispatch(SetActivePlayer(1), t0 + 420_000)
+        return h.present
+    }
+
+    @Test fun turnClockAndTurnSettingsRoundTrip() {
+        val g = clockedGame()
+        assertEquals(1_700_000_000_000L, g.state.turn.startedAt)
+        assertEquals(1_700_000_410_000L, g.state.turn.turnStartedAt)
+        for (tracker in listOf(true, false)) for (timer in TurnTimer.entries) {
+            val save = SaveFile(g, richSettings().copy(turnTracker = tracker, turnTimer = timer))
+            assertEquals(save, roundTrip(save))
+        }
+        // Unstamped (tracking never started) and odd clocks (before 1970, far future) survive too.
+        for (t in listOf(TurnState.NO_TIME, 0L, -5L, Long.MAX_VALUE)) {
+            val s = GameState.create(3).let { it.copy(turn = TurnState(1, 0, 4, 2, startedAt = t, turnStartedAt = t)) }
+            val save = SaveFile(Game(s), AppSettings())
+            assertEquals(save, roundTrip(save))
+        }
+    }
+
+    @Test fun olderSavesLoadWithTurnDefaultsAndAnUnstampedClock() {
+        val g = clockedGame()
+        val settings = richSettings().copy(playerCount = 4, turnTracker = false, turnTimer = TurnTimer.TURN)
+        for (v in 1..2) {
+            val r = SaveCodec.decode(SaveCodec.encodeAs(v, SaveFile(g, settings)))
+            assertIs<DecodeResult.Success>(r, "v$v decode failed: $r")
+            assertEquals(v, r.version)
+            assertEquals(settings.copy(turnTracker = true, turnTimer = TurnTimer.OFF), r.save.settings, "v$v: turn settings default")
+            assertEquals(g.state.turn.unstamped(), r.save.game.state.turn, "v$v: turn numbers kept, clock unstamped")
+            assertEquals(g.state.players, r.save.game.state.players)
+            assertEquals(g.log, r.save.game.log)
+        }
+    }
+
+    @Test fun unknownTimerCodeFallsBackToOff() {
+        val save = SaveFile(Game(GameState.create(4)), richSettings().copy(playerCount = 4, turnTimer = TurnTimer.GAME))
+        val bytes = SaveCodec.encode(save)
+        val at = 6 + settingsSize(richSettings()) + 1 // after the v2 count
+        assertEquals(1 or (1 shl 1), bytes[at].toInt(), "tracker bit + GAME code")
+        bytes[at] = (1 or (7 shl 1)).toByte()
+        fixCrc(bytes)
+        val decoded = SaveCodec.decodeOrNull(bytes) ?: fail("did not decode")
+        assertEquals(TurnTimer.OFF, decoded.settings.turnTimer)
+        assertTrue(decoded.settings.turnTracker)
+    }
+
+    @Test fun turnTimerCodesAreStable() {
+        assertEquals(listOf(0, 1, 2), TurnTimer.entries.map { Codes.turnTimer(it) })
+        assertNull(Codes.turnTimer(3))
     }
 }

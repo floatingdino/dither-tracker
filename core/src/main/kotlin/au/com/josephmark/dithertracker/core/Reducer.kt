@@ -20,6 +20,25 @@ fun reduce(state: GameState, action: Action): GameState {
     return releaseExclusives(state, settleOverrides(state, next))
 }
 
+/**
+ * [reduce] at wall-clock [timestamp]: also stamps the turn clock (T17, [TurnState.startedAt] /
+ * [TurnState.turnStartedAt]) where the action started tracking or began a new turn number. What
+ * [Game.apply], [History.dispatch] and undo's replay use, so a replayed pass keeps its own time.
+ */
+fun reduceAt(state: GameState, action: Action, timestamp: Long): GameState = stampTurn(state, reduce(state, action), timestamp)
+
+internal fun stampTurn(before: GameState, after: GameState, timestamp: Long): GameState {
+    val t = after.turn
+    if (t === before.turn || !t.started) return after
+    val turn = when {
+        // A fresh TurnState (tracking started or restarted from a player): the game clock starts too.
+        t.startedAt == TurnState.NO_TIME -> t.copy(startedAt = timestamp, turnStartedAt = timestamp)
+        t.number != before.turn.number -> t.copy(turnStartedAt = timestamp)
+        else -> return after // a correction (who, not how many): the clock runs on
+    }
+    return after.copy(turn = turn)
+}
+
 private fun reduceRaw(s: GameState, a: Action): GameState = when (a) {
     is Action.ChangeLife -> s.updatePlayer(a.player) { it.copy(life = clampLife(it.life.toLong() + a.delta)) }
     is Action.SetLife -> s.updatePlayer(a.player) { it.copy(life = clampLife(a.value.toLong())) }
@@ -45,7 +64,7 @@ private fun reduceRaw(s: GameState, a: Action): GameState = when (a) {
     }
     is Action.SetStartingPlayer -> {
         val t = TurnState(a.player, a.player, number = 1, round = 1)
-        if (s.player(a.player) == null || s.turn == t) s else s.copy(turn = t)
+        if (s.player(a.player) == null || s.turn.unstamped() == t) s else s.copy(turn = t)
     }
     is Action.Rename -> s.updatePlayer(a.player) { it.copy(name = a.name) }
     is Action.SetPattern -> s.updatePlayer(a.player) { it.copy(pattern = a.pattern) }

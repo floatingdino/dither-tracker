@@ -67,7 +67,10 @@ enum class FailureReason {
  * crc32   u32 BE   CRC-32 of every preceding byte (magic + version + body)
  * ```
  * v1 body: AppSettings, then the Game (GameSettings, dayNight, turn, players, log). v2 (T11) appends
- * `AppSettings.playerCount` to the settings; a v1 save takes it from the saved game. Integers are
+ * `AppSettings.playerCount` to the settings; a v1 save takes it from the saved game. v3 (T17) appends
+ * the turn settings (`turnTracker`, `turnTimer`) after it and the turn clock (`TurnState.startedAt`,
+ * `turnStartedAt`: wall-clock ms, each an optional varint) after the turn's numbers; older saves get
+ * the defaults (tracker on, timer off) and an unstamped clock. Integers are
  * LEB128 varints, signed ones zigzag-encoded; strings are varint length + UTF-8; enums use the
  * explicit codes in [Codes]; booleans of a player/settings are packed into flag bytes. Log entries
  * are length-prefixed (so an entry with an unknown tag or enum code is skipped, not fatal) and
@@ -83,7 +86,7 @@ enum class FailureReason {
  * the current model. Older readers reject newer versions with [FailureReason.UNSUPPORTED_VERSION].
  */
 object SaveCodec {
-    const val CURRENT_VERSION = 2
+    const val CURRENT_VERSION = 3
 
     /** Log entries kept by default when encoding (the most recent ones). */
     const val DEFAULT_MAX_LOG_ENTRIES = 500
@@ -96,13 +99,22 @@ object SaveCodec {
      * Encodes [save], keeping only the most recent [maxLogEntries] log entries (negative = 0).
      * [save] is immutable, so this is safe to call off the main thread.
      */
-    fun encode(save: SaveFile, maxLogEntries: Int = DEFAULT_MAX_LOG_ENTRIES): ByteArray {
+    fun encode(save: SaveFile, maxLogEntries: Int = DEFAULT_MAX_LOG_ENTRIES): ByteArray =
+        encodeAs(CURRENT_VERSION, save, maxLogEntries)
+
+    /**
+     * [encode] in an older layout ([version] 1..[CURRENT_VERSION]), dropping what that version could not
+     * hold: what an older app wrote, so the tests can prove every old save still loads.
+     */
+    internal fun encodeAs(version: Int, save: SaveFile, maxLogEntries: Int = DEFAULT_MAX_LOG_ENTRIES): ByteArray {
+        require(version in 1..CURRENT_VERSION) { "version $version" }
         val w = ByteWriter()
         w.bytes(MAGIC)
-        w.u16(CURRENT_VERSION)
+        w.u16(version)
         writeSettings(w, save.settings)
-        w.uvar(save.settings.playerCount) // v2
-        writeGame(w, save.game, maxLogEntries.coerceAtLeast(0))
+        if (version >= 2) w.uvar(save.settings.playerCount)
+        if (version >= 3) writeTurnSettings(w, save.settings)
+        writeGame(w, save.game, maxLogEntries.coerceAtLeast(0), clock = version >= 3)
         val crc = CRC32().apply { update(w.toByteArray()) }.value.toInt()
         w.u32(crc)
         return w.toByteArray()
@@ -148,7 +160,8 @@ object SaveCodec {
     private fun readBody(version: Int, r: ByteReader, ctx: DecodeContext): SaveFile = when (version) {
         1 -> readBodyV1(r, ctx)
         2 -> readBodyV2(r, ctx)
-        // 3 -> readBodyV3(r, ctx); the older readers stay and map their layouts into the current model.
+        3 -> readBodyV3(r, ctx)
+        // 4 -> readBodyV4(r, ctx); the older readers stay and map their layouts into the current model.
         else -> corrupt("no reader for version $version")
     }
 
@@ -156,7 +169,7 @@ object SaveCodec {
 
     private fun readBodyV1(r: ByteReader, ctx: DecodeContext): SaveFile {
         val settings = readSettings(r)
-        val game = readGame(r, ctx)
+        val game = readGame(r, ctx, clock = false)
         // v1 had no pending player count: the next new game keeps the saved game's.
         return SaveFile(game, settings.copy(playerCount = game.state.players.size))
     }
@@ -164,12 +177,43 @@ object SaveCodec {
     // ---- v2 (T11): v1 + AppSettings.playerCount ------------------------------------------------
 
     private fun readBodyV2(r: ByteReader, ctx: DecodeContext): SaveFile {
-        val v1 = readSettings(r)
-        val count = r.uvar()
-        val settings = v1.copy(playerCount = if (count in AppSettings.PLAYER_COUNT_RANGE) count else AppSettings.DEFAULT_PLAYER_COUNT)
-        val game = readGame(r, ctx)
+        val settings = readSettingsV2(r)
+        val game = readGame(r, ctx, clock = false)
         return SaveFile(game, settings)
     }
+
+    private fun readSettingsV2(r: ByteReader): AppSettings {
+        val v1 = readSettings(r)
+        val count = r.uvar()
+        return v1.copy(playerCount = if (count in AppSettings.PLAYER_COUNT_RANGE) count else AppSettings.DEFAULT_PLAYER_COUNT)
+    }
+
+    // ---- v3 (T17): v2 + turn settings, and the turn clock in the game ---------------------------------
+
+    private fun readBodyV3(r: ByteReader, ctx: DecodeContext): SaveFile {
+        val settings = readTurnSettings(r, readSettingsV2(r))
+        val game = readGame(r, ctx, clock = true)
+        return SaveFile(game, settings)
+    }
+
+    private const val T_TRACKER = 1
+
+    private fun writeTurnSettings(w: ByteWriter, s: AppSettings) {
+        w.uvar((if (s.turnTracker) T_TRACKER else 0) or (Codes.turnTimer(s.turnTimer) shl 1))
+    }
+
+    private fun readTurnSettings(r: ByteReader, s: AppSettings): AppSettings {
+        val v = r.uvar()
+        return s.copy(turnTracker = v and T_TRACKER != 0, turnTimer = Codes.turnTimer(v ushr 1) ?: TurnTimer.OFF)
+    }
+
+    /** An optional wall-clock time: absent ([TurnState.NO_TIME]) or a zigzag varint. */
+    private fun writeTime(w: ByteWriter, t: Long) {
+        w.bool(t != TurnState.NO_TIME)
+        if (t != TurnState.NO_TIME) w.svar(t)
+    }
+
+    private fun readTime(r: ByteReader): Long = if (r.bool()) r.svarLong() else TurnState.NO_TIME
 
     // AppSettings flags
     private const val S_INVERTED = 1
@@ -225,7 +269,7 @@ object SaveCodec {
         return GameSettings(startingLife, flags and G_CMD_AFFECTS_LIFE != 0, flags and G_AUTO_KO != 0)
     }
 
-    private fun writeGame(w: ByteWriter, game: Game, maxLogEntries: Int) {
+    private fun writeGame(w: ByteWriter, game: Game, maxLogEntries: Int, clock: Boolean) {
         val s = game.state
         writeGameSettings(w, s.settings)
         w.uvar(Codes.dayNight(s.dayNight))
@@ -233,6 +277,10 @@ object SaveCodec {
         w.optInt(s.turn.startingPlayer)
         w.svar(s.turn.number)
         w.svar(s.turn.round)
+        if (clock) { // v3
+            writeTime(w, s.turn.startedAt)
+            writeTime(w, s.turn.turnStartedAt)
+        }
         w.uvar(s.players.size)
         for (p in s.players) writePlayer(w, p)
 
@@ -251,10 +299,12 @@ object SaveCodec {
         }
     }
 
-    private fun readGame(r: ByteReader, ctx: DecodeContext): Game {
+    /** [clock]: the save has the turn clock (v3+). */
+    private fun readGame(r: ByteReader, ctx: DecodeContext, clock: Boolean): Game {
         val settings = readGameSettings(r)
         val dayNight = Codes.dayNight(r.uvar()) ?: DayNight.UNSET
-        val turn = TurnState(activePlayer = r.optInt(), startingPlayer = r.optInt(), number = r.svar(), round = r.svar())
+        val numbers = TurnState(activePlayer = r.optInt(), startingPlayer = r.optInt(), number = r.svar(), round = r.svar())
+        val turn = if (clock) numbers.copy(startedAt = readTime(r), turnStartedAt = readTime(r)) else numbers
         val playerCount = r.count()
         if (playerCount !in GameState.MIN_PLAYERS..GameState.MAX_PLAYERS) corrupt("player count $playerCount")
         val players = List(playerCount) { seat -> readPlayer(r, seat) }

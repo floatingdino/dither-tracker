@@ -18,6 +18,15 @@ Read the sources for signatures; this file records the behaviour a UI author mus
 - **Seats:** `players[i].seat == i` always. Ids are stable; unknown ids / invalid slots are no-ops.
 - **Commander damage** is stored on the receiving player, keyed by source id.
 - **Turns:** active player lives in `state.turn` — diff it separately for the highlight.
+  `NextTurn` passes clockwise to the next non-KO'd seat (counts a turn; a round each time play reaches
+  or passes over the starting player, even a KO'd one); `SetActivePlayer` corrects whose turn it is
+  without counting; `SetStartingPlayer` (the FIRST tool) starts or restarts tracking at turn 1, round 1.
+  An active player knocked out on their own turn stays active until someone passes.
+- **Turn clock (T17):** `TurnState.startedAt` (tracking started) and `turnStartedAt` (current turn
+  number began) are wall-clock ms stamped from the dispatch timestamp by `reduceAt` — what `Game.apply`,
+  `History.dispatch` and undo's replay use; a bare `reduce` leaves them `TurnState.NO_TIME`. A
+  correction keeps both, a pass stamps `turnStartedAt`, (re)starting stamps both, undo restores them.
+  Compare turns with `turn.unstamped()` when only who/how-many matters. Persisted since save v3.
 - **Monarch / initiative** are exclusive: granting one changes two `Player` objects. Either can be
   nobody's. A player going KO drops both (T14: in the rules they pass on, but the app can't know to
   whom, so they are left unset; the log gets a `ToggleChanged(…, false)` before the `KnockedOut`).

@@ -392,7 +392,7 @@ private class Reference(private val s0: GameState, private val window: Long) {
         val entries = ArrayList<List<LogEntry>>()
         val effective = ArrayList<Boolean>()
         for (r in rs) {
-            val n = reduce(s, r.action)
+            val n = reduceAt(s, r.action, r.ts)
             entries += if (n === s) emptyList() else describe(s, n, r.action, r.ts)
             effective += n !== s
             s = n
@@ -430,7 +430,7 @@ private class Reference(private val s0: GameState, private val window: Long) {
 
     fun dispatch(a: Action, ts: Long, key: String?) {
         val cur = state
-        if (reduce(cur, a) === cur) return
+        if (reduceAt(cur, a, ts) === cur) return
         redoStack.clear()
         groups = if (key == null) groups.map { it.copy(open = false) }
         else groups.map { if (it.open && ts - it.last !in 0..window) it.copy(open = false) else it }
