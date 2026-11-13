@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Play-screen regression harness (T34): drives the Supernote Nomad over adb through a fixed script of
-# taps / holds and screencaps each state, so two builds can be compared byte for byte:
+# Play-screen regression harness (T34, extended in T22): drives the Supernote Nomad or the emulator over
+# adb through a fixed script of taps / holds and screencaps each state, so two builds can be compared
+# byte for byte, and every capture can be purity-checked (tools/check_purity.sh wraps this):
 #
 #   tools/capture_scenarios.sh <outdir>            # installs app/build/outputs/apk/debug/app-debug.apk
 #   NO_INSTALL=1 tools/capture_scenarios.sh <outdir>
+#   BASE_ONLY=1 ...   only T34's 19 states        NO_FX=1 ...   skip the effects keyframes
+#   FX_HOLD=10        effect holds are scaled by this (--ef fxHold) so each screencap lands in its frame
 #   for f in before/*.png; do cmp "$f" "after/$(basename "$f")"; done
 #
 # With more than one device attached (an emulator), pick the Nomad: ANDROID_SERIAL=<serial> tools/...
@@ -110,5 +113,132 @@ cap 17_mode_again
 cap_pressed 18_press_close 936 702  # centre X held; release leaves the mode
 sleep 1
 cap 19_after_close
+
+if [ -n "${BASE_ONLY:-}" ]; then echo "done: $(ls "$OUT"/*.png | wc -l) captures in $OUT"; exit 0; fi
+
+# === T22 additions: the rest of the screens (BASE_ONLY=1 stops after 19) ===========================
+# Gem facets at S = 4 (device px): NEW 934 470, LOG 818 586, REDO 1050 586, DICE 702 702,
+# CLEAN 1166 702, UNDO 818 818, SETUP 1050 818, FIRST 934 934; centre X 934 702.
+# Starts from a fresh game, so these states do not depend on where the 19 above ended.
+sleep 4
+$A shell am force-stop $P
+$A shell pm clear $P >/dev/null
+$A shell am start -n $P/.MainActivity --el seed 7 --es partners 1 >/dev/null
+sleep 4
+tap 700 1050; tap 700 1050          # seat 3 "+" x2: something to undo
+tap 466 1362; tap 406 1242; tap 638 1242; tap 466 1146   # seat 3 drawer: poison +, energy +, close
+sleep 4
+
+# --- the gem, the NEW confirm, a held facet -----------------------------------------------------------
+tap 934 702                         # diamond: the gem (undo enabled)
+sleep 1
+cap 20_gem
+tap 934 470                         # NEW: the two-faced confirm
+sleep 1
+cap 21_new_confirm
+tap 718 702                         # cancel: back to the gem
+sleep 1
+cap_pressed 22_press_gem_dice 702 702 # DICE held; release opens the dice panel
+
+# --- dice / coin panel ---------------------------------------------------------------------------------
+sleep 1
+cap 23_dice_d20
+tap 810 702; sleep 1                # d6
+cap 24_dice_d6
+tap 1058 702; sleep 1               # coin
+cap 25_coin
+cap_pressed 26_press_again 934 702  # AGAIN held; release flips again
+sleep 1
+cap 27_coin_again
+tap 1182 702; sleep 1               # close X
+
+# --- first player ----------------------------------------------------------------------------------------
+tap 934 702; sleep 1; tap 934 934   # gem -> FIRST
+sleep 1
+cap 28_first_player
+sleep 6                             # the badge clears after 5 s
+
+# --- settings card (opened from the SETUP facet) --------------------------------------------------------
+tap 934 702; sleep 1; tap 1050 818
+sleep 1
+cap 29_settings
+cap_pressed 30_press_settings_row 934 590   # "Invert" row held; release toggles it (dark mode)
+sleep 1
+cap 31_settings_inverted
+tap 934 590                         # Invert back off
+sleep 1
+tap 934 1038                        # Counters page
+sleep 1
+cap 32_settings_counters
+tap 470 238                         # rotate the card a quarter turn (it now faces the east edge)
+sleep 1
+cap 33_settings_rotated
+tap 1385 1156                       # its close X, turned with it to the lower right
+sleep 1
+
+# --- history card -----------------------------------------------------------------------------------------
+tap 934 702; sleep 1; tap 818 586   # gem -> LOG
+sleep 1
+cap 34_history
+tap 2 2                             # outside the card: closed
+sleep 1
+
+# --- KO and winner -------------------------------------------------------------------------------------------
+# Every seat on 40. A 5 s hold is -50 (repeats at 0.5, 1.5, ... 4.5 s). Seat 2 (upright, "-" on the
+# screen left of its panel), seat 0 (rotated, "-" on the screen right), then seat 3: seat 1 is left
+# standing -> the winner line.
+hold 1100 1050 5000                 # seat 2 -> <= 0
+sleep 5                             # readout commits (3 s), KO flourish, dead tile
+cap 39_ko_seat2
+cap_pressed 40_press_ko 1400 1050   # dead tile held (one tap of the tap-tap revive)
+sleep 5                             # the revive arm times out
+hold 700 350 5000                   # seat 0 -> <= 0
+sleep 5
+hold 300 1050 5000                  # seat 3 -> <= 0: the last KO
+sleep 3.3                           # its readout commits: KO flourish + winner effect
+cap 41_last_ko_flourish
+sleep 0.5
+cap 42_last_ko_flourish_b
+sleep 5
+cap 43_winner
+
+# --- dark mode at launch (fresh game), a drawer and the gem inverted -----------------------------------
+$A shell am force-stop $P
+$A shell pm clear $P >/dev/null       # a fresh game (all four seats alive)
+$A shell am start -n $P/.MainActivity --el seed 7 --ez inverted true >/dev/null
+sleep 4
+cap 44_inverted
+tap 466 1362                        # seat 3 tab: open
+tap 174 1242; tap 406 1242          # tax +, poison +
+cap 45_inverted_drawer
+cap_pressed 46_inverted_press_cell 406 1242
+tap 466 1146                        # seat 3 bar: close
+tap 934 702; sleep 1
+cap 47_inverted_gem
+tap 934 702; sleep 1
+
+# --- effects: every keyframe (debug gallery, holds x FX_HOLD so a screencap lands inside each frame) -----
+if [ -z "${NO_FX:-}" ]; then
+  FXH=${FX_HOLD:-10}
+  for d in design/fx/*/; do
+    name=$(basename "$d")
+    [ -f "$d/meta.txt" ] || continue
+    holds=$(awk '/^hold_ms/ { $1 = ""; print }' "$d/meta.txt")
+    $A shell am force-stop $P
+    $A shell am start -n $P/.MainActivity --es fx "$name" --ef fxHold "$FXH" >/dev/null
+    sleep 3.5                         # launch + the gallery's 1.5 s start delay
+    i=0
+    for ms in $holds; do
+      if [ "$ms" -eq 0 ]; then
+        sleep 1; cap "fx_${name}_$i"    # the clean end frame
+      else
+        half=$(awk -v m="$ms" -v h="$FXH" 'BEGIN { printf "%.2f", m * h / 2000 }')
+        sleep "$half"; cap "fx_${name}_$i"; sleep "$half"
+      fi
+      i=$((i + 1))
+    done
+  done
+  $A shell am force-stop $P
+fi
 
 echo "done: $(ls "$OUT"/*.png | wc -l) captures in $OUT"
