@@ -581,7 +581,7 @@ def peeks_sheet(face, layout, desc):
             x = pad + i * (PW + gap)
             t = Buf(PW, PH)
             chrome(t); hero(t, life); diamond_quarter(t, seat)
-            place_peeks(t, face, items, layout, seat, f'{layout} seat {seat} {name}')
+            place_peeks(t, face, items, layout, seat, f'{layout} seat {seat} {name}', ro_face=face, ro_k=2)
             c.blit(t, x, y, rot=seat in (0, 1))
             c.frame(x - 1, y - 1, PW + 2, PH + 2)
     return c
@@ -629,7 +629,7 @@ ICONS = {n: icon(n) for n in ('life', 'commander-tax', 'poison', 'energy', 'expe
                               'tickets', 'generic-counter', 'close')}
 ALTS = {}
 
-RECOMMENDED = 'strict'
+RECOMMENDED = 'bold'
 RECOMMENDED_LAYOUT = 'split'
 RECOMMENDED_TARGET_K = 2
 

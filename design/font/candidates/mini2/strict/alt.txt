@@ -1,4 +1,4 @@
-# strict alternates (specimen only): zero without a dot, zero with num-m's 2x2 dot.
+# strict alternates (specimen only): zero without a dot, zero with a pointed-oval counter like the hero (too dark at k=1).
 face strict
 size 8 14
 tracking 2
@@ -20,18 +20,18 @@ cap 0 14
 .######.
 ..####..
 
---- 0-dot2x2
+--- 0-oval
 ..####..
 .######.
 ###..###
-##....##
-##....##
+###..###
 ##....##
 ##.##.##
 ##.##.##
+##.##.##
+##.##.##
 ##....##
-##....##
-##....##
+###..###
 ###..###
 .######.
 ..####..
