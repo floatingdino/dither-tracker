@@ -81,6 +81,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | done | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
 | T42 | wip | T15 | **KO / winner tile: the quip replaces the life total** (Sam, 2026-11-14) — on a dead tile and on the winner's tile the quip takes the hero position at a large size instead of the (ringed, hollow) number; cause/final life becomes the small detail. Plus a copy exploration: death and victory lines in a classic 8/16-bit game-text voice (pastiche, not verbatim quotes). Dead tiles use a **light ordered dither, not crosshatch** (Sam: crosshatch is not part of the dither language) — change `Role.DEAD`. Also fix: the centre diamond and dividers must keep their outline against dead tiles' crosshatch. Emulator 5564. | `ko/`, `core/**/flavour/`, `design/copy/quips.md` |
+| T43 | wip | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
 
@@ -410,3 +411,4 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   1-bit check. On that basis T09, T15, T28c, T37, T38 are marked done (T15's look is being reworked in
   T42; effect timing/ghosting still needs filming on the panel). Sam: crosshatch does not belong in the
   dither language -> light dither for dead tiles (sent to the T42 agent). Running: T42, T12, T16, T18.
+- 2026-11-14 — Sam: drawer counters need a mechanism to go down / reset -> T43 dispatched.
