@@ -76,6 +76,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T25a | done | T03 | Personality copy tables in core: original quips (KO lines by reason, dice/coin lines, reset confirm, empty history, default player names) with a pure picker taking `Random`; length-checked against the `ui` face budget. | `core/src/**/flavour/` |
 | T25b | todo | T25a T15 T16 | Show quips at their call sites (KO panel, tools, reset confirm, history) as static text; "quips" setting. | call sites |
 | T26 | wip | — | Hero numeral exploration: 4–5 heavier, more characterful candidates for life totals, rendered in-context at device pixels for Sam to pick. | `design/font/candidates/` (or `design/font-candidates/`) |
+| T28a | wip | — | Hit/heal effect sprites: 3–4 damage and 2–3 heal effect concepts (swipe, crunch, fizzle, sparkle…), 2–4 frames each as 1-bit ASCII frames, with offline previews (frame strips + in-context mock). | `design/fx/` |
+| T28b | todo | T28a T07 + Sam's pick | Effect player in the play screen: frame scheduler (injectable clock), small-region invalidation, cancel on tap, trigger rule (on delta commit / big hits), settings toggle; tune hold time on device and film it. | `play/`, `app/**/fx/` |
 | T27 | todo | T26 + Sam's pick | Replace `num-l` with the chosen design; re-derive play layout; verify on device. | `design/font/num-l/`, `play/` |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
 
@@ -164,3 +166,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-13 — Tick 12: T25a verified (112 core tests pass; all lines read) and committed.
   API: `Flavour.of(quips)`, `ko(reason, random)`, `dice`, `coin`, `resetConfirm`, `winner`, name sets;
   no-repeat via `RecentPicks`. NewGame and Reset share one confirm category. T07, T10b, T26 running.
+- 2026-11-13 — Sam: consider small limited-frame overlay effects for damage/healing. SPEC rule 4
+  amended (narrow exception with e-ink constraints). Added T28a (dispatched) and T28b.
