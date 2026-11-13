@@ -78,7 +78,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
-| T11 | todo | T06 | Layout engine for 2–6 players, portrait + landscape, per-seat rotation (0/90/180/270), all on the dither grid with leftover px as margin. Render tests per layout. | `app/src/main/**/layout/` |
+| T11 | wip | T06 | Layout engine for 2–6 players, portrait + landscape, per-seat rotation (0/90/180/270), all on the dither grid with leftover px as margin. Render tests per layout. | `app/src/main/**/layout/` |
 | T12 | done | T34 T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life as a segmented [40] [30] [20] choice (not a stepper), counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
 | T13 | dropped | — | ~~Player names (in-app keyboard)~~ — Sam, 2026-11-14: player names are dropped; seats are identified by the seat glyph (T44). What remains of player customisation is the per-player background pattern, moved to T45. | — |
 | T45 | dropped | — | ~~Per-player background pattern picker~~ — Sam, 2026-11-14: player colours/patterns are dropped too. | — |
@@ -86,7 +86,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | done | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
 | T42 | done | T15 | **KO / winner tile: the quip replaces the life total** (Sam, 2026-11-14) — on a dead tile and on the winner's tile the quip takes the hero position at a large size instead of the (ringed, hollow) number; cause/final life becomes the small detail. Plus a copy exploration: death and victory lines in a classic 8/16-bit game-text voice (**verbatim** famous one-liners, per Sam — exact wording only, short lines). Dead tiles use a **light ordered dither, not crosshatch** (Sam: crosshatch is not part of the dither language) — change `Role.DEAD`. Also fix: the centre diamond and dividers must keep their outline against dead tiles' crosshatch. Emulator 5564. | `ko/`, `core/**/flavour/`, `design/copy/quips.md` |
-| T47 | wip | T42 | **Death/winner copy tweaks** (Sam, 2026-11-14): draw every quip at the one smaller size (the size the long lines use today) instead of scaling short lines up; and make the paper ground behind the text continuous across each line — it should run through the spaces between words, not be a separate box per word. Emulator 5564. | `ko/` |
+| T47 | review | T42 | **Death/winner copy tweaks** (Sam, 2026-11-14): draw every quip at the one smaller size (the size the long lines use today) instead of scaling short lines up; and make the paper ground behind the text continuous across each line — it should run through the spaces between words, not be a separate box per word. Emulator 5564. | `ko/` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -539,3 +539,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   (`inverted`, `trace` stay). README rewritten for the public repo with the Nomad sideload guide.
   **Needs Sam:** generate the release keystore once (README, "Release build and signing"). Unverified
   on a real Nomad: install from the file manager, on-device uninstall. Running: T47, T22.
+- 2026-11-14 — Tick 52: T47 reported (`15774b9`, `e0397ca`, `496657a`, `6d2e583`), verified in a clean
+  worktree (132 core + 671 app tests, captures pass `check_1bit`): every KO/winner quip at one size
+  (`ui` k=2 at S=4 — the size of the old small lines; the brief's k=3 was wrong), balanced breaks at
+  spaces, at most 2 lines on the Nomad at S=4; one merged stepped paper ground per quip (no dither
+  between words or lines); REVIVE? plate down to the quip size. In `review` for Sam's look.
+  Dispatched T11 (2–6 player layouts, emulator 5564). Running: T22, T11.
