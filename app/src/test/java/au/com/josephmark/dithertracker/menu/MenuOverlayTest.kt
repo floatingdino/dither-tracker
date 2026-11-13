@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.menu
 
 import au.com.josephmark.dithertracker.dither.IRect
+import au.com.josephmark.dithertracker.eink.CleanComponent
 import au.com.josephmark.dithertracker.eink.ScreenCleaner
 import au.com.josephmark.dithertracker.menu.GemLayout.Companion.CENTRE
 import au.com.josephmark.dithertracker.play.PlayLayout
@@ -210,26 +211,29 @@ class MenuOverlayTest {
 
     @Test fun cleanFlashesBlackThenRedraws() {
         val r = Rig()
+        val cleaner = r.rig.stage.components.filterIsInstance<CleanComponent>().single().cleaner
         r.open()
         r.clearInvalidations()
         r.tapItem(MenuItem.CLEAN)
         assertEquals(MenuState.CLOSED, r.phase)
-        assertTrue(r.menu.cleaner.active)
+        assertTrue(cleaner.active)
+        assertTrue(cleaner.full)
         val full = IRect()
         r.l.grid.toDevice(IRect(0, 0, r.l.grid.width, r.l.grid.height), full)
         assertTrue(r.rig.platform.invalidated.any { it == full })
         r.clearInvalidations()
         r.rig.platform.clock.advance(ScreenCleaner.HOLD_MS - 1)
-        assertTrue(r.menu.cleaner.active)
+        assertTrue(cleaner.active)
         r.rig.platform.clock.advance(1)
-        assertFalse(r.menu.cleaner.active)
+        assertFalse(cleaner.active)
         assertEquals(listOf(full), r.rig.platform.invalidated)
-        // A touch on a tile cancels a running cleanup at once (and still reaches the tile).
+        // A touch cancels a running cleanup at once; inside the cleaned region (here the whole
+        // screen) the tap itself is swallowed (T19b).
         r.open(); r.tapItem(MenuItem.CLEAN)
         val n = PlayRig.mid(r.l.zones[PlayLayout.zone(3, PlayLayout.PLUS)])
         r.tap(n[0], n[1])
-        assertFalse(r.menu.cleaner.active)
-        assertEquals(41, r.life(3))
+        assertFalse(cleaner.active)
+        assertEquals(40, r.life(3))
     }
 
     @Test fun routedItemsUseRegisteredDestinations() {

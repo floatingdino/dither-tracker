@@ -3,6 +3,7 @@ package au.com.josephmark.dithertracker.history
 import au.com.josephmark.dithertracker.core.flavour.Flavour
 import au.com.josephmark.dithertracker.core.flavour.QuipKind
 import au.com.josephmark.dithertracker.dither.IRect
+import au.com.josephmark.dithertracker.eink.ScreenCleaner
 import au.com.josephmark.dithertracker.menu.GemLayout
 import au.com.josephmark.dithertracker.menu.MenuItem
 import au.com.josephmark.dithertracker.menu.MenuOverlay
@@ -78,6 +79,7 @@ class HistoryOverlayTest {
         assertFalse(r.history.isOpen)
         assertFalse(r.history.cover.active)
         assertEquals(life, r.lifeOf(2))
+        r.rig.platform.clock.advance(ScreenCleaner.HOLD_MS) // the close's e-ink clean keyframe (T19b)
         assertEquals("menu", r.hit(r.l.diamondCx, r.l.diamondCy))
     }
 
@@ -86,6 +88,7 @@ class HistoryOverlayTest {
         r.history.open(MenuItem.LOG, 180)
         r.tapZone(HistoryCard.CLOSE)
         assertFalse(r.history.isOpen)
+        r.rig.platform.clock.advance(ScreenCleaner.HOLD_MS) // the close's e-ink clean keyframe (T19b)
         val p = r.l.panels[3]
         assertTrue(r.hit(p.left + 10, (p.top + p.bottom) / 2).startsWith("life:3"))
     }

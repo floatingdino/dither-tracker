@@ -5,7 +5,6 @@ import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.flavour.Flavour
 import au.com.josephmark.dithertracker.core.flavour.QuipKind
 import au.com.josephmark.dithertracker.dither.IRect
-import au.com.josephmark.dithertracker.eink.ScreenCleaner
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.TileSlots
 import au.com.josephmark.dithertracker.stage.Component
@@ -35,7 +34,7 @@ import kotlin.random.Random
  *   disabled (`Role.DISABLED`, no zone) while there is nothing to undo/redo.
  * - **NEW** → the confirm; confirm dispatches core `NewGame` (keeps players and settings, resets the
  *   values) and closes; cancel (either button face or the fold's close diamond) returns to the gem.
- * - **CLEAN** → closes and runs a [ScreenCleaner] (one black frame, 300 ms, redraw).
+ * - **CLEAN** → closes and sends [Events.CLEAN] (`eink.CleanComponent`: one black frame, 300 ms, redraw).
  * - **DICE / FIRST / LOG / SETUP** → [destinations]: closes and calls the registered
  *   [MenuDestination]; unregistered ones are drawn disabled and take no tap.
  * - Closes on the centre X, a tap outside, or [MenuState.IDLE_MS] without a touch.
@@ -49,10 +48,6 @@ class MenuOverlay(
 
     /** Phase machine (open / confirm / timeout). */
     lateinit var state: MenuState
-        private set
-
-    /** The manual e-ink cleanup (CLEAN). */
-    lateinit var cleaner: ScreenCleaner
         private set
 
     /** Current geometry (null before the first layout). */
@@ -71,7 +66,6 @@ class MenuOverlay(
 
     override fun onAdded() {
         state = MenuState(timers, { old, new -> onPhaseChanged(old, new) })
-        cleaner = ScreenCleaner(timers, TIMER_CLEAN, { invalidate(screen) })
     }
 
     // ---- layout ----------------------------------------------------------------------------------
@@ -115,7 +109,6 @@ class MenuOverlay(
                 }
             }
         }
-        cleaner.draw(f.r, screen)
     }
 
     private fun compensatePresses(f: Frame, g: GemLayout) {
@@ -203,7 +196,7 @@ class MenuOverlay(
             }
             MenuItem.CLEAN -> {
                 state.close()
-                cleaner.start()
+                stage.send(Events.CLEAN, Stage.SCREEN)
             }
             else -> {
                 val d = destinations[item] ?: return
@@ -219,12 +212,10 @@ class MenuOverlay(
     override fun onEvent(event: Int, seat: Int) {
         when (event) {
             Events.MENU_OPEN -> if (!state.isOpen) {
-                cleaner.cancel()
                 stage.readouts.commitAll() // "another kind of action"; the confirm may sit on a readout slot
                 refreshEnabled()
                 state.open()
             }
-            Events.TOUCH_DOWN -> cleaner.cancel()
         }
     }
 
@@ -242,12 +233,11 @@ class MenuOverlay(
     }
 
     override fun onTimer(id: Int) {
-        if (id == TIMER_CLEAN) cleaner.onTimer(id) else state.onTimer(id)
+        state.onTimer(id)
     }
 
     override fun onDetach() {
         if (state.isOpen) state.close()
-        cleaner.cancel()
     }
 
     /** Recomputes [enabled] from the session (undo/redo) and [destinations]. */
@@ -305,9 +295,8 @@ class MenuOverlay(
         const val FOLD_CANCEL = GemLayout.SLOTS + 3
         const val ZONES = GemLayout.SLOTS + 4
 
-        /** Timer locals: the state's (idle, bloom), then the cleaner's. */
-        const val TIMER_CLEAN = MenuState.TIMERS
-        const val TIMERS = MenuState.TIMERS + 1
+        /** Timer locals: the state's (idle, bloom). */
+        const val TIMERS = MenuState.TIMERS
 
         /** Paper between a fold button's outline and its label, in k. */
         const val BUTTON_PAD = 3

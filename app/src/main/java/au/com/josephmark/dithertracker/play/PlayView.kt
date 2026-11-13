@@ -16,6 +16,7 @@ import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.DitherRenderer
 import au.com.josephmark.dithertracker.dither.IRect
+import au.com.josephmark.dithertracker.stage.Events
 import au.com.josephmark.dithertracker.stage.Frame
 import au.com.josephmark.dithertracker.stage.IconPainter
 import au.com.josephmark.dithertracker.stage.Stage
@@ -155,6 +156,11 @@ class PlayView(
         mainHandler.removeCallbacks(relayoutTask)
         super.onDetachedFromWindow()
     }
+
+    /** The activity paused / resumed: components drop or re-arm optional timers (the e-ink cleanup's quiet timer). */
+    fun onHostPause() = stage.send(Events.PAUSE, Stage.SCREEN)
+
+    fun onHostResume() = stage.send(Events.RESUME, Stage.SCREEN)
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) = relayout(w, h)
 

@@ -6,6 +6,7 @@ import au.com.josephmark.dithertracker.commander.CommanderClose
 import au.com.josephmark.dithertracker.commander.CommanderTile
 import au.com.josephmark.dithertracker.drawer.DrawerComponent
 import au.com.josephmark.dithertracker.drawer.DrawerTab
+import au.com.josephmark.dithertracker.eink.CleanComponent
 import au.com.josephmark.dithertracker.fx.FxComponent
 import au.com.josephmark.dithertracker.history.HistoryOverlay
 import au.com.josephmark.dithertracker.ko.KoComponent
@@ -56,6 +57,7 @@ object PlayScreen {
         menu.destinations.register(MenuItem.DICE, stage.add(DiceOverlay(random))) // dice / coin tent (T16)
         menu.destinations.register(MenuItem.FIRST, stage.add(FirstPlayer(random))) // first player on their tile (T16)
         menu.destinations.register(MenuItem.SETUP, stage.add(SettingsOverlay())) // settings card (T12)
+        stage.add(CleanComponent())               // e-ink cleanup: manual CLEAN, cadence, overlay close (T19b); keep LAST (its ink frame covers everything)
         // slot: settings (T12), history (T18), tools (T16/T17), player setup (T13): Layer.OVERLAY,
         //       Kind.OVERLAY, each with its own Cover if it hides anything. Menu items reach them with
         //       `menu.destinations.register(MenuItem.SETUP, stage.add(SettingsOverlay(...)))`.

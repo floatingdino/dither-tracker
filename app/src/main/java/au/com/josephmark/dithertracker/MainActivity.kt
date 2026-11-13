@@ -12,6 +12,9 @@ import android.view.WindowManager
 import au.com.josephmark.dithertracker.data.Persistence
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.data.SettingsHolder
+import au.com.josephmark.dithertracker.eink.EinkConfig
+import au.com.josephmark.dithertracker.eink.ScreenCleaner
+import au.com.josephmark.dithertracker.eink.SupernoteFullRefresh
 import au.com.josephmark.dithertracker.fx.FxDebug
 import au.com.josephmark.dithertracker.play.GameSession
 import au.com.josephmark.dithertracker.play.PlayView
@@ -38,6 +41,10 @@ class MainActivity : Activity() {
         //                       --ei fxLife N (default 37) and plays that effect / cycles them all on
         //                       all four seats, looping until a touch; see fx/README.md
         //   --ef fxHold X       (debuggable builds only) scale every effect hold by X (FxPlayer.holdScale)
+        //   --ei cleanEvery N   (debuggable builds only) automatic screen-clean threshold N (overrides the
+        //                       "Screen clean" setting; 0 = off), to trigger it with a few taps (T19b)
+        //   --ez vendorRefresh true  (debuggable builds only) full cleans use the Supernote vendor refresh
+        //                       instead of the black flash (SupernoteFullRefresh; off by default)
         val inverted = if (intent?.hasExtra("inverted") == true) {
             intent.getBooleanExtra("inverted", false)
         } else {
@@ -45,6 +52,7 @@ class MainActivity : Activity() {
         }
         applyDebugPartners()
         applyDebugFx()
+        applyEink()
         root = if (intent?.getBooleanExtra("demo", false) == true) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             DitherDemoView(this).apply { setInverted(inverted) }
@@ -72,6 +80,17 @@ class MainActivity : Activity() {
         FxDebug.gallery = i.getStringExtra("fx")
         FxDebug.life = i.getIntExtra("fxLife", 37)
         FxDebug.holdScale = if (i.hasExtra("fxHold")) i.getFloatExtra("fxHold", 1f).coerceAtLeast(0f) else 1f
+    }
+
+    /** E-ink cleanup switches (T19b): the vendor refresh (constant, or the debug extra) and the debug threshold. */
+    private fun applyEink() {
+        val debug = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        val i = intent
+        EinkConfig.cleanEvery = if (debug && i?.hasExtra("cleanEvery") == true) i.getIntExtra("cleanEvery", -1) else -1
+        val vendor = SupernoteFullRefresh.USE_VENDOR_REFRESH ||
+            (debug && i?.getBooleanExtra("vendorRefresh", false) == true)
+        val ctx = applicationContext
+        EinkConfig.vendorFull = if (vendor) ScreenCleaner.FullRefresh { SupernoteFullRefresh.tryFullRefresh(ctx) } else null
     }
 
     /** Debug-only QA hook: `--es partners 1,3` sets the partner flag on exactly those seats. */
@@ -103,12 +122,14 @@ class MainActivity : Activity() {
         super.onResume()
         SettingsHolder.shared.addListener(keepAwake)
         applyKeepAwake(SettingsHolder.shared.current.keepScreenAwake)
+        (root as? PlayView)?.onHostResume()
     }
 
     override fun onPause() {
         super.onPause()
         SettingsHolder.shared.removeListener(keepAwake)
         applyKeepAwake(false)
+        (root as? PlayView)?.onHostPause() // no e-ink cleanup timer while in the background
         // Home, sleep, swipe-away: write anything still waiting on the debounce before we can be killed.
         Persistence.flush()
     }
