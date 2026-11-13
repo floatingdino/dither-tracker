@@ -111,7 +111,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T33 | done | T30 (owns flavour) | Quip tone pass: make the whole table a smidge more combative ("uh oh", "whoops", "beefed it") per SPEC Tone; keep length/charset rules and the doc mirror. | `core/**/flavour/`, `design/copy/quips.md` |
 | T37 | wip | T34 | **Small numerals = `bold`** (Sam's pick, `design/font/candidates/mini2/bold`, 10x14, sticker treatment, no shadow). Build: adopt it as the small numeral face replacing `num-m` everywhere at **k=1 everywhere** — the commander-target life, the pending-delta readout, drawer values and peeks (Sam, 2026-11-14: target life and deltas are 1x too, not 2x); re-compose the target tile (quip + heart + life) and the readout position for the smaller size; fix the 3-digit drawer value that is 2 px wider than its cell; re-derive affected layouts and tests; verify on device at arm's length. | `design/font/`, `type/`, consumers |
 | T38 | wip | T34 T37 | **Counter peeks = `split`** (Sam's pick, `design/font/candidates/mini2/peeks-split.png` + README): chips in both bottom corners of the tile beside the tab, alternating left/right, three per corner, six slots; `+N` takes the sixth slot on overflow; poison >= 8 inverts; display-only; hidden while the drawer is open and in commander mode. | `peeks/` |
-| T40 | wip | — | **Icon weight pass** (Sam, 2026-11-14: the close X looks thin next to the chunky numerals; other icons need more beef too). Redraw `close` heavier and bring the thin/outline icons up to the sticker numerals' weight (chevrons, check, plus, minus, more, menu, undo, redo, refresh, reset, rotate, storm, timer, dice, history, new-game, dead, ring, monarch, night, coin, invert …). Design-only, drawn as candidates in `design/icons/candidates/heavy/` — do NOT touch `design/icons/*.txt` while T34 runs (its before/after captures must stay byte-identical); the coordinator promotes after T34. | `design/icons/candidates/heavy/` |
+| T40 | review | — | **Icon weight pass** (Sam, 2026-11-14: the close X looks thin next to the chunky numerals; other icons need more beef too). Redraw `close` heavier and bring the thin/outline icons up to the sticker numerals' weight (chevrons, check, plus, minus, more, menu, undo, redo, refresh, reset, rotate, storm, timer, dice, history, new-game, dead, ring, monarch, night, coin, invert …). Design-only, drawn as candidates in `design/icons/candidates/heavy/` — do NOT touch `design/icons/*.txt` while T34 runs (its before/after captures must stay byte-identical); the coordinator promotes after T34. | `design/icons/candidates/heavy/` |
 | T41 | todo | T34 T40 | **Contour cut-outs for glyphs on dither** (Sam, 2026-11-14): on the centre diamond the X (and the menu bars) sit on a square paper backing — instead fit the paper cut-out around the glyph's shape (a 1–2 px paper halo following its outline). Generate halo masks at build time for icons; use for the diamond's close X and menu glyph, the tab dots, and anywhere a glyph sits on a dither fill. Promote the T40 icons in the same pass; verify on device. | `dither/`, `chrome/`, icon build step |
 | T28d | done | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
 | T27 | done | T08 | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
@@ -151,6 +151,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - Quips (T25a) are in `design/copy/quips.md` for Sam to mark up. Least sure: "All quiet on the
   battlefield", "Took it personally", "Tails never fails, they say", "Drew nothing but lands" (close in
   spirit to Lotus's "flooded").
+
+- **Approve the heavier icons and the cut-out style** (T40): `design/icons/candidates/heavy/`
+  (`before-after.png`, `halo-mocks.png`, README). 29 icons redrawn; close X pick A (alternatives B, C);
+  agent recommends a 2 px contour halo on dither fills (holes filled first), 1 px on solid black.
+  Promotion into `design/icons/` + the engine halo are T41.
 
 ## Tick log
 
@@ -359,3 +364,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   (5564), T37+T38 small numerals and split peeks (5566), T28c effects promotion and wiring (5568).
   Shared file `play/PlayScreen.kt` takes one registration line per feature — edit and commit it
   immediately. Nomad checks by the coordinator afterwards. T40 (icons) still running.
+- 2026-11-14 — Tick 34: T40 reviewed (before/after and halo sheets eyeballed; 6 agent commits).
+  Awaiting Sam's approval before promotion (T41). Running: T09, T15, T37+T38, T28c on emulators;
+  T34's final report still pending.
