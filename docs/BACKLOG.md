@@ -89,7 +89,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 |----|--------|------|------|-------|
 | T16 | wip | T34 T09 | Random starting player, dice (d6/d20/custom), coin flip — static result reveal, 1-bit dice faces. | `app/src/main/**/tools/` |
 | T17 | todo | T34 T09 T03 | Turn tracker + optional turn/game timer (redraw at most once a minute; partial refresh). | `tools/`, `core/` |
-| T18 | wip | T34 T09 T03 | Game history log view (scrolling by page, not smooth scroll). | `app/src/main/**/history/` |
+| T18 | review | T34 T09 T03 | Game history log view (scrolling by page, not smooth scroll). | `app/src/main/**/history/` |
 
 ### Phase 4 — E-ink polish & release
 
@@ -418,3 +418,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   the quip may be too thin to read clearly. T42 agent told: quotes are a proposal (table with exact
   wording, source, category, confidence; ship only the certain ones) and to compare the scaled `ui`
   face against a bold caps display face for the hero quip.
+- 2026-11-14 — Tick 40: T18 reported with 5 commits; emulator capture eyeballed
+  (`design/captures/t18-history*.png`): a square rotatable card opened from the LOG facet, newest
+  first, icon + name + bold `delta -> value`, paged, undo in the title bar, linked commander damage
+  folded into one row. In `review` until the coordinator's clean build and Nomad check. Not seen on
+  a device: turn dividers and live update (JVM tests only). Sam clarified "thin" = the verbatim quote
+  list may be too sparse to feel like part of the copy identity; add online research for candidates.
+  T42 agent redirected: research a verified bench of 60+ lines -> `design/copy/retro-candidates.md`;
+  the bold-face comparison is dropped. Running: T42, T43, T12, T16.
