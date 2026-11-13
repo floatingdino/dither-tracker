@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.widgets
 
 import android.graphics.Canvas
+import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.DitherRenderer
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.MonoImage
@@ -56,4 +57,36 @@ class RendererCanvas(val renderer: DitherRenderer, val textRenderer: TextRendere
         renderer.inverted = !renderer.inverted
         canvas?.restore()
     }
+}
+
+private var galleryGrid: DitherGrid? = null
+private var galleryRotation = 0
+private var galleryDpi = 0
+private var galleryRenderer: DitherRenderer? = null
+private var gallery: WidgetGallery? = null
+private var galleryCanvas: RendererCanvas? = null
+private var galleryPainter: WidgetPainter? = null
+private val galleryScreen = IRect()
+
+/**
+ * Draws [WidgetGallery] (every widget once, in a panel centred on the screen and facing [rotation])
+ * for an on-device visual check. Call from a view's `onDraw` after `renderer.setGrid(grid)` (and
+ * usually `renderer.clear()`) with that view's [canvas]. Builds and caches the gallery per
+ * (grid, rotation, renderer); later frames do not allocate. Debug aid only: not wired into the app.
+ */
+fun drawWidgetGallery(
+    canvas: Canvas, renderer: DitherRenderer, text: TextRenderer, grid: DitherGrid,
+    rotation: Int = 0, densityDpi: Int = WidgetMetrics.NOMAD_DPI,
+) {
+    var g = gallery
+    var c = galleryCanvas
+    if (g == null || c == null || grid != galleryGrid || rotation != galleryRotation || densityDpi != galleryDpi || renderer !== galleryRenderer) {
+        g = WidgetGallery(WidgetMetrics(grid.scale, densityDpi))
+        g.layout(galleryScreen.set(0, 0, grid.width, grid.height), rotation)
+        c = RendererCanvas(renderer, text)
+        gallery = g; galleryCanvas = c; galleryPainter = WidgetPainter(c)
+        galleryGrid = grid; galleryRotation = rotation; galleryDpi = densityDpi; galleryRenderer = renderer
+    }
+    c.begin(canvas)
+    g.draw(galleryPainter!!)
 }
