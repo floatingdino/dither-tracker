@@ -21,8 +21,9 @@ import au.com.josephmark.dithertracker.type.TextRenderer
  * - cell (T43): a non-zero value is a paper card with a 1-px ink frame reading `− icon value +` —
  *   the halves' actions drawn at the edges, like a tiny life total. A value too long for that (3
  *   digits at S = 4) drops the glyphs and spreads `icon value` over the card (closing its tracking
- *   if it must, [DrawerLayout.valueTracking]). At 0 there is no card: the icon and a lone `+` sit on
- *   small paper halos on the drawer texture (− does nothing at 0), so active counters stand out.
+ *   if it must, [DrawerLayout.valueTracking]). At 0 there is no card and no − or +: only the icon, on a
+ *   small paper halo on the drawer texture (the right half still adds one), so active counters
+ *   stand out.
  *   Poison at 8+ is a solid ink card with paper content (nearly lethal).
  */
 class DrawerPainter(private val r: DitherRenderer, private val text: TextRenderer, private val icons: IconPainter) {
@@ -66,11 +67,10 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
                     plus(l, l.trayPlus[i], ink = !warn)
                 }
             } else {
-                // At 0 there is no card: the drawer texture shows through and only the icon and a
-                // lone + sit on small paper backings — quiet next to the active cards.
+                // At 0 there is no card and no − or +: the drawer texture shows through and only the
+                // icon sits on a small paper backing — quiet next to the active cards. (Tapping the
+                // right half still adds one; the + appears with the card.)
                 halo(ir, l.halo)
-                halo(l.trayPlus[i], l.halo)
-                plus(l, l.trayPlus[i], ink = true)
             }
             icon(l.tk, iconFor(item), ir, rot, invert = warn, opaque = false)
             if (v != 0) {

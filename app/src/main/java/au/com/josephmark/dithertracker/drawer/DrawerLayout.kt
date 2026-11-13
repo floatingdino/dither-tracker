@@ -48,7 +48,7 @@ import au.com.josephmark.dithertracker.type.Fonts
  *  ┌──────────────────────────┐   wide (a value too long for the stepper, i.e. 3 digits at S = 4):
  *  │[icon]  100               │   icon [trayIconWide] · value [trayValueWide]; no glyphs
  *  └──────────────────────────┘
- *     [icon]              +       zero: no card; the icon and a lone + on paper halos (− is inert)
+ *     [icon]                      zero: no card, no glyphs; just the icon on a paper halo (− is inert)
  * ```
  * The − sits in the player's left half and the + in the right, whichever way up the seat is. Tray
  * icons leave their outer columns empty ([ICON_MARGIN]), so the icon's footprint may run 1 px into
