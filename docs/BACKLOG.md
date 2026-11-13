@@ -77,7 +77,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 |----|--------|------|------|-------|
 | T11 | todo | T06 | Layout engine for 2–6 players, portrait + landscape, per-seat rotation (0/90/180/270), all on the dither grid with leftover px as margin. Render tests per layout. | `app/src/main/**/layout/` |
 | T12 | review | T34 T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life as a segmented [40] [30] [20] choice (not a stepper), counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
-| T13 | todo | T08 T12 | Player customisation: name entry (in-app 1-bit keyboard — no system IME, see SPEC rule 7), per-player background pattern picker. | `app/src/main/**/player/` |
+| T13 | todo (scope under question — seats are now shown by glyph, T44; confirm with Sam whether custom names are still wanted) | T08 T12 | Player customisation: name entry (in-app 1-bit keyboard — no system IME, see SPEC rule 7), per-player background pattern picker. | `app/src/main/**/player/` |
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | done | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
 | T42 | wip | T15 | **KO / winner tile: the quip replaces the life total** (Sam, 2026-11-14) — on a dead tile and on the winner's tile the quip takes the hero position at a large size instead of the (ringed, hollow) number; cause/final life becomes the small detail. Plus a copy exploration: death and victory lines in a classic 8/16-bit game-text voice (**verbatim** famous one-liners, per Sam — exact wording only, short lines). Dead tiles use a **light ordered dither, not crosshatch** (Sam: crosshatch is not part of the dither language) — change `Role.DEAD`. Also fix: the centre diamond and dividers must keep their outline against dead tiles' crosshatch. Emulator 5564. | `ko/`, `core/**/flavour/`, `design/copy/quips.md` |
@@ -90,6 +90,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T16 | wip | T34 T09 | Random starting player, dice (d6/d20/custom), coin flip — static result reveal, 1-bit dice faces. | `app/src/main/**/tools/` |
 | T17 | todo | T34 T09 T03 | Turn tracker + optional turn/game timer (redraw at most once a minute; partial refresh). | `tools/`, `core/` |
 | T18 | review | T34 T09 T03 | Game history log view (scrolling by page, not smooth scroll). | `app/src/main/**/history/` |
+| T44 | wip | T18 | **Seat glyph instead of player names** (Sam, 2026-11-14: "Player 1/2/3/4 are meaningless"). A small table diagram with one position filled marks the affected seat; drawn from the real layout (2x2 today, any 2–6 layout later) and turned with the card so it always matches the physical table. Use it in history rows (source -> target as two glyphs) and anywhere else a default name appears. Emulator 5570. | new `seat/` package, `history/` |
 
 ### Phase 4 — E-ink polish & release
 
@@ -433,3 +434,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   check (the shared tree has 8 failing tests from siblings mid-edit). Additive `widgets/` changes:
   `Toggle(icon)`, `Segmented.numerals`. Later cleanup: settings and history each build their own
   overlay card. Running: T42, T43, T16.
+- 2026-11-14 — Sam: default player names are meaningless; show the affected seat with an icon that has
+  that spot filled in. -> T44 dispatched. T13 (names) flagged for a scope decision.
