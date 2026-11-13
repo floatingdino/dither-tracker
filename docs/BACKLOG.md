@@ -556,3 +556,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   → T48; (2) portrait S=6 4-digit life overflows the grid — unreachable today (not a "comfortable"
   layout), matters if T11 unlocks portrait; (3) the 19 base scenarios drifted → T49. Dispatched
   T48+T49 to one agent (emulator 5562). Running: T11, T48/T49.
+- 2026-11-14 — Tick 54: both agents were cut off by a usage limit and resumed from their transcripts
+  after it reset. Committed so far and building clean at HEAD (132 core + 1033 app tests): T11
+  `ddc8059` design, `068831d` engine, `347b041` every Play component at 2–6 seats; T48 `b0f7a0b`
+  fizzle as tile layers at global phase (`KNOWN_OFF_PHASE` empty). In flight, uncommitted: T11's
+  player-count control (settings, menu, persistence, core codec). Left: T11 control + captures;
+  T48 docs/captures; T49. Running: T11, T48/T49.
