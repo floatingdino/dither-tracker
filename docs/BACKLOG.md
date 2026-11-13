@@ -456,3 +456,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   zero cells show the icon and a lone +; holding - resets to 0 as one undo step; 3-digit cells drop
   the glyphs. In `review` until the clean build and Nomad check. Coordinator's note: the active grid
   is dense (2-digit cells are snug). Running: T42, T44, T46.
+- 2026-11-14 — Sam: empty counters should not show the +. Coordinator removed the lone + from zero
+  cells (icon only; the right half still adds one) — verified in a clean worktree (app tests pass
+  apart from the KO agent's in-progress `KoTest`) and on the emulator
+  (`design/captures/t43-empty-counters-no-plus.png`). Sam also asked for 1x and 2x mockups of the die
+  result — T46 agent told to deliver both.
