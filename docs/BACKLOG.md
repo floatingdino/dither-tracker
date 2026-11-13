@@ -95,7 +95,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T16 | review | T34 T09 | Random starting player, dice (d6/d20/custom), coin flip — static result reveal, 1-bit dice faces. | `app/src/main/**/tools/` |
 | T17 | todo | T34 T09 T03 | Turn tracker + optional turn/game timer (redraw at most once a minute; partial refresh). | `tools/`, `core/` |
 | T18 | review | T34 T09 T03 | Game history log view (scrolling by page, not smooth scroll). | `app/src/main/**/history/` |
-| T44 | wip | T18 | **Seat glyph instead of player names** (Sam, 2026-11-14: "Player 1/2/3/4 are meaningless"). A small table diagram with one position filled marks the affected seat; drawn from the real layout (2x2 today, any 2–6 layout later) and turned with the card so it always matches the physical table. Use it in history rows (source -> target as two glyphs) and anywhere else a default name appears. Emulator 5570. | new `seat/` package, `history/` |
+| T44 | review | T18 | **Seat glyph instead of player names** (Sam, 2026-11-14: "Player 1/2/3/4 are meaningless"). A small table diagram with one position filled marks the affected seat; drawn from the real layout (2x2 today, any 2–6 layout later) and turned with the card so it always matches the physical table. Use it in history rows (source -> target as two glyphs) and anywhere else a default name appears. Emulator 5570. | new `seat/` package, `history/` |
 
 ### Phase 4 — E-ink polish & release
 
@@ -461,3 +461,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   apart from the KO agent's in-progress `KoTest`) and on the emulator
   (`design/captures/t43-empty-counters-no-plus.png`). Sam also asked for 1x and 2x mockups of the die
   result — T46 agent told to deliver both.
+- 2026-11-14 — Tick 44: T44 reported with 4 commits; emulator capture eyeballed
+  (`design/captures/t44-*.png`): a 15x11 table miniature with the seat's cell filled, generated from
+  the panel rects (generalises to 2-6 panels), counter-rotated so it always matches the physical
+  table; history rows are kind icon + seat glyph(s) + bold `delta -> value`; no names anywhere.
+  `seat/README.md` says how other components adopt it. In `review` until the clean build and Nomad
+  check. Notes: rows now have a wide empty middle; T12's rotation labels (90 = E?) may be swapped —
+  check on the device. Running: T42, T46.
