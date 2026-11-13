@@ -28,9 +28,9 @@ import kotlin.random.Random
  *
  * - **Look** ([KoLayout], T42): the panel in `Role.DEAD` (a light dither) inset by a paper gutter
  *   and kept off the centre diamond; the tombstone as a small emblem at the top; **the quip replaces
- *   the life total** as the hero — caps, `ui` face at the largest k that fits, each word a paper box
- *   cut out of the field; the cause as one quiet chip below (heart + life, poison + count, imp +
- *   damage). The quip is picked once when the KO happens (`Flavour.ko(reason, …)`, never the
+ *   the life total** as the hero — caps, `ui` face at one size for every line (T47), each word a
+ *   paper box cut out of the field; the cause as one quiet chip below (heart + life, poison + count,
+ *   imp + damage). The quip is picked once when the KO happens (`Flavour.ko(reason, …)`, never the
  *   previous line), not on redraw; re-picked when the player dies again or the cause changes.
  * - **Cover**: while a seat shows dead, [cover] hides its life, peeks, drawer, tab, readout and
  *   commander-mode content (`CONTENT | CHROME | READOUT | MODE`) — so they neither draw nor take
@@ -131,7 +131,7 @@ class KoComponent(
         for (h in tombHalo) f.r.fillMask(h, 0, 0, Role.SURFACE)
         f.icons.prewarm(CAUSE_ICONS, k.causeK)
         for (rot in ROTATIONS) {
-            for (q in 1..k.kMax) f.text.draw(k.ui, WARM_UI, 0, 0, q, rot)
+            for (q in 1..k.warmK) f.text.draw(k.ui, WARM_UI, 0, 0, q, rot)
             f.text.draw(k.causeFont, WARM_NUM, 0, 0, k.causeK, rot)
         }
     }

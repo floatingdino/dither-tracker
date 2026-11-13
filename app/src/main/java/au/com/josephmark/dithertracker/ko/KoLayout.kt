@@ -6,6 +6,7 @@ import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.PlayLayout.Chrome
 import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.type.Fonts
+import au.com.josephmark.dithertracker.widgets.TextFit
 import au.com.josephmark.dithertracker.widgets.TextWrap
 
 /**
@@ -18,8 +19,8 @@ import au.com.josephmark.dithertracker.widgets.TextWrap
  *  ┌──────────── far edge (the diamond sits in one far corner) ────────────┐
  *  │                         [emblem]       tombstone / crown, k = iconK    │
  *  │                                                                        │
- *  │                     THE QUIP, IN CAPS,          hero: `ui` × k, 1–4    │
- *  │                     CENTRED AS A BLOCK          lines, k by maths      │
+ *  │                   THE QUIP, IN CAPS,            hero: `ui` × quipK,    │
+ *  │                   CENTRED AS A BLOCK            1–4 balanced lines     │
  *  │ (peeks)                                                       (peeks)  │
  *  │ (peeks)              [♥ 0] / [☠ 10]          detail: cause / final life │
  *  │ (peeks)                 (tab)                                 (peeks)  │
@@ -28,8 +29,10 @@ import au.com.josephmark.dithertracker.widgets.TextWrap
  * - **Field** (dead only): `Role.DEAD` over the panel inset by a paper [gutter], with a paper ring
  *   [gutter] wide round the centre diamond ([fieldInk]), so dividers and the diamond keep a clean edge.
  * - **Emblem**: 16 × [iconK] px, centred, [PlayLayout.V_MIN] from the far edge ([emblem]).
- * - **Hero**: the quip block in [textLeft, textRight) × [textTop, textBottom): the largest k ≤ [kMax]
- *   at which it wraps into ≤ [MAX_LINES] lines without breaking a word and fits ([arrange]). Lines are
+ * - **Hero**: the quip block in [textLeft, textRight) × [textTop, textBottom), every line at the one
+ *   size [quipK] (T47: short lines are not scaled up), wrapped into the fewest lines that fit, broken
+ *   only at spaces and balanced (the narrowest widest line for that count) ([arrange]). Only a line
+ *   that cannot fit whole at [quipK] steps down (none of the shipped lines on the Nomad do). Lines are
  *   9k apart (the face's full height), the block's cap bands centred vertically, each line centred.
  *   On a dead tile every word sits on a paper box grown by [halo] (cut out of the field).
  * - **Detail**: an icon + `num-m` value on a paper chip, centred in the under-number row between the
@@ -64,8 +67,14 @@ class KoLayout(val play: PlayLayout) {
     val causeK: Int = play.tk
     val causeIconSize: Int = PlayLayout.ICON * causeK
 
-    /** Largest hero scale (physical size ≈ S = 4's [QUIP_K]). */
-    val kMax: Int = Chrome.size(QUIP_K, s)
+    /** The one hero scale for every quip (physical size ≈ S = 4's [QUIP_K]). */
+    val quipK: Int = Chrome.size(QUIP_K, s)
+
+    /** Largest scale of the armed plate's [REVIVE] (stepped down where the hero area is small). */
+    val reviveKMax: Int = Chrome.size(REVIVE_K, s)
+
+    /** Every ui scale the hero may draw at: 1..[warmK] (prewarm). */
+    val warmK: Int = maxOf(quipK, reviveKMax)
 
     // ---- bands (player frame) -------------------------------------------------------------------
 
@@ -90,7 +99,11 @@ class KoLayout(val play: PlayLayout) {
     val textW: Int get() = textRight - textLeft
     val textBottom: Int = minOf(peekTop, detailTop) - halo
 
-    /** Scale of the emblem (16 × [iconK] px): ≈ 2× chrome, stepped down to leave the hero two k = 2 lines. */
+    /**
+     * Scale of the emblem (16 × [iconK] px): ≈ 2× chrome, stepped down to leave the hero [MIN_LINES]
+     * lines at [quipK] (T47: the vertical room goes to the quip before the quip shrinks; on the Nomad
+     * at S = 2..6 the emblem keeps its size).
+     */
     val iconK: Int
     val iconSize: Int
     val textTop: Int
@@ -100,7 +113,7 @@ class KoLayout(val play: PlayLayout) {
 
     init {
         var ik = Chrome.size(ICON_K, s)
-        val minText = 2 * ui.height(Chrome.size(2, s))
+        val minText = blockH(quipK, MIN_LINES)
         fun top(k: Int) = maxOf(emblemTop + PlayLayout.ICON * k + 2 * halo, play.diamondHalf + gutter + halo + 1)
         while (ik > 1 && textBottom - top(ik) < minText) ik--
         iconK = ik
@@ -182,17 +195,14 @@ class KoLayout(val play: PlayLayout) {
     fun blockH(k: Int, lines: Int): Int = lines * ui.height(k)
 
     /**
-     * Lays out the hero [quip] (already in caps) on [seat] into [out]: the largest k ≤ [kMax] at which
-     * it wraps into ≤ [MAX_LINES] lines of [textW] without breaking a word and fits [textH]; else
-     * k = 1 with what fits. Also places the armed revive plate. Pure; allocation-free.
+     * Lays out the hero [quip] (already in caps) on [seat] into [out]: at [quipK], in the fewest lines
+     * (≤ [MAX_LINES]) that hold it whole without breaking a word and fit [textH], balanced; only when
+     * that fails, one step smaller at a time (k = 1 shows what fits). Also places the armed revive
+     * plate. Pure; allocation-free.
      */
     fun arrange(seat: Int, quip: CharSequence, out: Block) {
-        var k = kMax
-        while (true) {
-            wrap.wrap(quip, ui, k, textW)
-            if ((fitsWhole(quip) && blockH(k, wrap.lines) <= textH) || k == 1) break
-            k--
-        }
+        var k = quipK
+        while (!balance(quip, k) && k > 1) k--
         var n = wrap.lines
         while (n > 1 && blockH(k, n) > textH) n--
         out.k = k
@@ -218,6 +228,26 @@ class KoLayout(val play: PlayLayout) {
         arrangeRevive(seat, out)
     }
 
+    /**
+     * Wraps [text] at [k] into the fewest lines that hold it whole and fit [textH], then narrows the
+     * measure to the smallest that keeps that count (balanced lines). False when it cannot fit at [k].
+     */
+    private fun balance(text: CharSequence, k: Int): Boolean {
+        wrap.wrap(text, ui, k, textW)
+        if (!fitsWhole(text) || blockH(k, wrap.lines) > textH) return false
+        val n = wrap.lines
+        if (n == 1) return true
+        var c = TextFit.maxChars(ui, k, textW)
+        // Narrow while the count holds (each step drops one char of measure).
+        while (c > 1) {
+            wrap.wrap(text, ui, k, ui.widthOf(c - 1, k))
+            if (wrap.lines > n || !fitsWhole(text)) break
+            c--
+        }
+        wrap.wrap(text, ui, k, ui.widthOf(c, k))
+        return true
+    }
+
     /** True when the last wrap kept every non-space char and broke lines only at spaces. */
     private fun fitsWhole(text: CharSequence): Boolean {
         if (wrap.truncated) return false
@@ -235,7 +265,7 @@ class KoLayout(val play: PlayLayout) {
         val aT = textTop - halo
         val aW = textW + 2 * halo - keyline - shadow
         val aH = textH + 2 * halo - keyline - shadow
-        var k = minOf(kMax, Chrome.size(REVIVE_K, s))
+        var k = reviveKMax
         while (k > 1 && (ui.widthOf(n, k) + 2 * padH > aW || ui.capHeight * k + 2 * padV > aH)) k--
         out.reviveK = k
         val tw = ui.widthOf(n, k)
@@ -293,18 +323,21 @@ class KoLayout(val play: PlayLayout) {
     }
 
     override fun toString(): String =
-        "KoLayout(S=$s emblem k$iconK, hero k..$kMax in ${textW}x$textH at y $textTop, detail " +
+        "KoLayout(S=$s emblem k$iconK, hero k$quipK in ${textW}x$textH at y $textTop, detail " +
             "$detailLeft..$detailRight x $detailTop..$detailBottom, gutter $gutter, halo $halo)"
 
     companion object {
         const val MAX_LINES = 4
+
+        /** Lines of [quipK] the hero box is given room for (by shrinking the emblem) before a quip steps down. */
+        const val MIN_LINES = 3
 
         /** The armed plate's text. */
         const val REVIVE = "REVIVE?"
 
         /** Design values at S = 4 (converted per S like [PlayLayout.Chrome]). */
         const val ICON_K = 2
-        const val QUIP_K = 5
+        const val QUIP_K = 2
         const val REVIVE_K = 4
         const val GUTTER = 2
         const val HALO = 2

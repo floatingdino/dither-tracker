@@ -96,24 +96,27 @@ class KoTest {
                     val c = IRect().also { peek.corner(s, col, it) }
                     assertFalse("$base winner cover over peek corner $col", overlaps(cover, c))
                 }
-                if (!l.comfortable) continue
-                assertFalse("$base hero area/emblem", overlaps(area, emblemHalo))
-                assertFalse("$base hero area/diamond", overlaps(area, diamond))
-                assertFalse("$base hero area/tab", overlaps(area, l.tabHit[s]))
                 val icon = IRect(); val num = IRect(); val chip = IRect()
-                for (v in intArrayOf(0, -999, 10, 21, 999)) {
-                    assertTrue("$base detail $v fits", k.detail(s, v, icon, num, chip))
-                    assertTrue("$base chip in panel", inside(chip, p))
-                    assertTrue("$base chip holds icon + number", inside(icon, chip) && inside(num, chip))
-                    assertFalse("$base chip/hero", overlaps(chip, area))
-                    assertFalse("$base chip/tab", overlaps(chip, l.tabHit[s]))
-                    if (peek.enabled) for (col in 0..1) assertFalse("$base chip/peek $col", overlaps(chip, IRect().also { peek.corner(s, col, it) }))
+                // Cramped layouts (no detail band, hero over the emblem's row) only check the quip fits.
+                if (l.comfortable) {
+                    assertFalse("$base hero area/emblem", overlaps(area, emblemHalo))
+                    assertFalse("$base hero area/diamond", overlaps(area, diamond))
+                    assertFalse("$base hero area/tab", overlaps(area, l.tabHit[s]))
+                    for (v in intArrayOf(0, -999, 10, 21, 999)) {
+                        assertTrue("$base detail $v fits", k.detail(s, v, icon, num, chip))
+                        assertTrue("$base chip in panel", inside(chip, p))
+                        assertTrue("$base chip holds icon + number", inside(icon, chip) && inside(num, chip))
+                        assertFalse("$base chip/hero", overlaps(chip, area))
+                        assertFalse("$base chip/tab", overlaps(chip, l.tabHit[s]))
+                        if (peek.enabled) for (col in 0..1) assertFalse("$base chip/peek $col", overlaps(chip, IRect().also { peek.corner(s, col, it) }))
+                    }
                 }
                 for (q in all) {
                     val tag = "$base '$q'"
                     k.arrange(s, q.uppercase(), b)
                     assertTrue("$tag lines ${b.lines}", b.lines in 1..KoLayout.MAX_LINES)
-                    assertTrue("$tag k ${b.k}", b.k in 1..k.kMax)
+                    // One size for every line wherever the hero has room (the Nomad and larger at any S).
+                    if (roomy(w, h)) assertEquals("$tag one size", k.quipK, b.k) else assertTrue("$tag k ${b.k}", b.k in 1..k.quipK)
                     assertEquals("$tag whole line shown", q.trim().length, (0 until b.lines).sumOf { b.end[it] - b.start[it] } + b.lines - 1)
                     for (i in 0 until b.lines) {
                         if (i > 0) assertTrue("$tag breaks at a space", q[b.start[i] - 1] == ' ')
@@ -132,24 +135,59 @@ class KoTest {
         }
     }
 
-    @Test fun heroScaleFollowsLineLengthAtS4() {
+    /** Screens at least the Nomad's size: every shipped line fits at the one quip size there. */
+    private fun roomy(w: Int, h: Int) = w >= 1872 && h >= 1404
+
+    @Test fun oneQuipSizeAtEachScale() {
+        // ui at k = 2 on the Nomad at S = 4 (the size the long lines had in T42), the same physical size elsewhere.
+        val want = mapOf(2 to 4, 3 to 3, 4 to 2, 5 to 2, 6 to 1)
+        for ((w, h) in screens) for ((sc, kk) in want) {
+            val k = KoLayout(PlayLayout.compute(DitherGrid(w, h, sc)))
+            assertEquals("$w×$h S=$sc", kk, k.quipK)
+            assertTrue(k.warmK >= k.quipK)
+        }
+    }
+
+    @Test fun heroAtS4OneSizeBalancedLines() {
         val k = KoLayout(PlayLayout.compute(DitherGrid(1872, 1404, 4)))
         val b = KoLayout.Block()
-        fun kOf(q: String): Pair<Int, Int> { k.arrange(3, q, b); return b.k to b.lines }
-        assertEquals(5 to 1, kOf("OOF")) // ≤ 7 chars: one line at k = 5
-        assertEquals(5 to 1, kOf("GOT GOT"))
-        assertEquals(4 to 1, kOf("GAME OVER")) // 8–9 chars: one line at k = 4
-        assertEquals(4 to 2, kOf("THOU ART SLAIN")) // two lines of ≤ 9 at k = 4
-        assertEquals(3 to 2, kOf("YOUR QUEST ENDS HERE")) // two lines of ≤ 12 at k = 3
-        assertEquals(2 to 2, kOf("COULDN'T STOP IT. DIDN'T TRY")) // longer: k = 2
-        assertEquals(5, k.kMax)
+        fun lines(q: String): List<String> {
+            k.arrange(3, q, b)
+            assertEquals(q, 2, b.k)
+            return (0 until b.lines).map { q.substring(b.start[it], b.end[it]) }
+        }
+        // Short lines are not scaled up; they are centred.
+        assertEquals(listOf("OOF"), lines("OOF"))
+        assertEquals((k.play.panelW - k.ui.widthOf(3, 2)) / 2, b.lx[0])
+        assertEquals(listOf("GAME OVER"), lines("GAME OVER"))
+        assertEquals(listOf("YOUR QUEST", "ENDS HERE"), lines("YOUR QUEST ENDS HERE"))
+        // Balanced: the narrowest widest line for the fewest lines, not greedy.
+        assertEquals(listOf("SOMEBODY SET UP", "US THE BOMB."), lines("SOMEBODY SET UP US THE BOMB."))
+        assertEquals(listOf("TRUSTED A", "HANDSHAKE DEAL"), lines("TRUSTED A HANDSHAKE DEAL"))
+        assertEquals(listOf("YOU HAVE COMPLETED", "A GREAT GAME."), lines("YOU HAVE COMPLETED A GREAT GAME."))
+        lines("STAY A WHILE... STAY FOREVER!")
+        assertEquals(2, b.lines)
+        assertEquals(18, b.ly[1] - b.ly[0])
+        // Layout numbers at S = 4.
+        assertEquals(2, k.quipK)
         assertEquals(2, k.iconK)
         assertEquals(1, k.causeK)
+        assertEquals(2, k.halo)
         assertEquals(217, k.textW)
         assertEquals(42, k.textTop)
         assertEquals(115, k.textBottom)
         assertEquals(64, k.detailLeft) // between the peek corners (T38): x 64..169 at S = 4
         assertEquals(169, k.detailRight)
+    }
+
+    @Test fun everyShippedLineTakesAtMostTwoLinesOnTheNomadAtS4() {
+        val k = KoLayout(PlayLayout.compute(DitherGrid(1872, 1404, 4)))
+        val b = KoLayout.Block()
+        for (q in heroLines()) {
+            k.arrange(0, q.uppercase(), b)
+            assertEquals(q, 2, b.k)
+            assertTrue("$q: ${b.lines} lines", b.lines <= 2)
+        }
     }
 
     @Test fun gutterKeepsTheFieldOffTheDividersAndTheDiamond() {

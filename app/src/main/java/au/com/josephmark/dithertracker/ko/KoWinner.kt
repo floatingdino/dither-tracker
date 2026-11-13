@@ -16,8 +16,8 @@ import kotlin.random.Random
 
 /**
  * Last player standing (T15; T42: the line replaces the life total). When exactly one player is not
- * KO, a line from `Flavour.winner` in caps takes the hero position of that tile at the largest size
- * that fits ([KoLayout.arrange], the same layout as a dead tile's quip), under a small crown emblem,
+ * KO, a line from `Flavour.winner` in caps takes the hero position of that tile at the one quip size
+ * ([KoLayout.arrange], the same layout as a dead tile's quip; T47), under a small crown emblem,
  * with the winner's final life as the small detail below (heart + `num-m`). The tile stays paper and
  * the counter peeks and tab stay; the caption is drawn on a paper cover over the live number.
  *
@@ -84,7 +84,7 @@ class KoWinner(
         f.icons.prewarm(WARM_ICONS, k.iconK)
         f.icons.prewarm(WARM_ICONS, k.causeK)
         for (rot in ROTATIONS) {
-            for (q in 1..k.kMax) f.text.draw(k.ui, WARM_UI, 0, 0, q, rot)
+            for (q in 1..k.warmK) f.text.draw(k.ui, WARM_UI, 0, 0, q, rot)
             f.text.draw(k.causeFont, WARM_NUM, 0, 0, k.causeK, rot)
         }
     }
