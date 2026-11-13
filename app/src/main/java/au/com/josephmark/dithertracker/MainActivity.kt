@@ -9,11 +9,13 @@ import android.view.WindowInsetsController
 
 class MainActivity : Activity() {
 
-    private lateinit var root: BlankView
+    private lateinit var root: DitherDemoView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        root = BlankView(this)
+        root = DitherDemoView(this)
+        // Debug/QA hook: `am start ... --ez inverted true` starts in dark mode.
+        root.setInverted(intent?.getBooleanExtra("inverted", false) == true)
         setContentView(root)
     }
 

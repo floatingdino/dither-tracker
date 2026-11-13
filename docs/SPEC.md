@@ -57,6 +57,17 @@ hand-tuned named tiles: `CHECKER` (50%), `SPARSE` (drawer body), `DOTS`, `HLINES
 `DIAG`. UI code refers to semantic roles (`surface`, `tab`, `drawer`, `disabled`, `selected`)
 mapped to tiles — never to raw tiles directly.
 
+**As built (T04, `app/.../dither/`):** tiles `D0..D16`, `CHECKER` (== `D8`), `SPARSE`, `DOTS`, `HLINES`,
+`VLINES`, `DIAG`, `CROSSHATCH`; roles `SURFACE`, `INK`, `TAB`, `MENU`, `DRAWER`, `DISABLED`, `SELECTED`,
+`DEAD`, `DOTTED`. ASCII mirror + index in `design/patterns/`. All drawing goes through `DitherRenderer`
+in dither-px coordinates. Rules that follow from the engine:
+- **Never `Canvas.rotate/scale`.** The renderer assumes root-view coordinates; rotated seats rotate
+  content through `blit(..., rotation)` and layout maths, so global pattern phase is preserved.
+- **Glyphs/icons on a dithered fill are drawn `opaque = true`** (or on a paper backing) — transparent
+  ink on a mid dither is unreadable.
+- In-place `invertRect` needs API 29+; on older devices redraw the region inside `withInverted {}`.
+- Check any capture with `python3 tools/check_1bit.py <png> --scale S` (purity + grid alignment).
+
 ## Icons
 
 16×16 1-bit bitmaps, authored as ASCII (`#` = black, `.` = white) in `design/icons/<name>.txt`,

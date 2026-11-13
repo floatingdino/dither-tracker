@@ -1,0 +1,38 @@
+# Generated from app/src/main/java/au/com/josephmark/dithertracker/dither/Patterns.kt
+# by PatternMirrorTest. Do not edit; '#' = ink, '.' = paper.
+# name        size  ink%
+D0           4x4    0.0
+D1           4x4    6.3
+D2           4x4   12.5
+D3           4x4   18.8
+D4           4x4   25.0
+D5           4x4   31.3
+D6           4x4   37.5
+D7           4x4   43.8
+D8           4x4   50.0
+D9           4x4   56.3
+D10          4x4   62.5
+D11          4x4   68.8
+D12          4x4   75.0
+D13          4x4   81.3
+D14          4x4   87.5
+D15          4x4   93.8
+D16          4x4  100.0
+CHECKER      2x2   50.0
+SPARSE       4x8    6.3
+DOTS         4x4   25.0
+HLINES       1x2   50.0
+VLINES       2x1   50.0
+DIAG         4x4   25.0
+CROSSHATCH   8x8   25.0
+#
+# role        tile
+SURFACE      D0
+INK          D16
+TAB          D6
+MENU         D6
+DRAWER       SPARSE
+DISABLED     DIAG
+SELECTED     D16
+DEAD         CROSSHATCH
+DOTTED       CHECKER

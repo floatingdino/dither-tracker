@@ -22,3 +22,6 @@ captures/
 
 # OS
 .DS_Store
+
+# Device captures kept as design evidence
+!design/captures/
