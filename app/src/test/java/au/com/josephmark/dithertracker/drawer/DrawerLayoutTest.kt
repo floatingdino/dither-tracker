@@ -150,82 +150,21 @@ class DrawerLayoutTest {
         }
     }
 
-    @Test fun hitTestFromThePlayersPointOfView() {
-        val d = nomad[2]
-        val st = allOpen()
-        fun mid(r: IRect) = intArrayOf((r.left + r.right) / 2, (r.top + r.bottom) / 2)
-        for (s in 0 until 4) {
-            // the player's left half of slot 0 is "−" whichever way up the seat is
-            val left = d.halfHit[(s * DrawerZones.MAX_SLOTS) * 2]
-            val c = mid(left)
-            assertEquals(DrawerZones.cellZone(s, 0, DrawerZones.MINUS), d.hitTest(c[0], c[1], st))
-            val right = d.halfHit[(s * DrawerZones.MAX_SLOTS) * 2 + 1]
-            val c2 = mid(right)
-            assertEquals(DrawerZones.cellZone(s, 0, DrawerZones.PLUS), d.hitTest(c2[0], c2[1], st))
-            if (d.play.rotation[s] == 180) assertTrue(left.left > right.left) else assertTrue(left.left < right.left)
-            val b = mid(d.barSeg[s * 3 + 1])
-            assertEquals(DrawerZones.zone(s, DrawerZones.TAB), d.hitTest(b[0], b[1], st))
-            // upper area still drives life
-            val u = mid(d.lifeZones[s * 2 + PlayLayout.PLUS])
-            assertEquals(PlayLayout.zone(s, PlayLayout.PLUS), d.hitTest(u[0], u[1], st))
-        }
-        // The bar's left segment is the commander button (T30), on every seat, whichever way up.
-        for (s in 0 until 4) {
-            val b = mid(d.cmdVis[s])
-            assertEquals(au.com.josephmark.dithertracker.commander.CommanderZones.zone(s, au.com.josephmark.dithertracker.commander.CommanderZones.BUTTON), d.hitTest(b[0], b[1], st))
-        }
-        // page 0 of 2: the right segment pages on
-        val n = mid(d.barSeg[3 * 3 + 2])
-        assertEquals(DrawerZones.zone(3, DrawerZones.NEXT), d.hitTest(n[0], n[1], st))
-        // the bar's hit extends upward by the tab's hit pad
-        assertEquals(DrawerZones.zone(3, DrawerZones.NEXT), d.hitTest(n[0], d.bar[3].top - d.barHitPad, st))
-        // on the last page it goes back to the first; with one page it closes
-        st.setPaging(3, d.perPage + 1, d.perPage); st.nextPage(3)
-        assertFalse(st.hasNext(3))
-        assertEquals(DrawerZones.zone(3, DrawerZones.PREV), d.hitTest(n[0], n[1], st))
-        st.setPaging(3, 3, d.perPage)
-        assertEquals(DrawerZones.zone(3, DrawerZones.TAB), d.hitTest(n[0], n[1], st))
-        // diamond still reserved
-        assertEquals(PlayLayout.RESERVED, d.hitTest(d.play.diamondCx, d.play.diamondCy, st))
-    }
+    // Hit-testing and feedback rects are the drawer components' now: see play.PlayScreenTest.
 
-    @Test fun emptyCellsAndClosedDrawers() {
-        val d = nomad[2]
-        val st = DrawerState(4)
-        // closed: tab → TAB zone, the rest of the panel is life
-        val t = d.play.tab[2]
-        assertEquals(DrawerZones.zone(2, DrawerZones.TAB), d.hitTest(t.left + 2, t.top + 2, st))
-        val cell = d.halfHit[(2 * DrawerZones.MAX_SLOTS + 5) * 2]
-        assertTrue(DrawerZones.isLife(d.hitTest(cell.left + 1, cell.top + 1, st)))
-        // open with only 2 items: slot 5 is empty → nothing
-        st.setOpen(2, true); st.setPaging(2, 2, d.perPage)
-        assertEquals(PlayLayout.NONE, d.hitTest(cell.left + 1, cell.top + 1, st))
-    }
-
-    @Test fun feedbackRects() {
-        val d = nomad[2]
-        val st = DrawerState(4)
-        val out = IRect()
-        assertTrue(d.feedbackRect(DrawerZones.zone(1, DrawerZones.TAB), st, out))
-        assertEquals(d.play.tab[1], out)
-        assertTrue(d.feedbackRect(PlayLayout.zone(1, PlayLayout.MINUS), st, out))
-        assertEquals(d.play.zones[PlayLayout.zone(1, PlayLayout.MINUS)], out)
-        assertFalse(d.feedbackRect(DrawerZones.cellZone(1, 0, DrawerZones.PLUS), st, out)) // closed
-        st.setOpen(1, true)
-        assertTrue(d.feedbackRect(PlayLayout.zone(1, PlayLayout.MINUS), st, out))
-        assertEquals(d.lifeZones[PlayLayout.zone(1, PlayLayout.MINUS)], out)
-        assertTrue(d.feedbackRect(DrawerZones.cellZone(1, 3, DrawerZones.PLUS), st, out))
-        assertEquals(d.halfVis[(1 * DrawerZones.MAX_SLOTS + 3) * 2 + 1], out)
-    }
-
-    @Test fun zoneIdsRoundTrip() {
-        for (s in 0 until 4) for (local in 0 until DrawerZones.PER_SEAT) {
-            val z = DrawerZones.zone(s, local)
-            assertTrue(DrawerZones.isDrawer(z)); assertFalse(DrawerZones.isLife(z))
-            assertEquals(s, DrawerZones.seatOf(z)); assertEquals(local, DrawerZones.localOf(z))
+    @Test fun localIdsRoundTrip() {
+        val seen = HashSet<Int>()
+        for (slot in 0 until DrawerZones.MAX_SLOTS) for (half in 0..1) {
+            val local = DrawerZones.cell(slot, half)
+            assertTrue(DrawerZones.isCell(local)); assertTrue(seen.add(local))
+            assertEquals(slot, DrawerZones.slotOf(local)); assertEquals(half, DrawerZones.halfOf(local))
+            assertTrue(local < DrawerZones.PER_SEAT)
         }
-        val z = DrawerZones.cellZone(2, 5, DrawerZones.PLUS)
-        assertEquals(5, DrawerZones.slotOf(DrawerZones.localOf(z))); assertEquals(1, DrawerZones.halfOf(DrawerZones.localOf(z)))
-        for (z2 in 0 until DrawerZones.LIFE) assertEquals(PlayLayout.zoneSeat(z2), DrawerZones.seatOf(z2))
+        for (local in intArrayOf(DrawerZones.TAB, DrawerZones.PREV, DrawerZones.NEXT, DrawerZones.BUTTON)) {
+            assertFalse(DrawerZones.isCell(local)); assertTrue(seen.add(local))
+        }
+        assertEquals(DrawerZones.PER_SEAT, seen.size)
+        // The commander button is outside the range a page turn / open / close cancels.
+        assertTrue(DrawerZones.BUTTON >= DrawerZones.CELL_END)
     }
 }

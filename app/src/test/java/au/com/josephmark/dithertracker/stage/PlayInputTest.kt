@@ -1,11 +1,8 @@
 package au.com.josephmark.dithertracker.stage
 
-import au.com.josephmark.dithertracker.dither.DitherGrid
-import au.com.josephmark.dithertracker.drawer.DrawerLayout
-import au.com.josephmark.dithertracker.drawer.DrawerState
-import au.com.josephmark.dithertracker.drawer.DrawerZones
 import au.com.josephmark.dithertracker.play.FakeScheduler
 import au.com.josephmark.dithertracker.play.PlayLayout
+import au.com.josephmark.dithertracker.play.PlayRig
 import au.com.josephmark.dithertracker.play.PlayLayout.Companion.MINUS
 import au.com.josephmark.dithertracker.play.PlayLayout.Companion.PLUS
 import au.com.josephmark.dithertracker.play.PlayLayout.Companion.zone
@@ -23,16 +20,23 @@ class PlayInputTest {
         override fun onZonePressed(zone: Int) { events += "press$zone" }
         override fun onZoneReleased(zone: Int) { events += "release$zone" }
     }
-    private val layout = PlayLayout.compute(DitherGrid(1872, 1404, 4))
-    private val drawerLayout = DrawerLayout(layout)
-    private val drawers = DrawerState(4)
+    // The real screen's zones (T34: allocated by the Stage; life comes first, so a life id is still
+    // `seat * 2 + side`), used here only as the zone map of a stand-alone PlayInput.
+    private val rig = PlayRig()
+    private val layout = rig.l
     private var lifeRepeats = true
     private val map = object : PlayInput.ZoneMap {
-        override fun hitTest(gx: Int, gy: Int) = drawerLayout.hitTest(gx, gy, drawers)
-        override fun repeats(zone: Int) = if (DrawerZones.isLife(zone)) lifeRepeats else false
+        override fun hitTest(gx: Int, gy: Int) = rig.stage.hitTest(gx, gy)
+        override fun repeats(zone: Int) = if (rig.stage.zoneOwner(zone) === rig.life) lifeRepeats else false
     }
-    private val clock = FakeScheduler(DrawerZones.COUNT)
-    private val input = PlayInput(sink, clock, DrawerZones.COUNT).also { it.zones = map; clock.target = it }
+    private val zoneCount = rig.stage.zoneCount
+
+    init {
+        // This test addresses life zones as `PlayLayout.zone(seat, side)`.
+        for (s in 0 until 4) for (side in 0..1) check(rig.stage.zoneId(rig.life, s, side) == zone(s, side))
+    }
+    private val clock = FakeScheduler(zoneCount)
+    private val input = PlayInput(sink, clock, zoneCount).also { it.zones = map; clock.target = it }
 
     private fun centre(z: Int): IntArray {
         val r = layout.zones[z]
@@ -83,7 +87,7 @@ class PlayInputTest {
 
     @Test fun theTabIsADrawerZone() {
         input.down(1, layout.tab[1].left + 3, layout.tab[1].top + 3, 0)
-        val z = DrawerZones.zone(1, DrawerZones.TAB)
+        val z = rig.stage.zoneId(rig.tab, 1, 0)
         assertEquals(listOf("press$z"), events)
         input.up(1)
         assertEquals(listOf("press$z", "tap$z", "release$z"), events)

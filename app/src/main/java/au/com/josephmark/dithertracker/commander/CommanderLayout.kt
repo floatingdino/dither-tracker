@@ -4,7 +4,6 @@ import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.CommanderSlot
 import au.com.josephmark.dithertracker.core.Player
 import au.com.josephmark.dithertracker.dither.IRect
-import au.com.josephmark.dithertracker.drawer.DrawerLayout
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.type.Fonts
@@ -33,8 +32,8 @@ import au.com.josephmark.dithertracker.type.TextLayout
  *
  * [lifeFont] is a parameter so the target's life can switch to a mini sticker face (T37) in one line.
  *
- * Hit-testing ([hitTest]) only claims what is the mode's; everything else is left to the drawer
- * layout ([DELEGATE]).
+ * Touch zones are declared by `CommanderTile` (whole target tile; halves or partner [quarter]s) and
+ * `CommanderClose`; [feedbackRect] gives what a press inverts.
  */
 class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
 
@@ -210,39 +209,7 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
     /** Whether a partner number of [value] leaves its ± glyphs clear. */
     fun partnerPmClear(value: Int): Boolean = partnerPmVisible && Font.intLength(value) <= PARTNER_CHARS
 
-    // ---- touch --------------------------------------------------------------------------------
-
-    /**
-     * Zone under dither (gx, gy) for the commander layer, or [DELEGATE] when it is not the mode's.
-     * [target] is the current target seat or [CommanderMode.NONE]: outside the mode everything is
-     * [DELEGATE] (the commander button lives in the drawer bar, `DrawerLayout`). In the mode the
-     * target's tile is [CommanderZones.TARGET], opponents' whole tiles are slot zones (tabs are
-     * hidden; quarters for a partnered source) and the diamond is [CommanderZones.DIAMOND] (close).
-     */
-    fun hitTest(gx: Int, gy: Int, target: Int, players: List<Player>): Int {
-        val pl = play
-        if (target == CommanderMode.NONE) return DELEGATE
-        if (pl.inDiamondHit(gx, gy)) return CommanderZones.DIAMOND
-        for (s in 0 until P) {
-            val p = pl.panels[s]
-            if (!p.contains(gx, gy)) continue
-            if (s == target) return CommanderZones.zone(s, CommanderZones.TARGET)
-            val lx = if (pl.rotation[s] == 180) p.right - 1 - gx else gx - p.left
-            val partner = s < players.size && players[s].partner
-            return if (partner) {
-                val q = when {
-                    lx < W / 4 -> CommanderZones.A_MINUS
-                    lx < half -> CommanderZones.A_PLUS
-                    lx < half + (W - half) / 2 -> CommanderZones.B_MINUS
-                    else -> CommanderZones.B_PLUS
-                }
-                CommanderZones.zone(s, q)
-            } else {
-                CommanderZones.zone(s, if (lx < half) CommanderZones.A_MINUS else CommanderZones.A_PLUS)
-            }
-        }
-        return PlayLayout.NONE
-    }
+    // ---- touch (zones are declared by `CommanderTile`) ----------------------------------------
 
     /**
      * The rect a press on [seat]'s [local] ([CommanderZones]) inverts: the target's whole tile, a
@@ -266,28 +233,6 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
         return true
     }
 
-    /** The rect a pressed commander [zone] (global id, pre-T34 view) inverts. False for none. */
-    fun feedbackRect(zone: Int, players: List<Player>, out: IRect): Boolean {
-        if (!CommanderZones.isCommander(zone)) return false
-        if (zone == CommanderZones.DIAMOND) { copy(closeIcon, out); return true }
-        val s = CommanderZones.seatOf(zone)
-        val local = CommanderZones.localOf(zone)
-        when {
-            local == CommanderZones.TARGET -> copy(play.panels[s], out)
-            CommanderZones.isSlot(local) -> {
-                val partner = s < players.size && players[s].partner
-                if (partner) {
-                    copy(quarter[s * 4 + (local - CommanderZones.A_MINUS)], out)
-                } else {
-                    if (local >= CommanderZones.B_MINUS) return false
-                    copy(play.zones[PlayLayout.zone(s, CommanderZones.sideOf(local))], out)
-                }
-            }
-            else -> return false
-        }
-        return true
-    }
-
     private fun copy(src: IRect, out: IRect) = out.set(src.left, src.top, src.right, src.bottom)
 
     override fun toString(): String =
@@ -295,9 +240,6 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
             "target block $targetTop..$targetBottom, life ${lifeFont.name} k$lifeK, quip k $quipKMin..$quipKMax)"
 
     companion object {
-        /** "Not a commander zone": let the drawer layout hit-test it. */
-        const val DELEGATE = Int.MIN_VALUE
-
         /** Digits a partner number slot is sized for (commander damage past 99 is not a real game). */
         const val PARTNER_CHARS = 2
 

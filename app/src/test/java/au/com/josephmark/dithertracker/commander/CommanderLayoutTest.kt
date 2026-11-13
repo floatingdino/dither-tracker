@@ -8,7 +8,6 @@ import au.com.josephmark.dithertracker.core.flavour.Flavour
 import au.com.josephmark.dithertracker.core.flavour.QuipKind
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.IRect
-import au.com.josephmark.dithertracker.drawer.DrawerZones
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.type.Fonts
 import org.junit.Assert.assertEquals
@@ -139,58 +138,18 @@ class CommanderLayoutTest {
         }
     }
 
-    @Test fun hitTestRotatedSeatsAndPartnerQuarters() {
-        val c = nomad[2]
-        val l = c.play
-        // Outside the mode nothing is the mode's (the commander button is in the drawer bar).
-        for (s in 0 until 4) {
-            val n = mid(l.numberSlot[s])
-            assertEquals(CommanderLayout.DELEGATE, c.hitTest(n[0], n[1], CommanderMode.NONE, players))
-        }
-        assertEquals(CommanderLayout.DELEGATE, c.hitTest(l.diamondCx, l.diamondCy, CommanderMode.NONE, players))
-
-        // Target 3 (upright, BL).
-        val t = 3
-        val n3 = mid(l.numberSlot[3])
-        assertEquals(CommanderZones.zone(3, CommanderZones.TARGET), c.hitTest(n3[0], n3[1], t, players))
-        assertEquals(CommanderZones.DIAMOND, c.hitTest(l.diamondCx, l.diamondCy, t, players))
-        // Tabs are hidden in the mode: the tab area is part of the tile's half.
-        val tab = l.tab[2]
-        assertEquals(CommanderZones.zone(2, CommanderZones.A_MINUS), c.hitTest(tab.left + 2, tab.top + 2, t, players))
-        // Upright seat 2: screen-left half is −.
-        val p2 = l.panels[2]
-        assertEquals(CommanderZones.zone(2, CommanderZones.A_MINUS), c.hitTest(p2.left + 10, n3[1], t, players))
-        assertEquals(CommanderZones.zone(2, CommanderZones.A_PLUS), c.hitTest(p2.right - 10, n3[1], t, players))
-        // Rotated seat 0: screen-left is the player's right → +.
-        val p0 = l.panels[0]
-        val y0 = mid(l.numberSlot[0])[1]
-        assertEquals(CommanderZones.zone(0, CommanderZones.A_PLUS), c.hitTest(p0.left + 10, y0, t, players))
-        assertEquals(CommanderZones.zone(0, CommanderZones.A_MINUS), c.hitTest(p0.right - 10, y0, t, players))
-        // Partners: quarters, in the player's frame (seats 0 and 1 are rotated).
-        fun q(s: Int, i: Int) = mid(c.quarter[s * 4 + i])
-        val want = intArrayOf(CommanderZones.A_MINUS, CommanderZones.A_PLUS, CommanderZones.B_MINUS, CommanderZones.B_PLUS)
-        for (s in intArrayOf(0, 1)) for (i in 0 until 4) {
-            val m = q(s, i)
-            assertEquals("seat $s quarter $i", CommanderZones.zone(s, want[i]), c.hitTest(m[0], m[1], t, partnered))
-        }
-        // The player-frame first quarter of a rotated seat is on the screen's right.
-        assertTrue(c.quarter[0].left > c.quarter[3].left)
-        // Dividers and margins are nothing.
-        assertEquals(PlayLayout.NONE, c.hitTest(l.dividerV.left, 20, t, players))
-    }
+    // Hit-testing is CommanderTile's / CommanderClose's now: see play.PlayScreenTest.
 
     @Test fun feedbackRects() {
         val c = nomad[2]
         val l = c.play
         val out = IRect()
-        assertFalse(c.feedbackRect(CommanderZones.zone(1, CommanderZones.BUTTON), players, out)) // the drawer bar's
-        assertTrue(c.feedbackRect(CommanderZones.zone(1, CommanderZones.TARGET), players, out)); assertEquals(l.panels[1], out)
-        assertTrue(c.feedbackRect(CommanderZones.zone(1, CommanderZones.A_PLUS), players, out))
+        assertTrue(c.feedbackRect(1, CommanderZones.TARGET, players, out)); assertEquals(l.panels[1], out)
+        assertTrue(c.feedbackRect(1, CommanderZones.A_PLUS, players, out))
         assertEquals(l.zones[PlayLayout.zone(1, PlayLayout.PLUS)], out)
-        assertFalse(c.feedbackRect(CommanderZones.zone(2, CommanderZones.B_PLUS), players, out))
-        assertTrue(c.feedbackRect(CommanderZones.zone(1, CommanderZones.B_PLUS), partnered, out)); assertEquals(c.quarter[1 * 4 + 3], out)
-        assertTrue(c.feedbackRect(CommanderZones.DIAMOND, players, out)); assertEquals(c.closeIcon, out)
-        assertFalse(c.feedbackRect(DrawerZones.zone(1, DrawerZones.TAB), players, out))
+        assertFalse(c.feedbackRect(2, CommanderZones.B_PLUS, players, out))
+        assertTrue(c.feedbackRect(1, CommanderZones.B_PLUS, partnered, out)); assertEquals(c.quarter[1 * 4 + 3], out)
+        assertFalse(c.feedbackRect(1, CommanderZones.PER_SEAT, players, out)) // not one of the mode's
     }
 
     @Test fun quartersTileEachPanel() {

@@ -1,6 +1,5 @@
 package au.com.josephmark.dithertracker.stage
 
-import au.com.josephmark.dithertracker.drawer.DrawerZones
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.Scheduler
 
@@ -8,8 +7,7 @@ import au.com.josephmark.dithertracker.play.Scheduler
  * Multi-touch bookkeeping and hold-to-repeat for the Play screen. Pure Kotlin (no MotionEvent, no
  * clock: timing comes from the injected [Scheduler]), allocation-free.
  *
- * Zones are small ints from a [ZoneMap] (life halves, drawer tab/bar/cells — see
- * `drawer.DrawerZones`). Each pointer id is tracked independently, so several players can press at
+ * Zones are small ints from a [ZoneMap] (the [Stage]'s global zone ids, allocated per component). Each pointer id is tracked independently, so several players can press at
  * once. A pointer is bound to the zone it went down in until it lifts (moving does not re-target it:
  * on a crowded table a finger that slides should not press a neighbour's zone). A zone stays pressed
  * while at least one pointer holds it.
@@ -30,13 +28,13 @@ import au.com.josephmark.dithertracker.play.Scheduler
 class PlayInput(
     private val sink: Sink,
     private val scheduler: Scheduler = Scheduler.NONE,
-    /** Size of the zone id space (`drawer.DrawerZones.COUNT` in the app). */
+    /** Size of the zone id space ([Stage.zoneCount] in the app). */
     val zoneCount: Int = PlayLayout.PLAYERS * 2,
 ) : Scheduler.Target {
 
     /** Geometry + policy: which zone a point hits, and whether holding a zone repeats. */
     interface ZoneMap {
-        /** Zone id under dither (gx, gy), or a negative value for nothing ([PlayLayout.NONE]/[PlayLayout.RESERVED]). */
+        /** Zone id under dither (gx, gy), or a negative value for nothing ([PlayLayout.NONE]). */
         fun hitTest(gx: Int, gy: Int): Int
 
         /** Whether holding [zone] repeats (checked when the hold timer is armed and when it fires). */
@@ -93,7 +91,7 @@ class PlayInput(
         if (pointerId !in 0 until MAX_POINTERS) return
         if (pointerZone[pointerId] != PlayLayout.NONE) release(pointerId, apply = false) // missed an up
         val zone = map.hitTest(gx, gy)
-        if (zone < 0 || zone >= zoneCount) return // NONE / RESERVED: nothing happens
+        if (zone < 0 || zone >= zoneCount) return // NONE: nothing happens
         pointerZone[pointerId] = zone
         pointerDown[pointerId] = eventTimeMillis
         if (zonePointers[zone]++ == 0) {

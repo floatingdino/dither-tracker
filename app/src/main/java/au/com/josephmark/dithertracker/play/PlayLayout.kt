@@ -119,7 +119,7 @@ class PlayLayout private constructor(
     val underW: Int
     val underH: Int
 
-    /** Drawer tab: visual rect and (larger) reserved hit rect. Visual only here; behaviour is T08. */
+    /** Drawer tab: visual rect and (larger) hit rect (the `drawer.DrawerTab` component's zone). */
     val tab: Array<IRect> = Array(PLAYERS) { IRect() }
     val tabHit: Array<IRect> = Array(PLAYERS) { IRect() }
 
@@ -129,7 +129,7 @@ class PlayLayout private constructor(
     /** Paper backing behind each seat's three dots (one rect: the dots plus [Chrome.dotHalo] all round). */
     val tabDotsBacking: Array<IRect> = Array(PLAYERS) { IRect() }
 
-    /** Press zones, index = zone id ([zone]): the player's left (`−`) or right (`+`) half of the panel. */
+    /** Life halves, index [zone]`(seat, side)`: the player's left (`−`) or right (`+`) half of the panel. */
     val zones: Array<IRect> = Array(PLAYERS * 2) { IRect() }
 
     /** Dotted dividers. */
@@ -334,23 +334,7 @@ class PlayLayout private constructor(
         return k
     }
 
-    /**
-     * What a touch at dither (gx, gy) hits: a zone id (`seat * 2 + side`, see [zoneSeat]/[zoneSide]),
-     * [RESERVED] for the drawer tab and centre diamond (T08/T09 own those), or [NONE] (dividers, margins).
-     */
-    fun hitTest(gx: Int, gy: Int): Int {
-        if (inDiamondHit(gx, gy)) return RESERVED
-        for (s in 0 until PLAYERS) {
-            val p = panels[s]
-            if (!p.contains(gx, gy)) continue
-            if (tabHit[s].contains(gx, gy)) return RESERVED
-            val lx = if (rotation[s] == 180) p.right - 1 - gx else gx - p.left
-            return zone(s, if (lx < panelW / 2) MINUS else PLUS)
-        }
-        return NONE
-    }
-
-    /** True inside the diamond's reserved hit area (the shape grown by [Chrome.diamondHitPad]). */
+    /** True inside the diamond's touch area (the shape grown by [Chrome.diamondHitPad]; see [Diamond.hitBounds]). */
     fun inDiamondHit(gx: Int, gy: Int): Boolean {
         val dx = Math.abs(gx - diamondCx)
         val dy = Math.abs(gy - diamondCy)
@@ -467,15 +451,11 @@ class PlayLayout private constructor(
         const val MINUS = 0
         const val PLUS = 1
 
+        /** "No zone" (dividers, margins, blocked areas), as `stage.PlayInput` reports it. */
         const val NONE = -1
-        const val RESERVED = -2
 
+        /** Index into [zones] of [seat]'s life half [side] ([MINUS] / [PLUS]). */
         fun zone(seat: Int, side: Int): Int = seat * 2 + side
-        fun zoneSeat(zone: Int): Int = zone / 2
-        fun zoneSide(zone: Int): Int = zone % 2
-
-        /** Life delta for a zone: −1 for [MINUS], +1 for [PLUS]. */
-        fun zoneDelta(zone: Int): Int = if (zoneSide(zone) == PLUS) 1 else -1
 
         fun compute(
             grid: DitherGrid,

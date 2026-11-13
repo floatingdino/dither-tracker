@@ -5,7 +5,6 @@ import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.flavour.Flavour
 import au.com.josephmark.dithertracker.core.flavour.QuipKind
-import au.com.josephmark.dithertracker.drawer.DrawerZones
 import au.com.josephmark.dithertracker.play.FakeScheduler
 import au.com.josephmark.dithertracker.play.GameSession
 import au.com.josephmark.dithertracker.play.PlayLayout
@@ -36,12 +35,12 @@ class CommanderModeTest {
     private val mode = CommanderMode(timers, host, Random(42)).also { timers.target = it }
 
     private fun id(seat: Int) = session.state.players[seat].id
-    private fun button(seat: Int) = mode.onTap(CommanderZones.zone(seat, CommanderZones.BUTTON))
-    private fun tap(seat: Int, local: Int) = mode.onTap(CommanderZones.zone(seat, local))
+    private fun button(seat: Int) = mode.press(seat)
+    private fun tap(seat: Int, local: Int) = mode.onTap(seat, local)
 
     @Test fun buttonEntersSwitchesAndLeaves() {
         assertFalse(mode.active)
-        assertTrue(button(3))
+        button(3)
         assertEquals(3, mode.target)
         assertTrue(mode.quip in Flavour.quippy.lines(QuipKind.COMMANDER_TARGET))
         val first = mode.quip
@@ -62,9 +61,9 @@ class CommanderModeTest {
         assertTrue(tap(2, CommanderZones.TARGET))
         assertFalse(mode.active)
         button(0)
-        assertTrue(mode.onTap(CommanderZones.DIAMOND))
+        assertTrue(mode.close())
         assertFalse(mode.active)
-        assertFalse(mode.onTap(CommanderZones.DIAMOND)) // inactive: the diamond is the menu's
+        assertFalse(mode.close()) // inactive: the diamond is the menu's
     }
 
     @Test fun opponentsTapTheirOwnDamageToTheTarget() {
@@ -88,36 +87,36 @@ class CommanderModeTest {
 
     @Test fun holdRepeatsByTenLikeLifeAndTapsOnTheTargetDoNothing() {
         button(3)
-        val z = CommanderZones.zone(1, CommanderZones.A_PLUS)
-        assertTrue(mode.repeats(z))
-        assertFalse(mode.repeats(CommanderZones.zone(1, CommanderZones.BUTTON)))
-        assertFalse(mode.repeats(CommanderZones.DIAMOND))
+        val z = CommanderZones.A_PLUS
+        assertTrue(mode.repeats(1, z))
+        assertFalse(mode.repeats(1, CommanderZones.TARGET))
+        assertFalse(mode.repeats(3 /* the target */, CommanderZones.TARGET))
         assertEquals(PlayInput.DEFAULT_HOLD_STEP, mode.holdStep)
-        repeat(2) { mode.onRepeat(z) } // +10, +10
+        repeat(2) { mode.onRepeat(1, z) } // +10, +10
         assertEquals(20, mode.damage(1, Commander.PRIMARY))
-        mode.onTap(z)
+        mode.onTap(1, z)
         assertEquals(21, mode.damage(1, Commander.PRIMARY))
-        mode.onRepeat(CommanderZones.zone(1, CommanderZones.A_MINUS))
+        mode.onRepeat(1, CommanderZones.A_MINUS)
         assertEquals(11, mode.damage(1, Commander.PRIMARY))
-        mode.onTap(CommanderZones.zone(1, CommanderZones.A_PLUS)); repeat(9) { mode.onTap(z) }
+        mode.onTap(1, CommanderZones.A_PLUS); repeat(9) { mode.onTap(1, z) }
         assertEquals(21, mode.damage(1, Commander.PRIMARY))
         assertTrue(session.state.isKo(id(3))) // 21 from one commander: core's auto-KO rule
         assertEquals(21, session.state.players[3].maxCommanderDamage)
         // the target's own slot zones never dispatch
-        assertFalse(mode.onTap(CommanderZones.zone(3, CommanderZones.A_PLUS)))
+        assertFalse(mode.onTap(3, CommanderZones.A_PLUS))
         mode.exit()
-        assertFalse(mode.repeats(z))
-        assertFalse(mode.onTap(z))
+        assertFalse(mode.repeats(1, z))
+        assertFalse(mode.onTap(1, z))
     }
 
     @Test fun holdStepFollowsTheLifeSettingAndZeroDisablesIt() {
         button(3)
-        val z = CommanderZones.zone(2, CommanderZones.A_PLUS)
+        val z = CommanderZones.A_PLUS
         mode.holdStep = 5
-        mode.onRepeat(z)
+        mode.onRepeat(2, z)
         assertEquals(5, mode.damage(2, Commander.PRIMARY))
         mode.holdStep = 0
-        assertFalse(mode.onRepeat(z))
+        assertFalse(mode.onRepeat(2, z))
         assertEquals(5, mode.damage(2, Commander.PRIMARY))
     }
 
@@ -162,19 +161,15 @@ class CommanderModeTest {
         assertEquals("Target", mode.quip)
     }
 
-    @Test fun zoneIdsRoundTripAndFollowTheDrawerBlock() {
-        assertEquals(au.com.josephmark.dithertracker.drawer.DrawerZones.COUNT, CommanderZones.BASE)
-        for (s in 0 until 4) for (local in 0 until CommanderZones.PER_SEAT) {
-            val z = CommanderZones.zone(s, local)
-            assertTrue(CommanderZones.isCommander(z))
-            assertEquals(s, CommanderZones.seatOf(z)); assertEquals(local, CommanderZones.localOf(z))
-            assertTrue(z < CommanderZones.DIAMOND)
-        }
-        assertEquals(CommanderZones.zone(2, CommanderZones.B_PLUS), CommanderZones.slotZone(2, Commander.PARTNER, PlayLayout.PLUS))
+    @Test fun localIds() {
+        val seen = HashSet<Int>()
+        for (local in 0 until CommanderZones.PER_SEAT) assertTrue(seen.add(local))
+        for (local in intArrayOf(CommanderZones.A_MINUS, CommanderZones.A_PLUS, CommanderZones.B_MINUS, CommanderZones.B_PLUS)) assertTrue(CommanderZones.isSlot(local))
+        assertFalse(CommanderZones.isSlot(CommanderZones.TARGET))
+        assertEquals(CommanderZones.B_PLUS, CommanderZones.slotLocal(Commander.PARTNER, PlayLayout.PLUS))
+        assertEquals(CommanderZones.A_MINUS, CommanderZones.slotLocal(Commander.PRIMARY, PlayLayout.MINUS))
         assertEquals(Commander.PARTNER, CommanderZones.slotOf(CommanderZones.B_MINUS))
         assertEquals(PlayLayout.MINUS, CommanderZones.sideOf(CommanderZones.B_MINUS))
         assertEquals(PlayLayout.PLUS, CommanderZones.sideOf(CommanderZones.A_PLUS))
-        assertTrue(CommanderZones.isCommander(CommanderZones.DIAMOND))
-        assertEquals(CommanderZones.DIAMOND + 1, CommanderZones.END)
     }
 }

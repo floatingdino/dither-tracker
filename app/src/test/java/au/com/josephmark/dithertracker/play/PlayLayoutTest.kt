@@ -3,9 +3,7 @@ package au.com.josephmark.dithertracker.play
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.play.PlayLayout.Companion.MINUS
-import au.com.josephmark.dithertracker.play.PlayLayout.Companion.NONE
 import au.com.josephmark.dithertracker.play.PlayLayout.Companion.PLUS
-import au.com.josephmark.dithertracker.play.PlayLayout.Companion.RESERVED
 import au.com.josephmark.dithertracker.play.PlayLayout.Companion.zone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -149,47 +147,13 @@ class PlayLayoutTest {
         }
     }
 
-    @Test fun hitTestZonesFromThePlayersPointOfView() {
-        val l = PlayLayout.compute(DitherGrid(1872, 1404, 4))
-        fun mid(p: IRect) = (p.top + p.bottom) / 2
-        for (s in 0 until 4) {
-            val p = l.panels[s]
-            val screenLeft = l.hitTest(p.left + 20, mid(p))
-            val screenRight = l.hitTest(p.right - 21, mid(p))
-            if (s < 2) { // top row, rotated: screen-left is the player's right → +
-                assertEquals(zone(s, PLUS), screenLeft)
-                assertEquals(zone(s, MINUS), screenRight)
-            } else {
-                assertEquals(zone(s, MINUS), screenLeft)
-                assertEquals(zone(s, PLUS), screenRight)
-            }
-            // the glyphs themselves sit in their own zone
-            assertEquals(zone(s, MINUS), l.hitTest(l.minusGlyph[s].left + 1, l.minusGlyph[s].top + 1))
-            assertEquals(zone(s, PLUS), l.hitTest(l.plusGlyph[s].left + 1, l.plusGlyph[s].top + 1))
-            // tab is reserved
-            assertEquals(RESERVED, l.hitTest(l.tab[s].left + 2, l.tab[s].top + 2))
-        }
-        assertEquals(RESERVED, l.hitTest(l.diamondCx, l.diamondCy))
-        assertEquals(RESERVED, l.hitTest(l.diamondCx + 5, l.diamondCy - 5))
-        assertEquals(NONE, l.hitTest(l.dividerV.left, 50))
-        assertEquals(NONE, l.hitTest(50, l.dividerH.top))
-        assertEquals(NONE, l.hitTest(467, 50)) // spare column
-        assertEquals(NONE, l.hitTest(-1, 10))
-        // Diamond corner region outside the shape belongs to a panel.
-        assertEquals(zone(3, PLUS), l.hitTest(l.diamondCx - 20, l.diamondCy + 20))
-    }
-
-    @Test fun zonesCoverEachPanelExactlyAndMatchHitTest() {
+    /** The hit-test half moved to PlayScreenTest (zones are hit through the Stage since T34). */
+    @Test fun zonesCoverEachPanelExactly() {
         for (l in layouts()) for (s in 0 until 4) {
             val m = l.zones[zone(s, MINUS)]; val pl = l.zones[zone(s, PLUS)]
             assertFalse(overlaps(m, pl))
             assertEquals(l.panelW * l.panelH, m.width * m.height + pl.width * pl.height)
             assertTrue(inside(m, l.panels[s])); assertTrue(inside(pl, l.panels[s]))
-            for (z in intArrayOf(zone(s, MINUS), zone(s, PLUS))) {
-                val r = l.zones[z]
-                val hit = l.hitTest((r.left + r.right) / 2, (r.top + r.bottom) / 2)
-                assertTrue(hit == z || hit == RESERVED)
-            }
         }
     }
 
@@ -223,9 +187,10 @@ class PlayLayoutTest {
     }
 
     @Test fun zoneHelpers() {
-        assertEquals(-1, PlayLayout.zoneDelta(zone(2, MINUS)))
-        assertEquals(1, PlayLayout.zoneDelta(zone(2, PLUS)))
-        assertEquals(2, PlayLayout.zoneSeat(zone(2, PLUS)))
+        // Life halves are indexed `seat * 2 + side`; the life component's local id is the side.
+        assertEquals(5, zone(2, PLUS)); assertEquals(4, zone(2, MINUS))
+        assertEquals(-1, au.com.josephmark.dithertracker.life.LifeComponent.delta(MINUS))
+        assertEquals(1, au.com.josephmark.dithertracker.life.LifeComponent.delta(PLUS))
     }
 
     // ---- T07: readout and enlarged chrome --------------------------------------------------

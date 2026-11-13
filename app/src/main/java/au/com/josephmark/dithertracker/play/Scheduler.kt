@@ -1,11 +1,8 @@
 package au.com.josephmark.dithertracker.play
 
-import au.com.josephmark.dithertracker.readout.PendingDeltas
-import au.com.josephmark.dithertracker.stage.PlayInput
-
 /**
- * A bank of one-shot timers addressed by small int ids, so timing logic ([PlayInput] hold-repeat,
- * [PendingDeltas] idle commit) stays pure and JVM-testable. The app supplies [HandlerScheduler];
+ * A bank of one-shot timers addressed by small int ids, so timing logic (`stage.PlayInput` hold-repeat,
+ * `readout.PendingDeltas` idle commit) stays pure and JVM-testable. The app supplies [HandlerScheduler];
  * tests supply a fake clock. Implementations must not allocate per [schedule].
  */
 interface Scheduler {

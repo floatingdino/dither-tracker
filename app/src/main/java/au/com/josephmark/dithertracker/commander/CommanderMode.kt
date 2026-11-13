@@ -15,11 +15,11 @@ import kotlin.random.Random
  * timeout runs on the injected [Scheduler], timer id 0), allocation-free on the tap path apart from
  * the core action itself.
  *
- * Pressing player X's commander button makes X the **target**: every other tile then shows (and
+ * Pressing player X's commander button ([press]) makes X the **target**: every other tile then shows (and
  * adjusts, from its own seat) the damage its player's commander has dealt X; X's tile shows a quip
  * ([quip], picked once per entry, never the previous one) and X's life. The mode ends when:
  * - X's button is pressed again, or X's tile is tapped ([CommanderZones.TARGET]);
- * - the centre diamond is pressed ([CommanderZones.DIAMOND]);
+ * - the centre close X is pressed ([close], `CommanderClose`);
  * - nothing happened in the mode for [idleMillis] ([IDLE_MS]);
  * - [exit] is called (player count change, another screen…).
  * Pressing another player's button switches the target (new quip).
@@ -106,7 +106,6 @@ class CommanderMode(
 
     /** A tap (release) on [seat]'s [local]. Returns true if anything happened. */
     fun onTap(seat: Int, local: Int): Boolean = when {
-        local == CommanderZones.BUTTON -> { press(seat); true }
         !active -> false
         local == CommanderZones.TARGET -> if (seat == target) { exit(); true } else false
         CommanderZones.isSlot(local) -> apply(seat, local, if (CommanderZones.sideOf(local) == PlayLayout.PLUS) 1 else -1)
@@ -127,19 +126,6 @@ class CommanderMode(
         exit()
         return true
     }
-
-    // Global zone ids (the pre-T34 view; removed with it).
-    fun repeats(zone: Int): Boolean =
-        CommanderZones.isCommander(zone) && zone != CommanderZones.DIAMOND && repeats(CommanderZones.seatOf(zone), CommanderZones.localOf(zone))
-
-    fun onTap(zone: Int): Boolean = when {
-        !CommanderZones.isCommander(zone) -> false
-        zone == CommanderZones.DIAMOND -> close()
-        else -> onTap(CommanderZones.seatOf(zone), CommanderZones.localOf(zone))
-    }
-
-    fun onRepeat(zone: Int): Boolean =
-        CommanderZones.isCommander(zone) && zone != CommanderZones.DIAMOND && onRepeat(CommanderZones.seatOf(zone), CommanderZones.localOf(zone))
 
     private fun apply(sourceSeat: Int, local: Int, delta: Int): Boolean {
         val g = host.game

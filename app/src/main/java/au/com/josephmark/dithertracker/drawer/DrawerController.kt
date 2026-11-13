@@ -42,7 +42,7 @@ class DrawerController(val state: DrawerState, private val host: Host) {
             refreshAll()
         }
 
-    private val S = DrawerZones.PLAYERS
+    private val S = state.seats
     private val items = IntArray(S * DrawerItems.MAX_ITEMS)
     private val counts = IntArray(S)
 
@@ -142,11 +142,6 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         val item = itemAt(seat, DrawerZones.slotOf(local))
         return apply(seat, item, DrawerItems.holdDelta(DrawerZones.halfOf(local)))
     }
-
-    // Global zone ids (the pre-T34 view; removed with it).
-    fun repeats(zone: Int): Boolean = DrawerZones.isDrawer(zone) && repeats(DrawerZones.seatOf(zone), DrawerZones.localOf(zone))
-    fun onTap(zone: Int): Boolean = DrawerZones.isDrawer(zone) && onTap(DrawerZones.seatOf(zone), DrawerZones.localOf(zone))
-    fun onRepeat(zone: Int): Boolean = DrawerZones.isDrawer(zone) && onRepeat(DrawerZones.seatOf(zone), DrawerZones.localOf(zone))
 
     private fun apply(seat: Int, item: Int, delta: Int): Boolean {
         val g = host.game

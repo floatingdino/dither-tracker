@@ -1,7 +1,6 @@
 package au.com.josephmark.dithertracker.drawer
 
 import au.com.josephmark.dithertracker.commander.CommanderMode
-import au.com.josephmark.dithertracker.commander.CommanderZones
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.type.Font
@@ -299,83 +298,6 @@ class DrawerLayout(val play: PlayLayout) {
 
     /** Screen footprint of the pending delta for an open drawer; returns the glyph scale. */
     fun readoutFootprint(seat: Int, delta: Int, out: IRect): Int = play.readoutFootprintAt(seat, delta, readoutK, readoutTop, out)
-
-    // ---- touch ----------------------------------------------------------------------------------
-
-    /**
-     * Zone id ([DrawerZones]) under dither (gx, gy) given the drawers' [state]; [PlayLayout.RESERVED]
-     * for the centre diamond (T09), [PlayLayout.NONE] for dividers, margins and empty drawer areas.
-     * Priority inside an open panel: bar (incl. its upward extension) → cells → life halves. The bar's
-     * left segment returns the commander button's zone ([CommanderZones.BUTTON], T30).
-     */
-    fun hitTest(gx: Int, gy: Int, state: DrawerState): Int {
-        val pl = play
-        if (pl.inDiamondHit(gx, gy)) return PlayLayout.RESERVED
-        for (s in 0 until P) {
-            val p = pl.panels[s]
-            if (!p.contains(gx, gy)) continue
-            if (!state.isOpen(s)) {
-                if (pl.tabHit[s].contains(gx, gy)) return DrawerZones.zone(s, DrawerZones.TAB)
-                return lifeZone(s, gx, gy)
-            }
-            if (barHit[s * 3].contains(gx, gy)) return CommanderZones.zone(s, CommanderZones.BUTTON)
-            if (barHit[s * 3 + 2].contains(gx, gy)) {
-                val z = when {
-                    state.hasNext(s) -> DrawerZones.NEXT
-                    state.hasPrev(s) -> DrawerZones.PREV
-                    else -> DrawerZones.TAB
-                }
-                return DrawerZones.zone(s, z)
-            }
-            if (barHit[s * 3 + 1].contains(gx, gy)) return DrawerZones.zone(s, DrawerZones.TAB)
-            val n = minOf(state.itemsOnPage(s), perPage)
-            for (slot in 0 until n) {
-                val i = (s * MS + slot) * 2
-                if (halfHit[i].contains(gx, gy)) return DrawerZones.cellZone(s, slot, DrawerZones.MINUS)
-                if (halfHit[i + 1].contains(gx, gy)) return DrawerZones.cellZone(s, slot, DrawerZones.PLUS)
-            }
-            if (drawer[s].contains(gx, gy)) return PlayLayout.NONE
-            return lifeZone(s, gx, gy)
-        }
-        return PlayLayout.NONE
-    }
-
-    private fun lifeZone(s: Int, gx: Int, gy: Int): Int {
-        val p = play.panels[s]
-        val lx = if (play.rotation[s] == 180) p.right - 1 - gx else gx - p.left
-        return PlayLayout.zone(s, if (lx < play.panelW / 2) PlayLayout.MINUS else PlayLayout.PLUS)
-    }
-
-    /**
-     * The rect a pressed [zone] inverts (rule 6): life half (upper area when open), the closed tab,
-     * a bar segment or a cell half card. Returns false (and leaves [out]) if none.
-     */
-    fun feedbackRect(zone: Int, state: DrawerState, out: IRect): Boolean {
-        if (DrawerZones.isLife(zone)) {
-            val s = PlayLayout.zoneSeat(zone)
-            copy(if (state.isOpen(s)) lifeZones[zone] else play.zones[zone], out)
-            return true
-        }
-        if (!DrawerZones.isDrawer(zone)) return false
-        val s = DrawerZones.seatOf(zone)
-        val local = DrawerZones.localOf(zone)
-        val open = state.isOpen(s)
-        when {
-            local == DrawerZones.TAB -> copy(if (open) barSeg[s * 3 + 1] else play.tab[s], out)
-            !open -> return false
-            local == DrawerZones.PREV || local == DrawerZones.NEXT -> copy(barSeg[s * 3 + 2], out)
-            else -> {
-                val slot = DrawerZones.slotOf(local)
-                if (slot >= perPage) return false
-                copy(halfVis[(s * MS + slot) * 2 + DrawerZones.halfOf(local)], out)
-            }
-        }
-        return true
-    }
-
-    private fun copy(src: IRect, out: IRect) {
-        out.set(src.left, src.top, src.right, src.bottom)
-    }
 
     override fun toString(): String =
         "DrawerLayout(S=$scale tk $tk target $target, cols $cols rows $rows rowH $rowH perPage $perPage, " +

@@ -1,6 +1,5 @@
 package au.com.josephmark.dithertracker.drawer
 
-import au.com.josephmark.dithertracker.commander.CommanderMode
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.Counter
@@ -15,7 +14,7 @@ import au.com.josephmark.dithertracker.dither.Icon
  *
  * The tray, in display order: commander tax (primary, then partner when the player has `partner`)
  * followed by the configured `drawerCounters` in their order. Tax goes first because it is used
- * every game. Commander damage is not a drawer item since T30 (see `play.CommanderMode`). The same
+ * every game. Commander damage is not a drawer item since T30 (see `commander.CommanderMode`). The same
  * order is used by the closed-drawer counter peeks (T32).
  */
 object DrawerItems {
