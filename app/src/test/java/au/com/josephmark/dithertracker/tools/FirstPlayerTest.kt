@@ -1,0 +1,170 @@
+package au.com.josephmark.dithertracker.tools
+
+import au.com.josephmark.dithertracker.core.Action
+import au.com.josephmark.dithertracker.core.flavour.Flavour
+import au.com.josephmark.dithertracker.core.flavour.QuipKind
+import au.com.josephmark.dithertracker.dither.DitherGrid
+import au.com.josephmark.dithertracker.dither.IRect
+import au.com.josephmark.dithertracker.menu.GemLayout
+import au.com.josephmark.dithertracker.menu.MenuItem
+import au.com.josephmark.dithertracker.menu.MenuOverlay
+import au.com.josephmark.dithertracker.menu.MenuState
+import au.com.josephmark.dithertracker.peeks.PeekLayout
+import au.com.josephmark.dithertracker.play.PlayLayout
+import au.com.josephmark.dithertracker.play.PlayRig
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class FirstPlayerTest {
+
+    private class Rig(s: Int = 4) {
+        val rig = PlayRig(s = s)
+        val menu = rig.stage.components.filterIsInstance<MenuOverlay>().single()
+        val first = rig.stage.components.filterIsInstance<FirstPlayer>().single()
+        val l get() = first.layout!!
+
+        fun tap(x: Int, y: Int) {
+            rig.stage.down(0, x, y, rig.platform.clock.now)
+            rig.stage.up(0)
+        }
+
+        fun pickFromMenu() {
+            tap(rig.l.diamondCx, rig.l.diamondCy)
+            val g = menu.gem!!
+            val s = GemLayout.slotOf(MenuItem.FIRST)
+            tap(g.facetX[s], g.facetY[s])
+        }
+
+        fun device(r: IRect) = IRect().also { rig.l.grid.toDevice(r, it) }
+        val turn get() = rig.session.state.turn
+    }
+
+    private fun IRect.meets(o: IRect) = left < o.right && o.left < right && top < o.bottom && o.top < bottom
+    private fun IRect.inside(o: IRect) = left >= o.left && top >= o.top && right <= o.right && bottom <= o.bottom
+
+    @Test fun firstFacetPicksMarksTheTileAndStartsTurns() {
+        val r = Rig()
+        r.tap(r.rig.l.diamondCx, r.rig.l.diamondCy)
+        r.rig.platform.invalidated.clear()
+        val g = r.menu.gem!!
+        val s = GemLayout.slotOf(MenuItem.FIRST)
+        r.tap(g.facetX[s], g.facetY[s])
+        assertEquals(MenuState.CLOSED, r.menu.state.phase)
+        val seat = r.first.seat
+        assertTrue(seat in 0..3)
+        val id = r.rig.id(seat)
+        assertEquals(id, r.turn.startingPlayer)
+        assertEquals(id, r.turn.activePlayer)
+        assertEquals(1, r.turn.number)
+        assertTrue(r.first.caption in Flavour.quippy.lines(QuipKind.STARTING_PLAYER).map { it.uppercase() })
+        // The band was redrawn (with the gem's closing, in the same frame).
+        val band = r.device(r.l.bandRect(seat, IRect()))
+        assertTrue(r.rig.platform.invalidated.any { it.left <= band.left && it.top <= band.top && it.right >= band.right && it.bottom >= band.bottom })
+        // Undoable like any other game change.
+        assertTrue(r.rig.session.history.canUndo)
+    }
+
+    @Test fun clearsAfterAWhileWithOneRedrawOfTheBand() {
+        val r = Rig()
+        r.pickFromMenu()
+        val seat = r.first.seat
+        r.rig.platform.invalidated.clear()
+        r.rig.platform.clock.advance(FirstPlayer.SHOW_MS - 1)
+        assertEquals(seat, r.first.seat)
+        r.rig.platform.clock.advance(1)
+        assertEquals(-1, r.first.seat)
+        assertEquals(listOf(r.device(r.l.bandRect(seat, IRect()))), r.rig.platform.invalidated)
+    }
+
+    @Test fun anyTouchClearsAndStillActs() {
+        val r = Rig()
+        r.pickFromMenu()
+        assertTrue(r.first.seat >= 0)
+        val z = PlayRig.mid(r.rig.l.zones[PlayLayout.zone(1, PlayLayout.PLUS)])
+        r.tap(z[0], z[1])
+        assertEquals(-1, r.first.seat)
+        assertEquals(41, r.rig.session.state.players[1].life)
+        // The centre diamond too.
+        r.pickFromMenu()
+        assertTrue(r.first.seat >= 0)
+        r.tap(r.rig.l.diamondCx, r.rig.l.diamondCy)
+        assertEquals(-1, r.first.seat)
+        assertEquals(MenuState.OPEN, r.menu.state.phase)
+    }
+
+    @Test fun neverPicksAKnockedOutPlayer() {
+        val r = Rig()
+        val s = r.rig.session
+        s.dispatch(Action.MarkDead(r.rig.id(0)), 0)
+        s.dispatch(Action.SetLife(r.rig.id(2), 0), 0)
+        s.dispatch(Action.MarkDead(r.rig.id(3)), 0)
+        repeat(12) {
+            r.first.pick()
+            assertEquals(1, r.first.seat)
+            assertEquals(r.rig.id(1), r.turn.startingPlayer)
+        }
+        // Over many picks with everyone alive, every seat comes up.
+        val r2 = Rig()
+        val seen = HashSet<Int>()
+        repeat(60) { r2.first.pick(); seen += r2.first.seat }
+        assertEquals(setOf(0, 1, 2, 3), seen)
+    }
+
+    @Test fun captionsNeverRepeatTwiceRunning() {
+        val r = Rig()
+        var last = ""
+        repeat(30) {
+            r.first.pick()
+            assertFalse(r.first.caption == last)
+            last = r.first.caption
+        }
+    }
+
+    @Test fun resultsHookHearsThePick() {
+        val r = Rig()
+        val heard = ArrayList<Int>()
+        r.first.results = object : ToolResults {
+            override fun onStartingPlayer(id: Int) { heard += id }
+        }
+        r.first.pick()
+        assertEquals(listOf(r.rig.id(r.first.seat)), heard)
+    }
+
+    /** The band sits in the under row between the peek corners, clear of the number and the tab. */
+    @Test fun bandGeometryAndCaptionsFit() {
+        for (s in 2..4) {
+            val p = PlayLayout.compute(DitherGrid(1872, 1404, s))
+            val l = FirstPlayerLayout(p)
+            assertTrue(l.enabled)
+            val peek = PeekLayout(p)
+            val chip = IRect()
+            val fp = IRect()
+            for (seat in 0 until PlayLayout.PLAYERS) {
+                val band = l.bandRect(seat, IRect())
+                assertTrue(band.inside(p.panels[seat]))
+                assertFalse(band.meets(p.numberSlot[seat]))
+                assertFalse(band.meets(p.tabHit[seat]))
+                for (v in listOf(-999, 40, 9999)) { p.numberFootprint(seat, v, fp); assertFalse(band.meets(fp)) }
+                for (i in 0 until peek.slots) {
+                    peek.chip(seat, i, peek.colW, inverted = true, out = chip)
+                    assertFalse("S=$s seat $seat peek $i", band.meets(chip))
+                }
+                for (q in Flavour.quippy.lines(QuipKind.STARTING_PLAYER)) {
+                    l.arrange(seat, q.uppercase())
+                    assertFalse("S=$s '$q'", l.truncated)
+                    for (i in 0 until l.lines) assertTrue("S=$s '$q' ${l.line[i]} in $band", l.line[i].inside(band))
+                }
+            }
+        }
+    }
+
+    @Test fun worksAtEveryScale() {
+        for (s in 2..6) {
+            val r = Rig(s)
+            r.pickFromMenu()
+            assertEquals(r.rig.id(r.first.seat), r.turn.startingPlayer)
+        }
+    }
+}

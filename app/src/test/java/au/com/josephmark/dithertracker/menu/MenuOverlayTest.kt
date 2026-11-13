@@ -77,6 +77,7 @@ class MenuOverlayTest {
 
     @Test fun hitTestingWhileOpen() {
         val r = Rig()
+        r.menu.destinations.unregister(MenuItem.DICE) // PlayScreen registers it (T16); this test wants it unrouted
         r.rig.session.changeLife(0, -1, 0)
         r.rig.session.changeLife(0, 1, 5_000) // a second step, so REDO appears after one undo
         r.open()
@@ -233,6 +234,7 @@ class MenuOverlayTest {
 
     @Test fun routedItemsUseRegisteredDestinations() {
         val r = Rig()
+        r.menu.destinations.unregister(MenuItem.DICE) // PlayScreen registers it (T16); this test wants it unrouted
         r.open()
         val dice = GemLayout.slotOf(MenuItem.DICE)
         assertFalse(r.menu.enabled[dice])
