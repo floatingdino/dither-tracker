@@ -29,7 +29,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
 | T01 | done | — | Gradle scaffold: wrapper, `:core` (Kotlin/JVM + JUnit) and `:app` (single Activity, blank custom View), `.gitignore`, builds a debug APK. Document build/run commands in `README.md`. | root gradle files, `app/`, `core/build.gradle.kts`, `README.md` |
-| T02 | wip | — | Icon set: 16×16 ASCII icons for every tracker/toggle/tool in SPEC (see T02 notes), plus `design/icons/README.md` contact sheet and a validator script. | `design/icons/` |
+| T02 | done | — | Icon set: 16×16 ASCII icons for every tracker/toggle/tool in SPEC (see T02 notes), plus `design/icons/README.md` contact sheet and a validator script. | `design/icons/` |
 | T03 | done | T01 | Core game model: immutable `GameState`, players, counters, commander damage (partners), toggles, auto-KO rules, reducer of `Action`s, undo/redo stack, history log. Full unit tests. | `core/src/` |
 | T04 | done | T01 | Dither engine: pattern set (SPEC), global-phase tiled fill, integer-scale grid maths (`DitherGrid`: device px ↔ dither px, margins), 1-bit paint helpers, icon loader/blitter (build step converts `design/icons/*.txt` → Kotlin/asset). JVM tests for grid maths; pixel-purity test. | `app/src/main/**/dither/`, `design/patterns/` |
 | T05 | wip | T04 | Bitmap type: integer-scaled 1-bit mono font. Large numerals (life totals) + small caps UI face (A–Z, 0–9, punctuation). Hand-authored ASCII glyphs or an OFL pixel font converted at build time; no AA. Text measure/draw API on the dither grid. | `app/src/main/**/type/`, `design/font/` |
@@ -71,6 +71,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T20 | todo | T11 T12 | Performance pass: zero allocations in draw, startup time, APK size, StrictMode clean; measure on emulator throttled. | whole app |
 | T21 | todo | T04 T02 | App icon (1-bit, adaptive + legacy) and launcher label from the icon set / dither patterns. | `app/src/main/res/` |
 | T22 | todo | all | Full pixel-purity regression suite: render every screen at S=2..6, both orientations, inverted and not; fail on any non-#000/#FFF pixel or any off-grid edge. | `app/src/test/` |
+| T24 | todo | T08 | Icon polish pass after seeing them in the drawer on device and after Sam's feedback: weakest are `commander-tax`, `initiative`, `energy`, `generic-counter`, `players`, `coin`. | `design/icons/` |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
 
 ## Task notes
@@ -104,3 +105,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-13 — Tick 4: T04 verified (20 app tests + build pass; fresh Nomad capture passes
   `tools/check_1bit.py --scale 4`; eyeballed) and committed. Engine rules folded into SPEC.
   Dispatched T05. T02, T10a still running.
+- 2026-11-13 — Tick 5: T02 verified (validator: 43 icons, 0 problems; contact sheet reviewed;
+  Figma icons untouched) and committed. Added T24 (icon polish). T05, T10a still running.
