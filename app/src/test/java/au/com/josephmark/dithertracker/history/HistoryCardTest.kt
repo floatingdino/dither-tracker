@@ -5,6 +5,8 @@ import au.com.josephmark.dithertracker.core.LogEntry
 import au.com.josephmark.dithertracker.core.LogEvent
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.IRect
+import au.com.josephmark.dithertracker.play.PlayLayout
+import au.com.josephmark.dithertracker.seat.SeatGlyphs
 import au.com.josephmark.dithertracker.widgets.RasterCanvas
 import au.com.josephmark.dithertracker.widgets.WidgetMetrics
 import au.com.josephmark.dithertracker.widgets.WidgetPainter
@@ -32,9 +34,11 @@ class HistoryCardTest {
 
     private fun screen(s: Int) = DitherGrid(1872, 1404, s).let { IRect().set(0, 0, it.width, it.height) }
 
-    private fun card(s: Int, rot: Int, n: Int, canUndo: Boolean = true) = HistoryCard().apply {
+    private fun seats(s: Int) = SeatGlyphs.forPanels(PlayLayout.compute(DitherGrid(1872, 1404, s)).panels)
+
+    private fun card(s: Int, rot: Int, n: Int, canUndo: Boolean = true, lg: List<LogEntry> = log(n)) = HistoryCard().apply {
         emptyLine = "Nothing yet. Suspiciously quiet"
-        layout(s, screen(s), rot, log(n), state, canUndo)
+        layout(s, screen(s), rot, lg, state, canUndo, seats(s))
     }
 
     private fun inside(outer: IRect, r: IRect) =
@@ -100,7 +104,7 @@ class HistoryCardTest {
             for (i in 0 until c.list.visibleCount) {
                 val r = c.rows[i]
                 val slot = c.list.slots[i]
-                val parts = arrayOf(r.iconRect, r.whoRect, r.pairArrow, r.who2Rect, r.noteRect, r.deltaRect, r.arrowRect, r.valueRect)
+                val parts = arrayOf(r.iconRect, r.seatRect, r.pairArrow, r.seat2Rect, r.whoRect, r.noteRect, r.deltaRect, r.arrowRect, r.valueRect)
                 var right = Int.MIN_VALUE
                 for (p in parts) {
                     if (p.isEmpty) continue
@@ -121,35 +125,91 @@ class HistoryCardTest {
         }
     }
 
-    @Test fun rotatedCardIsTheImageOfTheUprightOne() {
-        // At 180° the card is the exact image of the upright one (flat fills: phase-independent).
+    @Test fun rotatedCardIsTheImageOfTheUprightOne_exceptTheSeatGlyphs() {
+        // At 180° the card is the exact image of the upright one (flat fills: phase-independent) —
+        // except inside the seat glyph slots, which keep the table's own orientation (T44).
         val s = 4
         val scr = screen(s)
-        val up = RasterCanvas(scr.width, scr.height, flat = true).also { card(s, 0, 30).paint(WidgetPainter(it)) }
-        val down = RasterCanvas(scr.width, scr.height, flat = true).also { card(s, 180, 30).paint(WidgetPainter(it)) }
+        val upCard = card(s, 0, 30)
+        val downCard = card(s, 180, 30)
+        val up = RasterCanvas(scr.width, scr.height, flat = true).also { upCard.paint(WidgetPainter(it)) }
+        val down = RasterCanvas(scr.width, scr.height, flat = true).also { downCard.paint(WidgetPainter(it)) }
+        val glyphSlots = ArrayList<IRect>()
+        for (i in 0 until upCard.list.visibleCount) for (r in arrayOf(upCard.rows[i].seatRect, upCard.rows[i].seat2Rect)) {
+            if (!r.isEmpty) glyphSlots += upCard.toScreen(r, IRect())
+        }
+        assertTrue(glyphSlots.isNotEmpty())
+        var differ = 0
         for (y in 0 until scr.height) for (x in 0 until scr.width) {
+            if (glyphSlots.any { it.contains(x, y) }) { if (up[x, y] != down[scr.width - 1 - x, scr.height - 1 - y]) differ++; continue }
             assertEquals("($x,$y)", up[x, y], down[scr.width - 1 - x, scr.height - 1 - y])
+        }
+        assertTrue("seat glyphs are not simply turned with the card", differ > 0)
+    }
+
+    @Test fun rowsNeverWrapAndNumbersAreNeverCut() {
+        for (sc in 2..6) {
+            val c = card(sc, 0, 4)
+            val m = c.metrics
+            for (i in 0 until c.list.visibleCount) {
+                val r = c.rows[i]
+                val slot = c.list.slots[i]
+                if (!r.whoRect.isEmpty) assertEquals(slot.height, r.whoRect.height)
+                if (r.hasValue) assertEquals(m.num.widthOf(r.valueText.length, m.k), r.valueRect.width)
+                if (r.hasDelta) assertEquals(m.num.widthOf(r.deltaText.length, m.k), r.deltaRect.width)
+                // With names gone a player row always has room for its whole note.
+                r.note?.let { assertEquals("S=$sc $r", it.length, r.noteChars) }
+            }
         }
     }
 
-    @Test fun longNamesAreCutCleanlyAndRowsNeverWrap() {
-        val c = card(6, 0, 4) // the tightest card: S = 6
-        val m = c.metrics
-        for (i in 0 until c.list.visibleCount) {
-            val r = c.rows[i]
-            assertTrue(r.whoChars <= r.who.length)
-            assertEquals(m.textH, m.ui.height(m.k))
-            // One line: every text rect is exactly one row tall (the slot), never more.
-            assertEquals(c.list.slots[i].height, r.whoRect.height.takeIf { it > 0 } ?: c.list.slots[i].height)
+    // ---- seat glyphs (T44) ---------------------------------------------------------------------------
+
+    /** Painted pixels of a row's glyph, read back off the screen raster in screen orientation. */
+    private fun painted(c: HistoryCard, canvas: RasterCanvas, seat: Int, slot: IRect): String {
+        val g = c.toScreen(c.seatGlyphRect(seat, slot, IRect()), IRect())
+        val k = c.metrics.k
+        return buildString {
+            for (y in g.top until g.bottom step k) {
+                for (x in g.left until g.right step k) append(if (canvas[x, y] == RasterCanvas.INK) '#' else '.')
+                append('\n')
+            }
         }
-        // The commander row "Dev-ish > Bartholomew…" cuts the long target at a whole word.
-        val dmg = (0 until c.list.visibleCount).map { c.rows[it] }.first { it.isPair }
-        val cut = dmg.who2!!.subSequence(0, dmg.who2Chars).toString()
-        assertTrue(cut, longName.startsWith(cut))
-        assertTrue(cut, cut.length < longName.length)
-        assertFalse(cut, cut.endsWith(" "))
-        // Numbers are never cut: delta and value keep their full width.
-        assertEquals(m.num.widthOf(dmg.valueText.length, m.k), dmg.valueRect.width)
+    }
+
+    @Test fun seatGlyphsArePaintedInScreenOrientationAtEveryScaleAndRotation() {
+        val lg = listOf(
+            LogEntry(0, 0, LogEvent.LifeChanged(2, -7, 33)),
+            LogEntry(1, 0, LogEvent.CommanderDamageChanged(1, 3, 0, 7, 7)),
+            LogEntry(2, 0, LogEvent.LifeChanged(9, -1, 39)), // no longer seated
+            LogEntry(3, 0, LogEvent.DayNightChanged(au.com.josephmark.dithertracker.core.DayNight.NIGHT)),
+        )
+        for (sc in 2..6) for (rot in intArrayOf(0, 90, 180, 270)) {
+            val c = card(sc, rot, 0, lg = lg)
+            val map = seats(sc).map(SeatGlyphs.ICON)
+            val scr = screen(sc)
+            val canvas = RasterCanvas(scr.width, scr.height)
+            c.paint(WidgetPainter(canvas))
+            val tag = "S=$sc rot=$rot"
+            // Newest first: night (no glyph), removed player (empty table), commander 3 > 1, life on seat 2.
+            val night = c.rows[0]; val gone = c.rows[1]; val cmd = c.rows[2]; val life = c.rows[3]
+            assertFalse(tag, night.hasSeat)
+            assertEquals(tag, map.ascii(SeatGlyphs.EMPTY), painted(c, canvas, gone.seat, gone.seatRect))
+            assertEquals(tag, map.ascii(3), painted(c, canvas, cmd.seat, cmd.seatRect))
+            assertEquals(tag, map.ascii(1), painted(c, canvas, cmd.seat2, cmd.seat2Rect))
+            assertFalse(tag, cmd.pairArrow.isEmpty)
+            assertEquals(tag, map.ascii(2), painted(c, canvas, life.seat, life.seatRect))
+            // Glyph slots are icon-sized squares right after the kind icon; the glyph sits inside.
+            for (r in arrayOf(gone, cmd, life)) {
+                assertEquals(tag, c.metrics.icon, r.seatRect.width)
+                assertEquals(tag, r.iconRect.right + c.metrics.gap, r.seatRect.left)
+                val g = c.seatGlyphRect(r.seat, r.seatRect, IRect())
+                assertTrue(tag, inside(r.seatRect, g))
+            }
+            // No row shows a name: the label rect is only used by player-less rows.
+            for (r in arrayOf(gone, cmd, life)) assertTrue(tag, r.whoRect.isEmpty)
+            assertFalse(tag, night.whoRect.isEmpty)
+        }
     }
 
     // ---- hit-testing -----------------------------------------------------------------------------

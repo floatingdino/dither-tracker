@@ -32,7 +32,7 @@ class HistoryIndexTest {
         )
         val i = HistoryIndex().apply { update(log) }
         assertEquals(
-            listOf("[life] Player 3 | −3 → 37", "[life] Player 2 | −2 → 38", "[life] Player 1 | −1 → 39"),
+            listOf("[life] s2 | −3 → 37", "[life] s1 | −2 → 38", "[life] s0 | −1 → 39"),
             rows(i),
         )
     }
@@ -48,13 +48,13 @@ class HistoryIndexTest {
         assertTrue(i.grouped)
         val r = rows(i, h.state)
         assertEquals("--- TURN 2 ---", r[0])
-        assertEquals("[life] Player 4 | +2 → 42", r[1])
-        assertTrue(r[2], r[2].startsWith("[turn] Player 3 | turn 2"))
+        assertEquals("[life] s3 | +2 → 42", r[1])
+        assertTrue(r[2], r[2].startsWith("[turn] s2 | turn 2"))
         assertEquals("--- TURN 1 ---", r[3])
-        assertEquals("[life] Player 3 | −5 → 35", r[4])
+        assertEquals("[life] s2 | −5 → 35", r[4])
         assertTrue(r[5], r[5].startsWith("[turn]"))
         assertEquals("--- PREGAME ---", r[6])
-        assertEquals("[life] Player 1 | −1 → 39", r[7])
+        assertEquals("[life] s0 | −1 → 39", r[7])
         assertEquals(8, i.size)
         assertTrue(i.isDivider(0)); assertEquals(2, i.dividerTurn(0))
         assertTrue(i.isDivider(6)); assertEquals(0, i.dividerTurn(6))

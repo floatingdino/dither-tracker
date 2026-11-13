@@ -5,6 +5,7 @@ import au.com.josephmark.dithertracker.core.LogEntry
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.Icon
 import au.com.josephmark.dithertracker.dither.Role
+import au.com.josephmark.dithertracker.seat.SeatGlyphs
 import au.com.josephmark.dithertracker.type.TextLayout
 import au.com.josephmark.dithertracker.widgets.Button
 import au.com.josephmark.dithertracker.widgets.ButtonStyle
@@ -23,10 +24,10 @@ import au.com.josephmark.dithertracker.widgets.WidgetPainter
  * ```
  * +--------------------------------------+
  * |[rot]::::: HISTORY :::::[undo UNDO][X]|  title bar (TAB dither), rowH tall
- * | (life) Alice               -7 -> 33  |  rows: rowH + 1-px dotted rule
- * | (dead) Bob                beefed it  |
+ * | (life) [#.]               -7 -> 33  |  rows: rowH + 1-px dotted rule; [#.] = seat glyph (T44)
+ * | (dead) [.#]                took 21  |
  * | ............ TURN 4 ...............  |  turn divider (only with turn tracking)
- * | (imp)  Cleo -> Bob         +7 -> 21  |
+ * | (imp)  [..] -> [.#]        +7 -> 21  |  commander damage: source seat -> target seat
  * | <              2/5                > |  pager footer (only with > 1 page)
  * +--------------------------------------+
  * ```
@@ -35,6 +36,11 @@ import au.com.josephmark.dithertracker.widgets.WidgetPainter
  * has the same footprint whichever way it faces. Rows come from [index] a page at a time: only the
  * visible rows are formatted, into a fixed pool of [HistoryRow]s — a page turn re-formats ≤ 16 rows
  * and allocates nothing.
+ *
+ * Seat glyphs ([seats], T44) are pictures of the screen: they are drawn through the card's frame like
+ * everything else, but their images are counter-rotated ([SeatGlyphs.glyph] for the frame's rotation),
+ * so on the glass they always lie the way the table does — whichever side the card faces, the reader
+ * sees their own seat nearest them.
  */
 class HistoryCard {
 
@@ -82,13 +88,23 @@ class HistoryCard {
 
     val isEmpty: Boolean get() = index.size == 0
 
+    /** Seat glyphs for the current table layout (set by [layout]); rows show no glyph without it. */
+    var seats: SeatGlyphs? = null
+        private set
+
     /**
      * Full layout: metrics for [scale], the card centred in [screen] facing [rotation], rows from
-     * [log] (rebuilt only if it is a different object) named from [state], undo enabled per [canUndo].
+     * [log] (rebuilt only if it is a different object) seated from [state] and drawn with [seats],
+     * undo enabled per [canUndo].
      */
-    fun layout(scale: Int, screen: IRect, rotation: Int, log: List<LogEntry>, state: GameState, canUndo: Boolean) {
+    fun layout(
+        scale: Int, screen: IRect, rotation: Int, log: List<LogEntry>, state: GameState, canUndo: Boolean,
+        seats: SeatGlyphs? = this.seats,
+    ) {
         if (!::metrics.isInitialized || metrics.scale != scale) metrics = WidgetMetrics(scale)
         val m = metrics
+        this.seats = seats
+        seats?.prewarm(SeatGlyphs.ICON, m.k)
         arrow = HistoryArrow.heavy(m.k)
         pairArrow = HistoryArrow.thin(m.k)
         side = sideFor(m, screen.width, screen.height)
@@ -212,12 +228,14 @@ class HistoryCard {
             return
         }
         r.icon?.let { p.icon(f, m, it, r.iconRect, invert = false, opaque = false) }
-        p.text(f, m, m.ui, r.who, 0, r.whoChars, r.whoRect, start, invert = false, opaque = false)
-        val w2 = r.who2
-        if (w2 != null && r.who2Chars > 0) {
-            blitArrow(p, pairArrow, r.pairArrow)
-            p.text(f, m, m.ui, w2, 0, r.who2Chars, r.who2Rect, start, invert = false, opaque = false)
+        if (r.hasSeat) {
+            seat(p, r.seat, r.seatRect)
+            if (r.isPair) {
+                blitArrow(p, pairArrow, r.pairArrow)
+                seat(p, r.seat2, r.seat2Rect)
+            }
         }
+        if (r.whoChars > 0) p.text(f, m, m.ui, r.who, 0, r.whoChars, r.whoRect, start, invert = false, opaque = false)
         r.note?.let { p.text(f, m, m.ui, it, 0, r.noteChars, r.noteRect, start, invert = false, opaque = false) }
         if (r.hasDelta) p.text(f, m, m.num, r.deltaText, 0, r.deltaText.length, r.deltaRect, start, invert = false, opaque = false)
         if (r.hasDelta && r.hasValue) blitArrow(p, arrow, r.arrowRect)
@@ -225,6 +243,22 @@ class HistoryCard {
     }
 
     private val tmp = IRect()
+
+    /** Local rect the glyph for [seat] occupies inside its icon-sized slot (centred); empty without [seats]. */
+    fun seatGlyphRect(seat: Int, slot: IRect, out: IRect): IRect {
+        val g = seats?.glyph(seat, frame.rotation, SeatGlyphs.ICON, metrics.k) ?: return out.set(0, 0, 0, 0)
+        return out.setXywh(slot.left + (slot.width - g.width) / 2, slot.top + (slot.height - g.height) / 2, g.width, g.height)
+    }
+
+    private val glyphLocal = IRect()
+
+    private fun seat(p: WidgetPainter, seat: Int, slot: IRect) {
+        if (slot.isEmpty) return
+        val g = seats?.glyph(seat, frame.rotation, SeatGlyphs.ICON, metrics.k) ?: return
+        seatGlyphRect(seat, slot, glyphLocal)
+        frame.map(glyphLocal, tmp)
+        p.c.blit(g, tmp.left, tmp.top, frame.rotation, invert = false, opaque = false)
+    }
 
     private fun blitArrow(p: WidgetPainter, img: HistoryArrow, local: IRect) {
         if (local.isEmpty) return

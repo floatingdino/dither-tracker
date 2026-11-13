@@ -12,10 +12,12 @@ import au.com.josephmark.dithertracker.widgets.WidgetMetrics
  * mutable, pooled object — [HistoryFormat.format] fills it from a `LogEntry`, [layout] places its
  * parts in a list slot (local px), the card paints it. Filling and laying out never allocate.
  *
- * An entry row reads, left to right: [icon] · [who] (or `who › who2` for a pair, e.g. commander
- * damage source → target) · … · [note] (`ui`) · [delta] `→` [value] (heavy `num-m` numerals,
- * right-aligned). Names are cut cleanly ([TextFit]); a row never wraps. Numbers win the room first,
- * then the note, then the names.
+ * An entry row reads, left to right: [icon] (the event kind) · the affected player's seat glyph
+ * ([seat], `seat › seat2` for a pair, e.g. commander damage source → target; T44) · … · [note] (`ui`) ·
+ * [delta] `→` [value] (heavy `num-m` numerals, right-aligned). Player names are never shown (Sam,
+ * 2026-11-14): a seat is a little picture of the table with that seat filled. Rows with no player (day
+ * / night, new game, settings) show a constant label [who] instead. A row never wraps; numbers win the
+ * room first, then the note, then the label (cut cleanly, [TextFit]).
  */
 class HistoryRow {
 
@@ -27,8 +29,15 @@ class HistoryRow {
         private set
 
     var icon: Icon? = null
+
+    /** Seat glyph of the affected player: a layout seat, `SeatGlyphs.EMPTY` (no longer seated) or [NO_SEAT]. */
+    var seat = NO_SEAT
+
+    /** Second seat of a pair (commander damage: [seat] is the source, this the target), or [NO_SEAT]. */
+    var seat2 = NO_SEAT
+
+    /** Constant label for rows without a player ("Day breaks", "New game"); empty on player rows. */
     var who: CharSequence = ""
-    var who2: CharSequence? = null
     var note: CharSequence? = null
     var hasDelta = false
         private set
@@ -38,10 +47,6 @@ class HistoryRow {
         private set
     var value = 0
         private set
-
-    /** Fallback-name scratch ("P3") for [who] / [who2]; reused, never reallocated. */
-    internal val nameBuf = CharBuf(NAME_BUF)
-    internal val nameBuf2 = CharBuf(NAME_BUF)
 
     /** Divider label ("TURN 12"). */
     internal val label = CharBuf(NAME_BUF)
@@ -55,10 +60,11 @@ class HistoryRow {
     val whoRect = IRect()
     var whoChars = 0
         private set
+
+    /** Seat glyph slots (an icon-sized square each; the glyph is centred in it) and the pair arrow. */
+    val seatRect = IRect()
     val pairArrow = IRect()
-    val who2Rect = IRect()
-    var who2Chars = 0
-        private set
+    val seat2Rect = IRect()
     val noteRect = IRect()
     var noteChars = 0
         private set
@@ -72,7 +78,7 @@ class HistoryRow {
     val ruleRight = IRect()
 
     fun clear(): HistoryRow {
-        divider = false; turn = 0; icon = null; who = ""; who2 = null; note = null
+        divider = false; turn = 0; icon = null; seat = NO_SEAT; seat2 = NO_SEAT; who = ""; note = null
         hasDelta = false; delta = 0; hasValue = false; value = 0
         return this
     }
@@ -100,7 +106,9 @@ class HistoryRow {
         return this
     }
 
-    val isPair: Boolean get() = who2 != null
+    val isPair: Boolean get() = seat2 != NO_SEAT
+
+    val hasSeat: Boolean get() = seat != NO_SEAT
 
     /**
      * Places the parts in [slot] (local px, a list row) with metrics [m]; [arrowW]/[arrowH] is the
@@ -108,7 +116,7 @@ class HistoryRow {
      */
     fun layout(m: WidgetMetrics, slot: IRect, arrowW: Int, arrowH: Int, pairW: Int = arrowW, pairH: Int = arrowH) {
         for (r in parts) r.set(0, 0, 0, 0)
-        whoChars = 0; who2Chars = 0; noteChars = 0
+        whoChars = 0; noteChars = 0
         val top = slot.top
         val h = slot.height
         val left = slot.left + m.padX
@@ -146,55 +154,49 @@ class HistoryRow {
             deltaRect.set(x - w, top, x, top + h)
             x -= w
         }
-        val iconLeft = left
-        val nameLeft = iconLeft + if (icon != null) m.icon + gap else 0
-        if (icon != null) iconRect.setXywh(iconLeft, top + (h - m.icon) / 2, m.icon, m.icon)
+        // Left cluster: kind icon, seat glyph(s) (fixed size, never cut), then the label.
+        val iconY = top + (h - m.icon) / 2
+        var l = left
+        if (icon != null) {
+            iconRect.setXywh(l, iconY, m.icon, m.icon)
+            l = iconRect.right + gap
+        }
+        if (seat != NO_SEAT) {
+            seatRect.setXywh(l, iconY, m.icon, m.icon)
+            l = seatRect.right + gap
+            if (seat2 != NO_SEAT) {
+                pairArrow.setXywh(seatRect.right + ag, top + (h - pairH) / 2, pairW, pairH)
+                seat2Rect.setXywh(pairArrow.right + ag, iconY, m.icon, m.icon)
+                l = seat2Rect.right + gap
+            }
+        }
+        val end = if (x == right) right else x - 2 * gap
         val n = note
         if (n != null) {
-            val end = if (x == right) right else x - 2 * gap
-            // Keep at least a few glyphs of the name before the note.
-            val room = end - nameLeft - m.textW(MIN_NAME)
-            noteChars = TextFit.fit(n, m.ui, k, maxOf(0, room))
+            noteChars = TextFit.fit(n, m.ui, k, maxOf(0, end - l - if (who.isEmpty()) 0 else m.textW(MIN_NAME)))
             if (noteChars > 0) {
                 val w = m.ui.widthOf(noteChars, k)
                 noteRect.set(end - w, top, end, top + h)
-                x = noteRect.left
             }
         }
-        val nameRight = if (x == right) right else x - 2 * gap
-        val room = nameRight - nameLeft
-        if (room <= 0) return
-        val w2 = who2
-        if (w2 == null) {
-            whoChars = TextFit.fit(who, m.ui, k, room)
-            whoRect.set(nameLeft, top, nameLeft + m.ui.widthOf(whoChars, k), top + h)
-            return
-        }
-        // A pair: share the room, lending what the shorter name doesn't need to the other.
-        val names = room - pairW - 2 * ag
-        if (names <= 0) return
-        val nat1 = m.ui.widthOf(who.length, k)
-        val nat2 = m.ui.widthOf(w2.length, k)
-        val half = names / 2
-        val a1 = if (nat1 + nat2 <= names) nat1 else if (nat2 < half) names - nat2 else if (nat1 < half) nat1 else half
-        whoChars = TextFit.fit(who, m.ui, k, a1)
-        val used1 = m.ui.widthOf(whoChars, k)
-        whoRect.set(nameLeft, top, nameLeft + used1, top + h)
-        pairArrow.setXywh(whoRect.right + ag, top + (h - pairH) / 2, pairW, pairH)
-        val x2 = pairArrow.right + ag
-        who2Chars = TextFit.fit(w2, m.ui, k, nameRight - x2)
-        who2Rect.set(x2, top, x2 + m.ui.widthOf(who2Chars, k), top + h)
+        if (who.isEmpty()) return
+        val labelRight = if (noteChars > 0) noteRect.left - 2 * gap else end
+        whoChars = TextFit.fit(who, m.ui, k, maxOf(0, labelRight - l))
+        if (whoChars > 0) whoRect.set(l, top, l + m.ui.widthOf(whoChars, k), top + h)
     }
 
     /**
      * A one-line snapshot of the row's content, for tests and logs (allocates):
-     * `[life] Alice | −7 → 33`, `[commander] Bob > Cleo | +7 → 7`, `--- TURN 4 ---`.
+     * `[life] s2 | −7 → 33` (seat glyph of seat 2), `[commander] s3 > s1 | +7 → 7`, `[life] s- | …`
+     * (no longer seated), `[day] Day breaks`, `--- TURN 4 ---`.
      */
     override fun toString(): String {
         if (divider) return "--- $who ---"
         val sb = StringBuilder()
-        sb.append('[').append(icon?.name?.lowercase()?.replace('_', '-') ?: "-").append("] ").append(who)
-        who2?.let { sb.append(" > ").append(it) }
+        sb.append('[').append(icon?.name?.lowercase()?.replace('_', '-') ?: "-").append("]")
+        if (seat != NO_SEAT) sb.append(" ").append(seatTag(seat))
+        if (seat2 != NO_SEAT) sb.append(" > ").append(seatTag(seat2))
+        if (who.isNotEmpty()) sb.append(' ').append(who)
         val right = StringBuilder()
         note?.let { right.append(it) }
         if (hasDelta) {
@@ -209,14 +211,19 @@ class HistoryRow {
     }
 
     private val parts = arrayOf(
-        iconRect, whoRect, pairArrow, who2Rect, noteRect, deltaRect, arrowRect, valueRect, labelRect, ruleLeft, ruleRight,
+        iconRect, seatRect, pairArrow, seat2Rect, whoRect, noteRect, deltaRect, arrowRect, valueRect, labelRect, ruleLeft, ruleRight,
     )
 
     companion object {
         const val NAME_BUF = 16
         const val NUM_BUF = 12
 
-        /** Name glyphs a note never squeezes out. */
+        /** No seat glyph on this row (not about a player). */
+        const val NO_SEAT = -2
+
+        private fun seatTag(s: Int) = if (s < 0) "s-" else "s$s"
+
+        /** Label glyphs a note never squeezes out. */
         const val MIN_NAME = 4
 
         /** Paper either side of an arrow: 1.5 × the kit's gap (6 px at S = 4) so `+3 → 3` doesn't clump. */

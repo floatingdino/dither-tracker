@@ -9,6 +9,7 @@ import au.com.josephmark.dithertracker.menu.MenuDestination
 import au.com.josephmark.dithertracker.menu.MenuItem
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.TileSlots
+import au.com.josephmark.dithertracker.seat.SeatGlyphs
 import au.com.josephmark.dithertracker.stage.Component
 import au.com.josephmark.dithertracker.stage.Cover
 import au.com.josephmark.dithertracker.stage.Frame
@@ -52,6 +53,9 @@ class HistoryOverlay(
         private set
 
     private var play: PlayLayout? = null
+
+    /** Seat glyphs for the current layout (rebuilt only when the panels move). */
+    private var seats: SeatGlyphs? = null
     private val screen = IRect()
 
     private var painter: WidgetPainter? = null
@@ -95,13 +99,14 @@ class HistoryOverlay(
     override fun onLayout(play: PlayLayout, tiles: TileSlots) {
         this.play = play
         screen.set(0, 0, play.grid.width, play.grid.height)
+        if (seats?.sameLayout(play.panels) != true) seats = SeatGlyphs.forPanels(play.panels)
         if (isOpen) relayout()
     }
 
     private fun relayout() {
         val l = play ?: return
         val h = stage.session.history
-        card.layout(l.grid.scale, screen, rotation, h.log, h.state, h.canUndo)
+        card.layout(l.grid.scale, screen, rotation, h.log, h.state, h.canUndo, seats)
     }
 
     override fun prewarm(f: Frame) {
@@ -112,7 +117,12 @@ class HistoryOverlay(
         for (ic in PREWARM_ICONS) p.c.blit(p.scaledIcon(ic, k), 0, 0, 0, false, false)
         p.c.blit(HistoryArrow.heavy(k), 0, 0, 0, false, false)
         p.c.blit(HistoryArrow.thin(k), 0, 0, 0, false, false)
-        // Every glyph a row can show: the whole ui face (player names are free text) and num-m.
+        // Every seat glyph (and the empty table) for every way the card can face.
+        val sg = seats
+        if (sg != null) for (rot in 0 until 360 step 90) for (s in SeatGlyphs.EMPTY until sg.seats) {
+            p.c.blit(sg.glyph(s, rot, SeatGlyphs.ICON, k), 0, 0, 0, false, false)
+        }
+        // Every glyph a row can show: the whole ui face and num-m.
         f.text.draw(Fonts.UI, UI_CHARS, 0, 0, k)
         f.text.draw(Fonts.NUM_M, NUM_CHARS, 0, 0, k)
     }

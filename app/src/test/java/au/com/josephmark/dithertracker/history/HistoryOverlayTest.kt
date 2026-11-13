@@ -59,7 +59,7 @@ class HistoryOverlayTest {
         val g = r.menu.gem!!
         assertEquals(g.rotation[GemLayout.slotOf(MenuItem.LOG)].let { if (it == GemLayout.FOLD) 0 else it }, r.history.rotation)
         assertTrue(r.history.cover.active)
-        assertEquals("[life] Player 3 | −3 → 37", r.firstRow())
+        assertEquals("[life] s2 | −3 → 37", r.firstRow())
     }
 
     @Test fun whileOpenTheTableTakesNoInputAndOutsideTapsClose() {
@@ -126,11 +126,11 @@ class HistoryOverlayTest {
         r.rig.platform.invalidated.clear()
         r.rig.session.changeLife(1, -4, 0)
         assertFalse(r.card.isEmpty)
-        assertEquals("[life] Player 2 | −4 → 36", r.firstRow())
+        assertEquals("[life] s1 | −4 → 36", r.firstRow())
         assertTrue(r.rig.platform.invalidated.isNotEmpty())
         r.rig.session.changeLife(1, -1, 100) // coalesces into the same group: the row updates in place
         assertEquals(1, r.card.index.size)
-        assertEquals("[life] Player 2 | −5 → 35", r.firstRow())
+        assertEquals("[life] s1 | −5 → 35", r.firstRow())
     }
 
     @Test fun undoFromHistoryRemovesTheNewestGroupAndRefreshes() {
@@ -139,10 +139,10 @@ class HistoryOverlayTest {
         r.rig.session.changeLife(3, 5, 10_000)
         r.history.open(MenuItem.LOG, 0)
         assertTrue(r.card.live[HistoryCard.UNDO])
-        assertEquals("[life] Player 4 | +5 → 45", r.firstRow())
+        assertEquals("[life] s3 | +5 → 45", r.firstRow())
         r.tapZone(HistoryCard.UNDO)
         assertEquals(40, r.lifeOf(3))
-        assertEquals("[life] Player 1 | −2 → 38", r.firstRow())
+        assertEquals("[life] s0 | −2 → 38", r.firstRow())
         assertTrue(r.history.isOpen)
         r.tapZone(HistoryCard.UNDO)
         assertTrue(r.card.isEmpty)

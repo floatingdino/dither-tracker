@@ -10,12 +10,13 @@ import au.com.josephmark.dithertracker.core.LogEvent
 import au.com.josephmark.dithertracker.core.PlayerId
 import au.com.josephmark.dithertracker.core.Toggle
 import au.com.josephmark.dithertracker.dither.Icon
-import au.com.josephmark.dithertracker.widgets.CharBuf
+import au.com.josephmark.dithertracker.seat.SeatGlyphs
 
 /**
- * `LogEntry` → [HistoryRow] (T18). Pure and allocation-free: names are references to the current
- * players' `String`s (entries hold ids, not names), a removed player falls back to "P<id + 1>"
- * written into the row's own buffer, and every other text is a constant.
+ * `LogEntry` → [HistoryRow] (T18). Pure and allocation-free. Players are shown by their seat glyph
+ * (T44), never by name: entries hold ids, mapped to the player's *current* layout seat
+ * ([SeatGlyphs.seatOf]); a player no longer seated gets the empty table ([SeatGlyphs.EMPTY]). Every
+ * text is a constant.
  *
  * Every [LogEvent] subtype goes through one exhaustive `when` *expression* in [format], so a new
  * subtype fails compilation here until it has a row.
@@ -41,6 +42,7 @@ object HistoryFormat {
     const val KO_MANUAL = "scooped"
     const val REVIVED = "back in"
     const val NEW_LOOK = "new look"
+    const val RENAMED = "renamed"
     const val PARTNER_IN = "partner in"
     const val PARTNER_OUT = "partner out"
     const val PARTNER = "partner"
@@ -60,7 +62,7 @@ object HistoryFormat {
 
     /** Every constant above, for prewarming glyphs. */
     val ALL_COPY = arrayOf(
-        CLAIMS, LOSES, KO_LIFE, KO_POISON, KO_COMMANDER, KO_MANUAL, REVIVED, NEW_LOOK, PARTNER_IN, PARTNER_OUT,
+        CLAIMS, LOSES, RENAMED, KO_LIFE, KO_POISON, KO_COMMANDER, KO_MANUAL, REVIVED, NEW_LOOK, PARTNER_IN, PARTNER_OUT,
         PARTNER, DAY, NIGHT, DAY_NIGHT_OFF, TURN, TURNS, TURNS_OFF, SETTINGS, CHANGED, PLAYERS, NEW_GAME,
         HERE_WE_GO, RESET, CLEAN_SLATE, HistoryRow.TURN, HistoryRow.PREGAME,
     )
@@ -73,65 +75,66 @@ object HistoryFormat {
         Icon.TURN, Icon.SETTINGS, Icon.NEW_GAME, Icon.RESET,
     )
 
-    /** Fills [out] with [entry]'s row, naming players from [state]. Returns [out]. */
+    /** Fills [out] with [entry]'s row, seating players from [state]. Returns [out]. */
     fun format(entry: LogEntry, state: GameState, out: HistoryRow): HistoryRow {
         out.clear()
         val done: HistoryRow = when (val e = entry.event) {
             is LogEvent.LifeChanged -> {
                 out.icon = Icon.LIFE
-                out.who = name(state, e.player, out.nameBuf)
+                out.seat = seatOf(state, e.player)
                 out.setDelta(e.delta, e.value)
             }
             is LogEvent.CounterChanged -> {
                 out.icon = counterIcon(e.counter)
-                out.who = name(state, e.player, out.nameBuf)
+                out.seat = seatOf(state, e.player)
                 out.setDelta(e.delta, e.value)
             }
             is LogEvent.CommanderTaxChanged -> {
                 out.icon = Icon.COMMANDER_TAX
-                out.who = name(state, e.player, out.nameBuf)
+                out.seat = seatOf(state, e.player)
                 if (e.slot == Commander.PARTNER) out.note = PARTNER
                 out.setDelta(e.delta, e.value)
             }
             is LogEvent.CommanderDamageChanged -> {
                 out.icon = if (e.slot == Commander.PARTNER) Icon.PARTNER else Icon.COMMANDER
-                out.who = name(state, e.source, out.nameBuf)
-                out.who2 = name(state, e.player, out.nameBuf2)
+                out.seat = seatOf(state, e.source)
+                out.seat2 = seatOf(state, e.player)
                 out.setDelta(e.delta, e.value)
             }
             is LogEvent.ToggleChanged -> {
                 out.icon = toggleIcon(e.toggle)
-                out.who = name(state, e.player, out.nameBuf)
+                out.seat = seatOf(state, e.player)
                 out.note = if (e.on) CLAIMS else LOSES
                 out
             }
             is LogEvent.KnockedOut -> {
                 out.icon = Icon.DEAD
-                out.who = name(state, e.player, out.nameBuf)
+                out.seat = seatOf(state, e.player)
                 out.note = koNote(e.reason)
                 out
             }
             is LogEvent.Revived -> {
                 out.icon = Icon.REFRESH
-                out.who = name(state, e.player, out.nameBuf)
+                out.seat = seatOf(state, e.player)
                 out.note = REVIVED
                 out
             }
             is LogEvent.Renamed -> {
+                // Names are never shown (T44): a neutral "renamed" row on the player's seat.
                 out.icon = Icon.PLAYERS
-                out.who = e.from
-                out.who2 = e.to
+                out.seat = seatOf(state, e.player)
+                out.note = RENAMED
                 out
             }
             is LogEvent.PatternChanged -> {
                 out.icon = Icon.INVERT
-                out.who = name(state, e.player, out.nameBuf)
+                out.seat = seatOf(state, e.player)
                 out.note = NEW_LOOK
                 out
             }
             is LogEvent.PartnerChanged -> {
                 out.icon = Icon.PARTNER
-                out.who = name(state, e.player, out.nameBuf)
+                out.seat = seatOf(state, e.player)
                 out.note = if (e.partner) PARTNER_IN else PARTNER_OUT
                 out
             }
@@ -151,7 +154,7 @@ object HistoryFormat {
                     out.who = TURNS
                     out.note = TURNS_OFF
                 } else {
-                    out.who = if (active != null) name(state, active, out.nameBuf) else TURNS
+                    if (active != null) out.seat = seatOf(state, active) else out.who = TURNS
                     out.note = TURN
                     out.setValue(e.number)
                 }
@@ -184,12 +187,8 @@ object HistoryFormat {
         return done
     }
 
-    /** The player's current name, or "P<id + 1>" (written into [buf]) for a player no longer seated. */
-    fun name(state: GameState, id: PlayerId, buf: CharBuf): CharSequence {
-        val ps = state.players
-        for (i in ps.indices) if (ps[i].id == id) return ps[i].name
-        return buf.clear().append('P').append(id + 1)
-    }
+    /** The player's current layout seat, or [SeatGlyphs.EMPTY] when no longer seated. */
+    fun seatOf(state: GameState, id: PlayerId): Int = SeatGlyphs.seatOf(state, id)
 
     /**
      * True when `log[i]` is the life half of a linked commander-damage pair (see the class doc): a
