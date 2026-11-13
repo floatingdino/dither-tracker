@@ -47,6 +47,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T08 | done | T06 T02 | Player drawer: bottom tab, opens (no animation) to tracker tray; counters with icon + value + −/+; `COMMANDER DAMAGE` button → per-opponent damage view (partner aware, optional life link). | `app/src/main/**/drawer/` |
 | T30 | wip | T08 T27 | **Commander damage mode on the main interface** (Sam, 2026-11-13): an icon button on each player's tile; pressing it makes that player the *target* — every other tile swaps its life total for the commander damage that tile's player has dealt to the target (−/+ adjust it; partner slots supported), and the target's own tile swaps its life total for a quip (e.g. "Target"). Press again (or the target tile) to leave. Remove the drawer's COMMANDER DAMAGE button/view. Add a target quip category to core flavour. Same agent as T27, after it. | `play/`, `drawer/`, `core/**/flavour/` |
 | T31 | wip | — | Icon: redraw `commander` (and `partner` to match) to read as an *enemy* — demon/imp — in the current solid style. Design-only. | `design/icons/` |
+| T32 | wip | T30 | Counter peeks (Sam, 2026-11-13): with the drawer closed, show each non-zero counter as a small icon + value chip on the tile, display-only, overflow as "+N". Same agent as T27/T30. | `play/`, `drawer/` |
 | T09 | todo | T06 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
 | T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
 | T10b | done | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
@@ -218,3 +219,4 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   = +/-10 at 500 ms then every 1000 ms. Sam: move commander damage out of the drawer into a main-
   interface "target" mode (T30) and make the commander icon an enemy imp/demon (T31). Dispatched one
   agent for T27 then T30 (device), and T31 (design-only). T28d still running.
+- 2026-11-13 — Sam: add counter peeks when the drawer is closed -> T32, forwarded to the T27/T30 agent.
