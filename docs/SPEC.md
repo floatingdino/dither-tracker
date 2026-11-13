@@ -24,8 +24,7 @@ A 1-bit life tracker for MTG Commander, built for E-ink. Primary target: **Super
    beats. Constraints: effects may open up across a player's tile when it earns it (Sam likes
    cut-outs knocked through the numerals and wants options that use more of the tile), but keep ink
    sparse so few pixels flip and stay inside that player's tile; end on a clean frame with no residue; never delay or block input (a tap cancels a running
-   sequence, sequences never queue); plain state changes stay a single redraw; effects can be
-   switched off in settings. If something looks smeary or trashy on the Nomad it is cut.
+   sequence, sequences never queue); plain state changes stay a single redraw. If something looks smeary or trashy on the Nomad it is cut.
 5. **Cheap.** No Compose, no heavy deps. Custom `View`s drawing on `Canvas`. No allocations in
    `onDraw`. Cache tile bitmaps/shaders. Cold start should be near-instant; APK should be tiny.
 7. **Single window.** No Dialog, PopupWindow, Toast or system IME; overlays are drawn in-app. System
@@ -104,8 +103,10 @@ Icons must read clearly at S=2..6 and when inverted.
 
 **Settings**
 - Player count & layout, starting life, integer scale S (auto / 2–6), invert (dark mode),
-  commander-damage-affects-life, auto-KO, hold-to-repeat step, keep screen awake, which counters
-  appear in the drawer, full-refresh every N changes (ghosting cleanup), haptics off by default.
+  hold-to-repeat step, keep screen awake, which counters appear in the drawer, full-refresh every
+  N changes (ghosting cleanup), haptics off by default.
+- **Not settings — always on** (Sam, 2026-11-13): commander damage reduces life, auto knock-out,
+  effects, quips. Don't build toggles for them (core keeps the flags; the UI never exposes them).
 
 **Persistence**
 - Game state + settings survive process death (single small file, written off the main thread).
@@ -124,7 +125,7 @@ lives in small spaces, not in the main play surface:
 - **Copy**: short deadpan one-liners in a few spots — a random quip when a player is knocked out
   (in the spirit of Lotus's "didn't pay the 1"), dice/coin results, the reset confirm, empty history,
   first-launch names. Original lines only (MTG table humour, no card text or copied quotes), always
-  short enough for the `ui` face, and a setting to turn quips off.
+  short enough for the `ui` face. Quips are always on (no setting).
 - Never at the cost of the hard rules: no animation, no extra redraws, nothing that slows a tap.
 
 ## Non-goals (for now)

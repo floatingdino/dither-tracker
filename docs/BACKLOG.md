@@ -54,7 +54,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T34 | wip | T27 T30 T32 | **Component refactor** (Sam approved, 2026-11-13: play-screen edits were blocking compartmentalised features). No behaviour change. A `Component` contract (layout on the grid, draw, claim touch zones, tap/hold, invalidation on state change); a host view that owns no feature logic and loops over an ordered component list; zone ids allocated by the host; a per-seat tile layer (life, readout, drawer, peeks, commander mode, effects slot, KO slot) and a screen layer for overlays (menu, settings, history, tools). Existing tests pass; before/after device captures pixel-identical. Write `docs/architecture.md`. | `app/` |
 | T35 | done | T05 | Shared 1-bit widgets (JVM-only, new package): button, icon button, list row, toggle, stepper, segmented choice, confirm prompt, paged list — pure layout + painter + hit-testing over `DitherRenderer`/`TextRenderer`, press inversion, fingertip-size rule. | `app/**/widgets/` |
 | T36 | done | — | Centre menu design options (Sam, 2026-11-13: likes that the Lotus radial menu isn't pointed at any one player — `design/reference/lotus-menu.webp` — but no angled buttons; achieve it in our pixel-perfect language). 3–4 concepts as true-pixel mocks, incl. how second-level panels (settings, history, players) orient. Design-only. | `design/menu/` |
-| T09 | todo | T34 T35 T36 + Sam's pick | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
+| T09 | todo | T34 T35 | **Centre menu = the gem** (Sam's pick, `design/menu/concept-1-gem-*`, README): the diamond grows into a stepped diamond of 3x3 facets; items NEW, UNDO, REDO, DICE, FIRST, LOG, SETUP, CLEAN; centre becomes a close X; labelled facets face their nearest seated edge (upside-down labels on the far half are fine). **Fix:** the icon-only doubled undo/redo tips on the divider are inscrutable — give undo and redo labelled facets like the rest, and put rotation-symmetric items (e.g. DICE, CLEAN) on the two divider tips, or otherwise make undo/redo unmistakable. Second level per the mocks: two-faced restart confirm and dice result, settings card with a rotate control. Built as a screen-layer component with `widgets/`. | `app/**/menu/` |
 | T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
 | T10b | done | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
 
@@ -87,7 +87,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T22 | todo | all | Full pixel-purity regression suite: render every screen at S=2..6, both orientations, inverted and not; fail on any non-#000/#FFF pixel or any off-grid edge. | `app/src/test/` |
 | T24 | done | — | Icon redesign per Sam's feedback: redo `poison` (ugly), `rads` (too large in the set), refine `storm`; rework `experience`, `life`, `energy`, `commander` (too simplistic/off); add weight and a slightly cutesy/wacky character across the set, keeping the filled-arrow feel of `refresh`/`reset`. | `design/icons/` |
 | T25a | done | T03 | Personality copy tables in core: original quips (KO lines by reason, dice/coin lines, reset confirm, empty history, default player names) with a pure picker taking `Random`; length-checked against the `ui` face budget. | `core/src/**/flavour/` |
-| T25b | todo | T25a T15 T16 | Show quips at their call sites (KO panel, tools, reset confirm, history) as static text; "quips" setting. | call sites |
+| T25b | todo | T25a T15 T16 | Show quips at their call sites (KO panel, tools, reset confirm, history) as static text. | call sites |
 | T29 | done | T03 | Core: per-seat undo grouping so interleaved taps from different seats don't split one seat's burst into several undo steps/log entries. JVM-only. | `core/src/` |
 | T26 | done | — | Hero numeral exploration: 4–5 heavier, more characterful candidates for life totals, rendered in-context at device pixels for Sam to pick. | `design/font/candidates/` (or `design/font-candidates/`) |
 | T28a | done | — | Hit/heal effect sprites: 3–4 damage and 2–3 heal effect concepts (swipe, crunch, fizzle, sparkle…), 2–4 frames each as 1-bit ASCII frames, with offline previews (frame strips + in-context mock). | `design/fx/` |
@@ -134,10 +134,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - Quips (T25a) are in `design/copy/quips.md` for Sam to mark up. Least sure: "All quiet on the
   battlefield", "Took it personally", "Tails never fails, they say", "Drew nothing but lands" (close in
   spirit to Lotus's "flooded").
-
-- **Pick a centre menu** (T36): `design/menu/concept-*-open.png`, README with 8 open questions.
-  Concepts: gem (agent's and coordinator's pick), pinwheel, tent ribbon, turntable. The mocks still
-  show the old tile-corner commander button (drawn before the T30 redesign).
 
 ## Tick log
 
@@ -304,3 +300,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   Panel, PagedList, TextFit/TextWrap, HitRegion, PressTracker, WidgetFrame (0/90/180/270).
   Wishlist for dither/type: shared `Icon.scaled(k)`, `TextRenderer.draw(text, start, end)`, a clip
   helper. Running: T34 (device), T37.
+- 2026-11-13 — Sam: **gem** menu wins; labels are good; the undo icons on the corners are inscrutable
+  (fix noted on T09). Settings to drop — always on: commander damage hits life, auto knock-out,
+  effects, quips (SPEC updated; no toggles in T12/T15/T25b/T28c).
