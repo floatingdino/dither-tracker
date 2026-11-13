@@ -79,21 +79,37 @@ class CleanComponentTest {
         assertEquals(0, clean.cadence.count)
     }
 
-    @Test fun aTouchCancelsAtOnceInsideIsSwallowedOutsideStillActs() {
+    @Test fun aTapDuringACleanCancelsItAndStillActs() {
         every(2)
         tapPlus(3); tapPlus(3)
         runUntilClean()
         assertEquals(rig.l.panels[3], clean.cleaner.region)
         rig.platform.invalidated.clear()
-        tapPlus(3) // inside the region: cancels, swallowed
+        tapPlus(3) // inside the region: cancels and acts (SPEC rule 4: never block input)
         assertFalse(clean.cleaner.active)
-        assertEquals(42, life(3))
+        assertEquals(43, life(3))
         assertTrue(rig.platform.invalidated.isNotEmpty()) // redrawn at once
         assertTrue(clean.cadence.due) // cancelled, not done: retried at the next quiet moment
         runUntilClean()
         tapPlus(0) // outside: cancels and acts
         assertFalse(clean.cleaner.active)
         assertEquals(41, life(0))
+    }
+
+    @Test fun aTapDuringAFullCleanOrTheOverlayCloseKeyframeStillActs() {
+        every(0)
+        rig.stage.send(Events.CLEAN, Stage.SCREEN)
+        assertTrue(clean.cleaner.active)
+        tapPlus(1)
+        assertFalse(clean.cleaner.active)
+        assertEquals(41, life(1))
+        every(20)
+        settingsCard.open(0)
+        settingsCard.close()
+        assertTrue(clean.cleaner.black) // the close's keyframe is up...
+        tapPlus(2) // ...and the table is live under it
+        assertFalse(clean.cleaner.active)
+        assertEquals(41, life(2))
     }
 
     @Test fun neverWhileATouchIsDown() {

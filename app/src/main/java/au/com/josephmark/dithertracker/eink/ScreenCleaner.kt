@@ -14,8 +14,8 @@ import au.com.josephmark.dithertracker.play.Scheduler
  * drawn, the call runs [VENDOR_DELAY_MS] later (so a redraw posted in the same frame reaches the panel
  * first), and on failure it falls back to the ink frame.
  *
- * The owner draws [draw] last in its frame, routes [timerId] to [onTimer], swallows touches inside
- * [region] while [active] (a block zone) and calls [cancel] on any touch (SPEC rule 4: a tap cancels a
+ * The owner draws [draw] last in its frame, routes [timerId] to [onTimer] and calls [cancel] on any
+ * touch, which still acts normally (SPEC rule 4: never block input; a tap cancels a
  * running sequence; the redraw then happens at once). Allocation-free.
  */
 class ScreenCleaner(

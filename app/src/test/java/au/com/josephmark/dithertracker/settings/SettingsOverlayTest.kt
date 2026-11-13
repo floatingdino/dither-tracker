@@ -6,7 +6,6 @@ import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.Icon
-import au.com.josephmark.dithertracker.eink.ScreenCleaner
 import au.com.josephmark.dithertracker.menu.GemLayout
 import au.com.josephmark.dithertracker.menu.MenuItem
 import au.com.josephmark.dithertracker.menu.MenuOverlay
@@ -135,7 +134,6 @@ class SettingsOverlayTest {
         val dev = IRect()
         r.l.grid.toDevice(r.card.bounds, dev)
         assertTrue(r.rig.platform.invalidated.any { it.left <= dev.left && it.top <= dev.top && it.right >= dev.right && it.bottom >= dev.bottom })
-        r.rig.platform.clock.advance(ScreenCleaner.HOLD_MS) // the close's e-ink clean keyframe (T19b)
         assertEquals("menu", r.rig.hit(r.l.diamondCx, r.l.diamondCy))
     }
 

@@ -265,14 +265,15 @@ when the setting is on. Manual CLEAN (menu) is the same full clean and works wit
 Counts reset after a clean that ran to its end (any kind), on new game and on a threshold change; a
 cancelled clean keeps them, so it is retried at the next quiet moment.
 
-**Touch during a clean.** Any pointer-down cancels it and the region is redrawn in that frame; a tap
-inside the cleaned region is swallowed (for a full clean: the whole screen), outside it acts.
+**Touch during a clean.** Never blocks input (SPEC rule 4): any pointer-down cancels it, the region is
+redrawn in that same frame and the touch acts normally, inside or outside the region, for seat, full,
+manual and overlay-close cleans alike.
 
 **Emulator (logic only, emulator-5566).** With `--ez trace true --ei cleanEvery 3`: three taps on one
 seat → `eink count=…`, `pending`, the readout commit and its effect hold it off, the seat clean starts
 2.0 s after the last effect keyframe and ends 300 ms later; screencap just before vs after the clean is
-byte-identical (`cmp`); a tap 6 ms into the black frame cancelled it at once and was swallowed (life
-unchanged); the clean was retried 2 s later. Spread taps → full clean, before/after identical. Settings
+byte-identical (`cmp`); a tap 6 ms into the black frame cancelled it at once (that build swallowed the
+tap; since changed so the tap acts, JVM-tested); the clean was retried 2 s later. Spread taps → full clean, before/after identical. Settings
 card open 12 s → no timer; closing it → full ink keyframe, then the table. `cleanEvery 0` → no eink
 activity in 12 taps. HOME while pending → no clean in the background; back → clean 2 s later. Every
 capture passes `tools/check_1bit.py --scale 4`. Not judged: anything about the panel.
@@ -288,7 +289,7 @@ capture passes `tools/check_1bit.py --scale 4`. Not judged: anything about the p
    photograph under raking light before and after the seat clean. Try the full clean too.
 3. Does a seat clean flicker the other seats (E1/E8: whether the HWC escalates a big diff to a full
    flash)?
-4. Tap during the black frame: the redraw must come back immediately and the tap must not act.
+4. Tap during the black frame: the redraw must come back immediately (and the tap applies).
 5. Settings → close with Screen clean on: one black beat, then the table. Does it read as intended or
    as a double flash on top of the HWC's own update?
 6. Vendor refresh: `$A -s <nomad> shell getprop ro.product.manufacturer` (the guard requires

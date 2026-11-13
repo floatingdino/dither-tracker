@@ -227,13 +227,12 @@ class MenuOverlayTest {
         r.rig.platform.clock.advance(1)
         assertFalse(cleaner.active)
         assertEquals(listOf(full), r.rig.platform.invalidated)
-        // A touch cancels a running cleanup at once; inside the cleaned region (here the whole
-        // screen) the tap itself is swallowed (T19b).
+        // A touch on a tile cancels a running cleanup at once (and still reaches the tile).
         r.open(); r.tapItem(MenuItem.CLEAN)
         val n = PlayRig.mid(r.l.zones[PlayLayout.zone(3, PlayLayout.PLUS)])
         r.tap(n[0], n[1])
         assertFalse(cleaner.active)
-        assertEquals(40, r.life(3))
+        assertEquals(41, r.life(3))
     }
 
     @Test fun routedItemsUseRegisteredDestinations() {

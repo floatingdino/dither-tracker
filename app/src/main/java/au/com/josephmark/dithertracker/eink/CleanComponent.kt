@@ -28,8 +28,8 @@ import au.com.josephmark.dithertracker.stage.ZoneSink
  * - **Overlay close**: when a cover that hid the whole table (settings, history) goes away, the full
  *   redraw gets an ink keyframe first — only while the setting is on.
  * - **Manual**: [Events.CLEAN] (the menu) cleans the whole screen, setting on or off.
- * - While a clean runs, touches inside its region are swallowed (a block zone); any pointer-down
- *   cancels it and the region is redrawn in the same frame.
+ * - A clean never blocks input (SPEC rule 4): any pointer-down cancels it, the region is redrawn in
+ *   that same frame and the touch acts normally (it declares no zones).
  * - Resets on new game and player-count change; [Events.PAUSE] drops the quiet timer.
  */
 class CleanComponent : Component(Layer.OVERLAY, Kind.OVERLAY, timerCount = TIMERS),
@@ -94,10 +94,6 @@ class CleanComponent : Component(Layer.OVERLAY, Kind.OVERLAY, timerCount = TIMER
 
     override fun draw(f: Frame, seat: Int) {
         if (cleaner.black && f.hit(cleaner.region)) cleaner.draw(f.r)
-    }
-
-    override fun zones(seat: Int, z: ZoneSink) {
-        if (cleaner.active) z.block(cleaner.region)
     }
 
     // ---- notifications -------------------------------------------------------------------------
