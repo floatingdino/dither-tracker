@@ -79,7 +79,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T12 | wip | T34 T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life as a segmented [40] [30] [20] choice (not a stepper), counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
 | T13 | todo | T08 T12 | Player customisation: name entry (in-app 1-bit keyboard — no system IME, see SPEC rule 7), per-player background pattern picker. | `app/src/main/**/player/` |
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
-| T15 | wip | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
+| T15 | review | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
 
 ### Phase 3 — Table tools
 
@@ -387,3 +387,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   until the tree settles (one sibling test red) and the Nomad check. Destinations plug in via
   `menu.destinations.register(MenuItem.X, overlay)` — dispatched T12 settings (emulator 5562), T16
   dice/coin/first player (5566), T18 history (5570). Still running: T15, T28c.
+- 2026-11-14 — Tick 38: T15 reported with 7 commits; emulator captures eyeballed
+  (`design/captures/t15-*.png`): crosshatch dead tile, tombstone cut-out, cause chip for poison /
+  commander damage, life total as a paper cut-out, quip on a paper plate, two-tap revive, winner
+  caption between the peek corners. Decision: a +/- hold-repeat stops at the KO (effects agent told
+  to update its test). Left in `review` for the Nomad check. Coordinator's visual notes: the centre
+  diamond loses its outline against adjacent dead tiles' crosshatch and the dividers disappear
+  between two dead tiles; the hollow ringed life numeral reads a little odd. Still running: T28c,
+  T12, T16, T18.
