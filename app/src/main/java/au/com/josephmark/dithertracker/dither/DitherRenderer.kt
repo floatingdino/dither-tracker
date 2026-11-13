@@ -332,6 +332,22 @@ class DitherRenderer {
         return p
     }
 
+    // ---- clip -----------------------------------------------------------------------------
+
+    /**
+     * Clips every draw to the dither rect [r] until [unclip] (axis-aligned `Canvas.clipRect` inside a
+     * `save`; never a transform). Pairs must nest: an effect clipped to its seat's panel (T28c).
+     */
+    fun clipTo(r: IRect) {
+        val c = canvas!!
+        val g = grid
+        c.save()
+        c.clipRect(g.toDeviceX(r.left), g.toDeviceY(r.top), g.toDeviceX(r.right), g.toDeviceY(r.bottom))
+    }
+
+    /** Ends the innermost [clipTo]. */
+    fun unclip() = canvas!!.restore()
+
     // ---- internals ------------------------------------------------------------------------
 
     private fun drawDev(x: Int, y: Int, w: Int, h: Int, paint: Paint) {

@@ -43,6 +43,11 @@ class FxRenderer internal constructor(private val target: Target) {
         fun blit(img: MonoImage, x: Int, y: Int, rotation: Int, paper: Boolean)
         fun invert(mask: MonoImage, x: Int, y: Int, underlay: Runnable?)
         fun tile(mask: MonoImage, x: Int, y: Int, tile: Tile, mode: FxTileMode)
+
+        /** Clip every draw to [rect] (dither px, axis-aligned) until [unclip]. */
+        fun clip(rect: IRect) {}
+
+        fun unclip() {}
     }
 
     /**
@@ -71,6 +76,25 @@ class FxRenderer internal constructor(private val target: Target) {
     fun draw(fx: FxSpec, frame: Int, inkBox: IRect, tileRect: IRect, rotation: Int) {
         FxLayout.place(fx, inkBox, tileRect, rotation, tmp)
         drawAt(fx, frame, tmp.left, tmp.top, rotation)
+    }
+
+    /**
+     * [draw] clipped to [clip] (the seat's panel): an effect never draws outside its player's tile.
+     * The clip is only set up when the footprint actually crosses it (tile-scale frames fit exactly).
+     */
+    fun draw(fx: FxSpec, frame: Int, inkBox: IRect, tileRect: IRect, rotation: Int, clip: IRect) {
+        FxLayout.place(fx, inkBox, tileRect, rotation, tmp)
+        val inside = tmp.left >= clip.left && tmp.top >= clip.top && tmp.right <= clip.right && tmp.bottom <= clip.bottom
+        if (inside) {
+            drawAt(fx, frame, tmp.left, tmp.top, rotation)
+            return
+        }
+        target.clip(clip)
+        try {
+            drawAt(fx, frame, tmp.left, tmp.top, rotation)
+        } finally {
+            target.unclip()
+        }
     }
 
     /** Draws [frame] of [fx] with its footprint's top-left at (x, y) (see [FxLayout.place]). */
@@ -141,6 +165,10 @@ class FxRenderer internal constructor(private val target: Target) {
             },
             tile,
         )
+
+        override fun clip(rect: IRect) = r.clipTo(rect)
+
+        override fun unclip() = r.unclip()
     }
 
     companion object {
