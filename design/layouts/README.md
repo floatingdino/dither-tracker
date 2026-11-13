@@ -131,8 +131,8 @@ so it favours nobody.
 |---|---|---|
 | Life total | `−` · number · `+` | number only; the two halves are still − / + (no glyphs) |
 | Readout, hold ±10 | as before | as before |
-| Counter peeks | three chips per near corner | **off** (the corners beside the tab are 11 px wide) — counters only in the drawer |
-| Drawer tray | 4 columns × 2 rows = 8 cells a page | **2 columns** × 2 rows = 4 cells a page (more pages; the `›` chevron pages as before) |
+| Counter peeks | three chips per near corner (unchanged) | **off** (the corners beside the tab are 11 px wide) — counters only in the drawer |
+| Drawer tray | 4 columns × 2 rows = 8 a page (2×2); 6 × 1 at 2 players, 5 × 1 at 3 — the readout drops below a mid-edge diamond, leaving room for one row | **2 columns × 1 row = 2 cells a page** (9 items = 5 pages; the `›` chevron pages as before) |
 | Commander mode | partner numbers with ± each | partner ± hidden (two 2-digit numbers and their icons) |
 | KO / winner tile | quip at the one size | the same size; long quips wrap to more lines |
 | Effects | tile-wide | tile-wide (the narrower tile) |
@@ -142,6 +142,8 @@ so it favours nobody.
 1. **Narrow ± affordance.** On 5/6-player tiles the − / + glyphs are hidden; the halves still work.
    Options: ± above/below the number, ± in the near corners (where peeks would be), or a thinner face.
 2. **Peeks on narrow tiles.** Off for now. A single-column peek above the tab, or a smaller tab?
+   And the narrow drawer holds only 2 cells a page — a smaller number block while open, or a
+   one-column tray with taller pages?
 3. **Sideways seats and the table menu.** The gem's facets face the long edges (N/S); the 3-player
    end seat reads its labels sideways. Should facets near an end seat face it?
 4. **Two-faced overlays** (dice tent, settings and history cards) open facing N or S; at 3 players
