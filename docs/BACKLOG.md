@@ -30,7 +30,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 |----|--------|------|------|-------|
 | T01 | done | — | Gradle scaffold: wrapper, `:core` (Kotlin/JVM + JUnit) and `:app` (single Activity, blank custom View), `.gitignore`, builds a debug APK. Document build/run commands in `README.md`. | root gradle files, `app/`, `core/build.gradle.kts`, `README.md` |
 | T02 | wip | — | Icon set: 16×16 ASCII icons for every tracker/toggle/tool in SPEC (see T02 notes), plus `design/icons/README.md` contact sheet and a validator script. | `design/icons/` |
-| T03 | wip | T01 | Core game model: immutable `GameState`, players, counters, commander damage (partners), toggles, auto-KO rules, reducer of `Action`s, undo/redo stack, history log. Full unit tests. | `core/src/` |
+| T03 | done | T01 | Core game model: immutable `GameState`, players, counters, commander damage (partners), toggles, auto-KO rules, reducer of `Action`s, undo/redo stack, history log. Full unit tests. | `core/src/` |
 | T04 | wip | T01 | Dither engine: pattern set (SPEC), global-phase tiled fill, integer-scale grid maths (`DitherGrid`: device px ↔ dither px, margins), 1-bit paint helpers, icon loader/blitter (build step converts `design/icons/*.txt` → Kotlin/asset). JVM tests for grid maths; pixel-purity test. | `app/src/main/**/dither/`, `design/patterns/` |
 | T05 | todo | T04 | Bitmap type: integer-scaled 1-bit mono font. Large numerals (life totals) + small caps UI face (A–Z, 0–9, punctuation). Hand-authored ASCII glyphs or an OFL pixel font converted at build time; no AA. Text measure/draw API on the dither grid. | `app/src/main/**/type/`, `design/font/` |
 
@@ -42,14 +42,15 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T07 | todo | T06 | Hold-to-repeat (±10 steps) and pending-delta readout with idle commit. | `play/`, `core/` reducer hooks |
 | T08 | todo | T06 T02 | Player drawer: bottom tab, opens (no animation) to tracker tray; counters with icon + value + −/+; `COMMANDER DAMAGE` button → per-opponent damage view (partner aware, optional life link). | `app/src/main/**/drawer/` |
 | T09 | todo | T06 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
-| T10 | todo | T03 | Persistence: serialise `GameState` + settings to one file, async write, restore on launch; survives process death. | `core/` serialisation, `app/src/main/**/data/` |
+| T10a | wip | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
+| T10b | todo | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
 
 ### Phase 2 — Layouts & settings
 
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
 | T11 | todo | T06 | Layout engine for 2–6 players, portrait + landscape, per-seat rotation (0/90/180/270), all on the dither grid with leftover px as margin. Render tests per layout. | `app/src/main/**/layout/` |
-| T12 | todo | T09 T10 | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life, counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
+| T12 | todo | T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life, counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
 | T13 | todo | T08 T12 | Player customisation: name entry (on-screen 1-bit keyboard or system IME), per-player background pattern picker. | `app/src/main/**/player/` |
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | todo | T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive) + toggle. | `play/` |
@@ -97,3 +98,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   full-screen pure white 1404x1872 capture) and committed. Toolchain: Gradle 9.6.0, AGP 9.5.0,
   Kotlin 2.2.10, compileSdk 37, `JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home`.
   Device reports portrait 1404x1872 natively. Dispatched T03, T04. T02 still running.
+- 2026-11-13 — Tick 3: T03 verified (75 core tests pass on rerun, no Android/clock use) and
+  committed; behaviour notes in `docs/core-api.md`. Split T10 into T10a (core) / T10b (app);
+  dispatched T10a. T02, T04 still running.
