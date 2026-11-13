@@ -42,11 +42,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
 | T06 | done | T03 T04 T05 | Play screen for 4 players landscape: 2×2 panels, top row rotated 180°, dotted dividers, life total, −/+ hit zones (whole left/right half), inversion press feedback, dirty-rect redraws. | `app/src/main/**/play/` |
-| T07 | wip | T06 | Hold-to-repeat (±10 steps) and pending-delta readout with idle commit. | `play/`, `core/` reducer hooks |
-| T08 | todo | T06 T02 | Player drawer: bottom tab, opens (no animation) to tracker tray; counters with icon + value + −/+; `COMMANDER DAMAGE` button → per-opponent damage view (partner aware, optional life link). | `app/src/main/**/drawer/` |
+| T07 | done | T06 | Hold-to-repeat (±10 steps) and pending-delta readout with idle commit. | `play/`, `core/` reducer hooks |
+| T08 | wip | T06 T02 | Player drawer: bottom tab, opens (no animation) to tracker tray; counters with icon + value + −/+; `COMMANDER DAMAGE` button → per-opponent damage view (partner aware, optional life link). | `app/src/main/**/drawer/` |
 | T09 | todo | T06 | Centre diamond menu button + table menu overlay (new game, reset w/ confirm, undo/redo, settings entry, tools entry). | `app/src/main/**/menu/` |
 | T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
-| T10b | review | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
+| T10b | done | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
 
 ### Phase 2 — Layouts & settings
 
@@ -78,6 +78,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T24 | done | — | Icon redesign per Sam's feedback: redo `poison` (ugly), `rads` (too large in the set), refine `storm`; rework `experience`, `life`, `energy`, `commander` (too simplistic/off); add weight and a slightly cutesy/wacky character across the set, keeping the filled-arrow feel of `refresh`/`reset`. | `design/icons/` |
 | T25a | done | T03 | Personality copy tables in core: original quips (KO lines by reason, dice/coin lines, reset confirm, empty history, default player names) with a pure picker taking `Random`; length-checked against the `ui` face budget. | `core/src/**/flavour/` |
 | T25b | todo | T25a T15 T16 | Show quips at their call sites (KO panel, tools, reset confirm, history) as static text; "quips" setting. | call sites |
+| T29 | wip | T03 | Core: per-seat undo grouping so interleaved taps from different seats don't split one seat's burst into several undo steps/log entries. JVM-only. | `core/src/` |
 | T26 | wip | — | Hero numeral exploration: 4–5 heavier, more characterful candidates for life totals, rendered in-context at device pixels for Sam to pick. | `design/font/candidates/` (or `design/font-candidates/`) |
 | T28a | wip | — | Hit/heal effect sprites: 3–4 damage and 2–3 heal effect concepts (swipe, crunch, fizzle, sparkle…), 2–4 frames each as 1-bit ASCII frames, with offline previews (frame strips + in-context mock). | `design/fx/` |
 | T28b | todo | T28a T07 + Sam's pick | Effect player in the play screen: frame scheduler (injectable clock), small-region invalidation, cancel on tap, trigger rule (on delta commit / big hits), settings toggle; tune hold time on device and film it. | `play/`, `app/**/fx/` |
@@ -180,3 +181,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-13 — Sam clarified the animation rule: "keyframes, not inbetweens" — limited animation that
   respects the panel is welcome anywhere it earns its place, not just hit/heal. SPEC rule 4 rewritten.
   Later UI tasks (T08 drawer, T09 menu, T15 KO, T16 dice/coin) may use 1–2 keyframe beats.
+- 2026-11-13 — Tick 14: T07 + T10b verified together by the coordinator on the Nomad (112 core + 96
+  app tests; 3 taps 36->33; 1 s hold on a rotated seat 55->75 with "+20" readout facing that player;
+  readout cleared; force-stop + relaunch capture pixel-identical; all captures pass the checker) and
+  committed separately. Tab now 89x21, diamond 41x41 dither px. Hold: 500 ms delay, 400 ms cadence,
+  first repeat absorbs the tap's 1 (39 -> 30 -> 20). Known core issue: `History` has one open group,
+  so interleaved seats split undo steps -> T29. Dispatched T08 (device) and T29 (JVM-only).
+  T26, T28a still running.
