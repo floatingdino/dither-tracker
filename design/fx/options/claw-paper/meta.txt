@@ -1,0 +1,14 @@
+# claw-paper: claw-cut without the new cut symbol: the slash is paper inside the 2-digit numeral box and ink outside it. Works with a round-one runtime; the price is a short invisible stretch where a slash crosses paper inside the box (and on 3-digit totals the outer digits are not cut).
+size 160 132
+frames 3
+anchor centre 0 0
+hold_ms 350 300 0
+ink_px 587 62 0
+knockout_px 730 318 0
+flips 921 882 163   # total 1966 dither px = 31456 device px, over sticker "37" in a full tile
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords
+#   (y down). ref "tile" = the seat tile centre; otherwise a point of the life
+#   total's layout box (centre|tl|tr|bl|br|top|bottom|left|right).
+# symbols: # ink, o paper, x cut (invert), digits = tile layers above (global phase)
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.
+# flips: changed dither px base->f1, ..., last drawn frame->clean.
