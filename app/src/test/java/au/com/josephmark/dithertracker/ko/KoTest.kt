@@ -274,14 +274,16 @@ class KoTest {
     }
 
     @Test fun haloFillsTheTombstoneAndGrowsIt() {
+        // The emblem's cut-out is the shared runtime halo (T50: was ko's own `Halo`, pixel-identical).
         val icon = au.com.josephmark.dithertracker.dither.Icon.DEAD
-        val h = Halo(icon, 2)
-        val r = Halo(icon, 2, rotate180 = true)
+        val h = au.com.josephmark.dithertracker.dither.HaloMask.of(icon, 2)
         assertEquals(20, h.width); assertEquals(20, h.height)
         for (y in 0 until 16) for (x in 0 until 16) if (icon.isInk(x, y)) assertTrue(h.isInk(x + 2, y + 2))
         assertTrue(h.isInk(4 + 2, 9 + 2)) // enclosed paper inside the outline
         assertFalse(h.isInk(0, 0)) // far corner stays outside
-        for (y in 0 until 20) for (x in 0 until 20) assertEquals(h.isInk(x, y), r.isInk(19 - x, 19 - y))
+        // At the emblem's own scale it is the build-time icon halo scaled up (k px rim at k×).
+        val h1 = au.com.josephmark.dithertracker.dither.HaloMask.of(icon, 1)
+        for (y in 0 until 18) for (x in 0 until 18) assertEquals("($x,$y)", icon.halo.isInk(x, y), h1.isInk(x, y))
     }
 
     // ---- KO flip, cover, zones ---------------------------------------------------------------------

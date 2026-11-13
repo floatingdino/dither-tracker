@@ -5,6 +5,7 @@ import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.KoReason
 import au.com.josephmark.dithertracker.core.flavour.Flavour
 import au.com.josephmark.dithertracker.core.flavour.RecentPicks
+import au.com.josephmark.dithertracker.dither.HaloMask
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.Icon
 import au.com.josephmark.dithertracker.dither.MonoImage
@@ -87,7 +88,7 @@ class KoComponent(
     private val cn = IRect()
     private val scratch = IRect()
     private var tomb: MonoImage = Icon.DEAD
-    private var tombHalo: Array<MonoImage> = emptyArray() // by rotation / 90
+    private var tombHalo: MonoImage = Icon.DEAD.halo // the emblem's contour cut-out ([HaloMask.of], k.halo px)
     private val chip = IRect()
 
     /** The quip shown on [seat] ("" when alive), in caps. */
@@ -105,7 +106,8 @@ class KoComponent(
         val k = KoLayout(play)
         layout = k
         tomb = if (k.iconK == 1) Icon.DEAD else Zoomed(Icon.DEAD, k.iconK)
-        tombHalo = Array(4) { Halo(tomb, k.halo, it * 90) }
+        // The runtime halo, not `Icon.halo` scaled: the rim stays k.halo px when the emblem steps down.
+        tombHalo = HaloMask.of(tomb, k.halo)
         stage.log?.invoke("$k")
         for (s in 0 until P) {
             disarm(s)
@@ -129,7 +131,7 @@ class KoComponent(
     override fun prewarm(f: Frame) {
         val k = layout ?: return
         f.r.blit(tomb, 0, 0)
-        for (rot in k.play.rotations) f.r.fillMask(tombHalo[rot / 90], 0, 0, Role.SURFACE)
+        f.r.blit(tombHalo, 0, 0)
         f.icons.prewarm(CAUSE_ICONS, k.causeK)
         for (rot in k.play.rotations) {
             for (q in 1..k.warmK) f.text.draw(k.ui, warmUi(k.ui), 0, 0, q, rot)
@@ -305,11 +307,7 @@ class KoComponent(
 
         // Emblem: the tombstone, cut out of the field in its own shape.
         k.emblem(seat, tr)
-        if (f.hit(tr)) {
-            val g = k.halo
-            f.r.fillMask(tombHalo[rot / 90], tr.left - g, tr.top - g, Role.SURFACE)
-            f.r.blit(tomb, tr.left, tr.top, rot)
-        }
+        if (f.hit(tr)) f.r.blitHaloed(tomb, tombHalo, tr.left, tr.top, rot)
 
         // Detail: why — heart and life, poison and its count, the imp and its damage.
         val reason = reasons[seat]
