@@ -15,8 +15,9 @@ import au.com.josephmark.dithertracker.type.TextLayout
  * Each widget paints its whole [Widget.bounds] (its background first), so a pressed part can be
  * redrawn inverted in isolation ([drawPressed] on devices without in-place inversion).
  *
- * Glyphs and icons on a dither fill (title bar, disabled hatch) are drawn `opaque`: on their paper
- * cut-out (T41 halo: `Icon.halo`, `Glyph.halo`), or on a paper box for a face without halo rows.
+ * Glyphs and icons on a dither fill (disabled hatch, plain buttons on dither) are drawn `opaque`: on
+ * their paper cut-out (T41 halo: `Icon.halo`, `Glyph.halo`), or on a paper box for a face without halo
+ * rows. Title-bar text keeps its paper strip (`box`).
  */
 class WidgetPainter(val c: WidgetCanvas) {
 
@@ -183,7 +184,7 @@ class WidgetPainter(val c: WidgetCanvas) {
         outline(f, p.bounds, m.stroke)
         if (p.hasTitleBar) {
             fill(f, Role.TAB, p.titleBar)
-            p.title?.let { text(f, m, m.ui, it, 0, p.titleChars, p.titleRect, TextLayout.START, invert = false, opaque = true) }
+            p.title?.let { text(f, m, m.ui, it, 0, p.titleChars, p.titleRect, TextLayout.START, invert = false, opaque = true, box = true) }
             p.close?.let { button(f, it) }
         }
         for (i in p.rows.indices) {
@@ -251,11 +252,12 @@ class WidgetPainter(val c: WidgetCanvas) {
     /**
      * Draws `text[from, to)` in [font] at the metrics' k inside the local rect [r]: aligned by [align]
      * along the reader's line, cap band centred across it. Opaque text sits on its glyphs' cut-outs
-     * ([Font.hasHalo] faces), else on a box with a [WidgetMetrics.halo] rim.
+     * ([Font.hasHalo] faces), else — or with [box] — on a box with a [WidgetMetrics.halo] rim.
+     * [box] is for title bars: a long word on the `TAB` checker reads calmer on one paper strip (T41).
      */
     internal fun text(
         f: WidgetFrame, m: WidgetMetrics, font: Font, text: CharSequence, from: Int, to: Int, r: IRect,
-        align: Int, invert: Boolean, opaque: Boolean,
+        align: Int, invert: Boolean, opaque: Boolean, box: Boolean = false,
     ) {
         if (to <= from) return
         val run = slice.set(text, from, to)
@@ -266,7 +268,7 @@ class WidgetPainter(val c: WidgetCanvas) {
         val rot = f.rotation
         val x = s.left + TextLayout.placeX(rot, s.width, s.height, tw, th, font.capTop * k, font.capHeight * k, align)
         val y = s.top + TextLayout.placeY(rot, s.width, s.height, tw, th, font.capTop * k, font.capHeight * k, align)
-        val halo = opaque && font.hasHalo
+        val halo = opaque && !box && font.hasHalo
         c.text(font, run, x, y, k, rot, invert, opaque && !halo, if (opaque && !halo) m.halo else 0, halo)
     }
 

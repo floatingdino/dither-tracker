@@ -204,7 +204,8 @@ class HistoryCard {
         p.paper(f, card)
         p.outline(f, card, m.stroke)
         p.fill(f, Role.TAB, titleBar)
-        if (titleChars > 0) p.text(f, m, m.ui, TITLE, 0, titleChars, titleRect, TextLayout.START, invert = false, opaque = true)
+        // Title on a paper strip, not a halo (T41 exception: a word on the TAB checker reads calmer on a strip).
+        if (titleChars > 0) p.text(f, m, m.ui, TITLE, 0, titleChars, titleRect, TextLayout.START, invert = false, opaque = true, box = true)
         p.draw(f, rotate)
         p.draw(f, undo)
         p.draw(f, close)
