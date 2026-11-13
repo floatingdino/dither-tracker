@@ -95,7 +95,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T28c | todo | T28e T27 T30 | Promote **all** round-two options Sam approved from `design/fx/options/` to `design/fx/` (claw: `claw-cut` only — "Claw-A"; drop `claw-paper`; retire round-one `claw`, `wham`, `zap` and old `pow`/`crack`/`twinkle` in favour of the refits; keep `heart`, `sprout`, `fizzle`), then wire effects into the play screen: trigger on delta commit by sign/size, KO and last-standing flourishes, cancel on tap, settings toggle; tune hold time and film on the Nomad. | `play/`, `design/fx/` |
 | T28e | done | T28b | Engine support for round-two effects: `x` (invert under mask), tile-filled layers at global phase, `anchor tile`; promote chosen options from `design/fx/options/` to `design/fx/`. JVM-only. | `app/**/fx/`, `design/fx/` |
 | T28f | todo | T28c | More effects in the round-two style (Sam: "continue building out more animations in this style after all the current set"): dither shading in overlays and numeral interactions, cut-outs, tile-wide reach; new damage/heal variety, counter-specific hits (poison, commander damage), monarch/initiative gained, turn pass, dice/coin reveals. Design then promote. | `design/fx/` |
-| T33 | wip | T30 (owns flavour) | Quip tone pass: make the whole table a smidge more combative ("uh oh", "whoops", "beefed it") per SPEC Tone; keep length/charset rules and the doc mirror. | `core/**/flavour/`, `design/copy/quips.md` |
+| T33 | done | T30 (owns flavour) | Quip tone pass: make the whole table a smidge more combative ("uh oh", "whoops", "beefed it") per SPEC Tone; keep length/charset rules and the doc mirror. | `core/**/flavour/`, `design/copy/quips.md` |
 | T37 | wip | T27 | Mini sticker numeral face (Sam, 2026-11-13): a small numeral set in the sticker style **without the shadow**, for the target's life total in commander mode (replacing `num-m` there, no black strip behind it) so it keeps its connection to the main life total; consider it for the readout and peeks too. Design candidates as mocks, then build. | `design/font/`, `type/` |
 | T28d | done | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
 | T27 | done | T08 | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
@@ -293,3 +293,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-13 — Tick 27: T36 reviewed (gem and tent mocks eyeballed; agent made 4 commits) — four
   centre-menu concepts with second-level mocks for the gem; awaiting Sam's pick and answers.
   Running: T33, T34 (device), T35, T37.
+- 2026-11-13 — Tick 28: T33 verified (131 core tests pass on rerun; agent made 3 commits). Quips
+  re-voiced in every category except the commander-target list; least sure: "Got got", "Thoroughly
+  cooked", "Kind of had that coming", "Nailed it" (natural 1), "Death by tally marks".
+  Running: T34 (device), T35, T37.
