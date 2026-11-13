@@ -48,8 +48,17 @@ class CanvasDitherRenderer : DitherRenderer() {
     private val tilePaints = arrayOfNulls<Paint>(Patterns.all.size * 2)
     private val tileMatrix = Matrix()
 
-    // Scaled 1-bit masks (ALPHA_8, tinted by paint colour at draw time) per image at current S.
-    private val masks = HashMap<MonoImage, Bitmap>()
+    /**
+     * A scaled 1-bit mask (ALPHA_8, tinted by the paint at draw time) of an image's **ink box** only:
+     * [bitmap] covers dither px ([x], [y]) .. + its size / S of the image; null when the image has no
+     * ink. Pixels outside the box are paper in the image, and an ALPHA_8 mask draws nothing where its
+     * alpha is 0 (blit, shader fill, DIFFERENCE alike), so cropping changes no pixel on screen (T20:
+     * the effect masks went from ~30 MB to ~9 MB at S = 4).
+     */
+    private class Mask(val bitmap: Bitmap?, val x: Int, val y: Int)
+
+    // Per image at the current S (identity-keyed: images are long-lived singletons).
+    private val masks = HashMap<MonoImage, Mask>()
 
     /** Sets the grid; drops caches when the scale changes, re-anchors shaders when margins change. */
     override fun setGrid(newGrid: DitherGrid) {
@@ -57,7 +66,7 @@ class CanvasDitherRenderer : DitherRenderer() {
         super.setGrid(newGrid)
         if (old.scale != newGrid.scale) {
             for (i in tilePaints.indices) tilePaints[i] = null
-            masks.values.forEach { it.recycle() }
+            masks.values.forEach { it.bitmap?.recycle() }
             masks.clear()
         } else if (old.marginLeft != newGrid.marginLeft || old.marginTop != newGrid.marginTop) {
             tileMatrix.setTranslate(newGrid.marginLeft.toFloat(), newGrid.marginTop.toFloat())
@@ -110,12 +119,16 @@ class CanvasDitherRenderer : DitherRenderer() {
         val fw = if (sideways) img.height else img.width
         val fh = if (sideways) img.width else img.height
         if (opaque) rect(x, y, fw, fh, ink = invert)
-        val bmp = mask(img)
+        val m = mask(img)
+        if (m.bitmap == null) return
         blitPaint.color = if (invert) paper else ink
         val dx = grid.toDeviceX(x).toFloat()
         val dy = grid.toDeviceY(y).toFloat()
+        // The mask holds only the image's ink box, at (m.x, m.y) in the image (dither px).
+        val ox = (m.x * s).toFloat()
+        val oy = (m.y * s).toFloat()
         if (rotation == 0) {
-            c.drawBitmap(bmp, dx, dy, blitPaint)
+            c.drawBitmap(m.bitmap, dx + ox, dy + oy, blitPaint)
             return
         }
         val bw = (img.width * s).toFloat()
@@ -128,7 +141,7 @@ class CanvasDitherRenderer : DitherRenderer() {
             270 -> { c.translate(0f, bw); c.rotate(270f) }
             else -> { c.restore(); throw IllegalArgumentException("rotation must be 0/90/180/270, was $rotation") }
         }
-        c.drawBitmap(bmp, 0f, 0f, blitPaint)
+        c.drawBitmap(m.bitmap, ox, oy, blitPaint)
         c.restore()
     }
 
@@ -145,7 +158,9 @@ class CanvasDitherRenderer : DitherRenderer() {
             tile.width * tile.height -> solid.also { it.color = if (inv) Color.WHITE else Color.BLACK }
             else -> tilePaint(tile, inv)
         }
-        c.drawBitmap(mask(mask), grid.toDeviceX(x).toFloat(), grid.toDeviceY(y).toFloat(), paint)
+        val m = mask(mask)
+        val bmp = m.bitmap ?: return
+        c.drawBitmap(bmp, grid.toDeviceX(x + m.x).toFloat(), grid.toDeviceY(y + m.y).toFloat(), paint)
     }
 
     // ---- effect masks (T28e) --------------------------------------------------------------
@@ -157,16 +172,17 @@ class CanvasDitherRenderer : DitherRenderer() {
      */
     override fun drawMask(img: MonoImage, x: Int, y: Int, op: MaskOp, tile: Tile, underlay: Runnable?) {
         val c = canvas!!
-        val bmp = mask(img)
-        val dx = grid.toDeviceX(x).toFloat()
-        val dy = grid.toDeviceY(y).toFloat()
+        val m = mask(img)
+        val bmp = m.bitmap ?: return
+        // The mask covers only the image's ink box (dither px m.x, m.y .. + its size).
+        val dx = grid.toDeviceX(x + m.x).toFloat()
+        val dy = grid.toDeviceY(y + m.y).toFloat()
         val full = tile.width * tile.height
         val paint: Paint = when (op) {
             MaskOp.INVERT -> {
                 if (!canInvertInPlace) {
                     if (underlay == null) return
-                    val s = grid.scale
-                    c.saveLayer(dx, dy, dx + img.width * s, dy + img.height * s, null)
+                    c.saveLayer(dx, dy, dx + bmp.width, dy + bmp.height, null)
                     try {
                         withInverted { underlay.run() }
                         c.drawBitmap(bmp, dx, dy, maskClipPaint)
@@ -270,24 +286,59 @@ class CanvasDitherRenderer : DitherRenderer() {
     /** Bytes held by the cached masks ([Bitmap.getAllocationByteCount]). */
     fun maskBytes(): Long {
         var n = 0L
-        for (b in masks.values) n += b.allocationByteCount
+        for (m in masks.values) n += m.bitmap?.allocationByteCount ?: 0
         return n
     }
 
-    private fun mask(img: MonoImage): Bitmap {
+    private fun mask(img: MonoImage): Mask {
         masks[img]?.let { return it }
-        val s = grid.scale
-        val w = img.width * s
-        val h = img.height * s
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ALPHA_8)
-        val stride = bmp.rowBytes
-        val buf = ByteBuffer.allocate(stride * h)
-        for (y in 0 until h) for (x in 0 until w) {
-            if (img.isInk(x / s, y / s)) buf.put(y * stride + x, 0xFF.toByte())
+        val m = buildMask(img, grid.scale)
+        masks[img] = m
+        return m
+    }
+
+    /**
+     * Crops [img] to its ink box and scales it by [s], nearest neighbour: each dither row is expanded
+     * once into a device row, which is then copied for the other s - 1 rows (no per-device-pixel
+     * `isInk` calls: building every effect mask at layout was most of a warm start, T20).
+     */
+    private fun buildMask(img: MonoImage, s: Int): Mask {
+        val w = img.width
+        val h = img.height
+        var x0 = w
+        var y0 = h
+        var x1 = -1
+        var y1 = -1
+        val row = BooleanArray(w)
+        for (y in 0 until h) {
+            var any = false
+            for (x in 0 until w) if (img.isInk(x, y)) {
+                any = true
+                if (x < x0) x0 = x
+                if (x > x1) x1 = x
+            }
+            if (any) {
+                if (y < y0) y0 = y
+                y1 = y
+            }
         }
-        bmp.copyPixelsFromBuffer(buf)
-        masks[img] = bmp
-        return bmp
+        if (x1 < 0) return Mask(null, 0, 0)
+        val bw = (x1 - x0 + 1) * s
+        val bh = (y1 - y0 + 1) * s
+        val bmp = Bitmap.createBitmap(bw, bh, Bitmap.Config.ALPHA_8)
+        val stride = bmp.rowBytes
+        val bytes = ByteArray(stride * bh)
+        for (y in y0..y1) {
+            for (x in x0..x1) row[x] = img.isInk(x, y)
+            val base = (y - y0) * s * stride
+            for (x in x0..x1) if (row[x]) {
+                val d = base + (x - x0) * s
+                for (k in 0 until s) bytes[d + k] = 0xFF.toByte()
+            }
+            for (k in 1 until s) System.arraycopy(bytes, base, bytes, base + k * stride, stride)
+        }
+        bmp.copyPixelsFromBuffer(ByteBuffer.wrap(bytes))
+        return Mask(bmp, x0, y0)
     }
 
     companion object {
