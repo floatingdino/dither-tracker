@@ -103,9 +103,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
 | T19a | done | — | E-ink refresh research: Supernote/Ratta refresh-mode APIs, what stock Android offers, ghosting strategy → `docs/eink.md` with a concrete recommendation. Read-only device inspection. | `docs/eink.md` |
-| T19b | review | T19a T06 | Implement the refresh strategy from `docs/eink.md`: invalidation audit, periodic full refresh, any safely available device refresh-mode hook. | `app/src/main/**/eink/` |
+| T19b | review (Nomad panel check pending) | T19a T06 | Implement the refresh strategy from `docs/eink.md`: invalidation audit, periodic full refresh, any safely available device refresh-mode hook. | `app/src/main/**/eink/` |
 | T20 | todo | T09 T12 T28c (most features in) | **Comprehensive performance and battery pass** (Sam, 2026-11-14: as responsive as possible, very frugal with battery). *Responsiveness:* tap-to-pixel latency on the Nomad (trace + high-speed video), cold and warm start, onDraw time per interaction, zero allocations in draw/touch paths (allocation tracker, not just code reading), no main-thread disk or decode, overdraw, bitmap/mask memory, GC pauses, StrictMode clean, baseline profile / R8 full mode, APK size. *Battery:* no wake locks beyond the keep-awake setting; nothing scheduled while idle (no timers, handlers or animations ticking — verify with `dumpsys alarm`, `batterystats`, and CPU time over a 30-minute idle with the screen on and off); save writes batched; effects and readout timers cancelled when idle and in `onPause`; e-ink refresh count per action minimal (each panel update costs power); cleanup-flash cadence justified by measurement; behaviour when backgrounded and on screen-off. Known going in: the T34 component host costs ~25–60 µs more per `onDraw` in release (443–463 µs vs 401–416 µs on the Nomad); candidates: public `Frame` fields, fewer `TileSlots` hops. Effects prewarm builds ~30 MB of full-frame masks at S=4 (crop masks to each layer's ink bounds). *Deliverables:* a repeatable benchmark script under `tools/`, `docs/performance.md` with before/after numbers and budgets (e.g. tap latency, idle CPU ~0), regression tests where practical, fixes applied. Uses the Nomad for all timing. | whole app, `tools/`, `docs/performance.md` |
-| T21 | review | T04 T02 | App icon (1-bit, adaptive + legacy) and launcher label from the icon set / dither patterns. | `app/src/main/res/` |
+| T21 | done | T04 T02 | App icon (1-bit, adaptive + legacy) and launcher label from the icon set / dither patterns. | `app/src/main/res/` |
 | T22 | todo | all | Full pixel-purity regression suite: render every screen at S=2..6, both orientations, inverted and not; fail on any non-#000/#FFF pixel or any off-grid edge. | `app/src/test/` |
 | T24 | done | — | Icon redesign per Sam's feedback: redo `poison` (ugly), `rads` (too large in the set), refine `storm`; rework `experience`, `life`, `energy`, `commander` (too simplistic/off); add weight and a slightly cutesy/wacky character across the set, keeping the filled-arrow feel of `refresh`/`reset`. | `design/icons/` |
 | T25a | done | T03 | Personality copy tables in core: original quips (KO lines by reason, dice/coin lines, reset confirm, empty history, default player names) with a pure picker taking `Random`; length-checked against the `ui` face budget. | `core/src/**/flavour/` |
@@ -516,3 +516,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   rule 4 wins, a touch must cancel the clean and still act. In `review` for that fix and the Nomad
   checklist in `docs/eink.md` ("T19b as built"). Note for T20: the readout timer still fires while
   backgrounded. Running: T41, T47.
+- 2026-11-14 — Sam prefers the heart launcher icon and asked to check the Nomad's icon resolution so
+  the shading reads. Coordinator: the Nomad's Settings > Apps > My Apps list draws icons at 90x90 px;
+  the adaptive icon was smeared by non-integer rescaling. Dropped the adaptive icon, added a
+  `mipmap-300dpi` bitmap from a new 30x30 design at 3 px per icon pixel
+  (`design/app-icon/heart-nomad/icon.txt`), and verified on the Nomad that the icon area matches the
+  design with 0 mismatched pixels. T21 done. (Navigated the Nomad's Settings > Apps pages to look; the
+  app was relaunched afterwards.) T19b fix landed (`8f4314a`: a touch during a clean cancels it and
+  still acts).
