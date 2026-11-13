@@ -163,18 +163,20 @@ def crack2():
 
 @effect
 def twinkle2():
-    """Refit of twinkle: a fat twinkle pops off one shoulder while a glint is knocked out of the other
-    digit (paper only, clipped by the digit), like shine on a sticker; they swap and drift up; dots; clean."""
+    """Refit of twinkle: a fat twinkle pops off one shoulder while a gloss highlight is knocked out
+    of the other digit (paper only, clipped by the digit), like shine on a sticker; they swap and drift up; dots; clean."""
     W, H = 150, 100
     f1 = G(W, H)
     sparkle(f1, -48, 2, 13, waist=.28)
     halo(f1)
-    sparkle(f1, 10, -23, 7, 'o', waist=.38)     # glint cut into the right digit's top bar
+    f1.stroke([(6, -22), (10, -24), (18, -25)], 2, 'o')   # gloss knocked into the 7's bar
+    dot(f1, 22, -25, 'o')
     f2 = G(W, H)
     sparkle(f2, 48, -32, 13, waist=.28)
     sparkle(f2, -50, -26, 6, waist=.3)
     halo(f2)
-    sparkle(f2, -16, -4, 7, 'o', waist=.38)     # glint in the left digit's middle
+    f2.stroke([(-30, -15), (-29, -20), (-26, -23), (-21, -25)], 2, 'o')  # gloss on the 3's bowl
+    dot(f2, -17, -26, 'o')
     f3 = G(W, H)
     for x, y in ((-50, -38), (50, -48), (6, -44)):
         dot(f3, x, y)
@@ -422,7 +424,7 @@ def rise():
         sparkle(f1, x, y, r, waist=.3)
     halo(f1)
     f2 = tileframe()
-    for x, y, r in ((-66, -40, 12), (62, -52, 10), (-20, -64, 7), (90, -26, 6)):
+    for x, y, r in ((-66, -40, 12), (62, -52, 10), (-20, -64, 7), (84, -38, 6)):
         sparkle(f2, x, y, r, waist=.3)
     for x, y in ((28, -42), (-92, -50), (-44, -70)):
         f2.paste([''.join(c for c in row) for row in GLINT], x, y)

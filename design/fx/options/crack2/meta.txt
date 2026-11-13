@@ -1,0 +1,15 @@
+# crack2: Refit of crack: a cut (white through the digits, black over paper) zig-zags down through the numeral and out past it; next beat it branches and two shards drop; then crumbs; then clean.
+size 64 108
+frames 4
+anchor centre 0 0
+hold_ms 350 300 250 0
+ink_px 0 16 12 0
+knockout_px 0 34 0 0
+cut_px 325 509 0 0
+flips 325 200 537 12   # total 1074 dither px = 17184 device px, over sticker "37" in a full tile
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords
+#   (y down). ref "tile" = the seat tile centre; otherwise a point of the life
+#   total's layout box (centre|tl|tr|bl|br|top|bottom|left|right).
+# symbols: # ink, o paper, x cut (invert), digits = tile layers above (global phase)
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.
+# flips: changed dither px base->f1, ..., last drawn frame->clean.

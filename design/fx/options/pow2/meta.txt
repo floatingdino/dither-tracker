@@ -1,0 +1,14 @@
+# pow2: Refit of pow: a bigger comic burst lands on the top-right shoulder and punches a paper star out of the digit; next beat a ragged dent stays bitten out of the digit (paper only, so it shows only where there is ink) while chunks fly off with speed ticks; then clean.
+size 84 84
+frames 3
+anchor tr -14 10
+hold_ms 350 300 0
+ink_px 264 111 0
+knockout_px 640 430 0
+flips 531 470 283   # total 1284 dither px = 20544 device px, over sticker "37" in a full tile
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords
+#   (y down). ref "tile" = the seat tile centre; otherwise a point of the life
+#   total's layout box (centre|tl|tr|bl|br|top|bottom|left|right).
+# symbols: # ink, o paper, x cut (invert), digits = tile layers above (global phase)
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.
+# flips: changed dither px base->f1, ..., last drawn frame->clean.

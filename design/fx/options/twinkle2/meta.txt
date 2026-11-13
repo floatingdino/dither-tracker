@@ -1,0 +1,14 @@
+# twinkle2: Refit of twinkle: a fat twinkle pops off one shoulder while a gloss highlight is knocked out of the other digit (paper only, clipped by the digit), like shine on a sticker; they swap and drift up; dots; clean.
+size 150 100
+frames 4
+anchor centre 0 0
+hold_ms 300 300 250 0
+ink_px 192 236 12 0
+knockout_px 138 188 0 0
+flips 230 510 292 12   # total 1044 dither px = 16704 device px, over sticker "37" in a full tile
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords
+#   (y down). ref "tile" = the seat tile centre; otherwise a point of the life
+#   total's layout box (centre|tl|tr|bl|br|top|bottom|left|right).
+# symbols: # ink, o paper, x cut (invert), digits = tile layers above (global phase)
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.
+# flips: changed dither px base->f1, ..., last drawn frame->clean.
