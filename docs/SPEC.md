@@ -120,6 +120,10 @@ lives in small spaces, not in the main play surface:
 - **Icons** lean slightly cutesy/wacky: rounder, a bit more character (faces, tilt, small details),
   and a bit more weight — partly filled shapes (like the arrowheads on `refresh`/`reset`) read well.
   The three original Figma icons are *not* sacred: `poison` and `rads` get redesigned, `storm` refined.
+- **Retro voice for death and victory** (Sam, 2026-11-14): explore lines in the spirit of classic
+  8- and 16-bit game text — the stilted, portentous, badly-translated register of the era ("what a
+  terrible night for a curse"). Write pastiche and nods adapted to the table, not verbatim quotes
+  from games (the repo is public and the lines are other people's text).
 - **Copy voice** (Sam, 2026-11-13): a smidge combative — the friend who heckles you across the table:
   "uh oh", "whoops", "beefed it". Short, blunt, playful; teasing, never mean or crude.
 - **Copy**: short deadpan one-liners in a few spots — a random quip when a player is knocked out

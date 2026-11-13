@@ -80,6 +80,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T13 | todo | T08 T12 | Player customisation: name entry (in-app 1-bit keyboard — no system IME, see SPEC rule 7), per-player background pattern picker. | `app/src/main/**/player/` |
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | review | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
+| T42 | wip | T15 | **KO / winner tile: the quip replaces the life total** (Sam, 2026-11-14) — on a dead tile and on the winner's tile the quip takes the hero position at a large size instead of the (ringed, hollow) number; cause/final life becomes the small detail. Plus a copy exploration: death and victory lines in a classic 8/16-bit game-text voice (pastiche, not verbatim quotes). Also fix: the centre diamond and dividers must keep their outline against dead tiles' crosshatch. Emulator 5564. | `ko/`, `core/**/flavour/`, `design/copy/quips.md` |
 
 ### Phase 3 — Table tools
 
@@ -395,3 +396,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   diamond loses its outline against adjacent dead tiles' crosshatch and the dividers disappear
   between two dead tiles; the hollow ringed life numeral reads a little odd. Still running: T28c,
   T12, T16, T18.
+- 2026-11-14 — Sam on the KO/winner tiles: the quip can replace the life total; explore classic
+  8/16-bit era game-quote flavour. -> T42 dispatched (SPEC Tone updated: pastiche, not verbatim).
