@@ -28,7 +28,7 @@ class TileSlots(val play: PlayLayout) {
     /** True while [seat]'s lower tile is occupied and its number block is compact. */
     fun compact(seat: Int): Boolean = lower?.occupies(seat) == true
 
-    private val P = PlayLayout.PLAYERS
+    private val P = play.playerCount
 
     // Compact geometry (published by the occupant).
     var compactNumberK: Int = play.kMax

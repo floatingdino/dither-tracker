@@ -99,7 +99,7 @@ class HistoryOverlay(
     override fun onLayout(play: PlayLayout, tiles: TileSlots) {
         this.play = play
         screen.set(0, 0, play.grid.width, play.grid.height)
-        if (seats?.sameLayout(play.panels) != true) seats = SeatGlyphs.forPanels(play.panels)
+        if (seats?.sameLayout(play.cells) != true) seats = SeatGlyphs.forPanels(play.cells)
         if (isOpen) relayout()
     }
 

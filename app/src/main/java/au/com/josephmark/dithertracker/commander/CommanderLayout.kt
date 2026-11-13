@@ -56,7 +56,7 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
     /** `ui` glyph scale for the target quip (physical size ≈ S = 4's [QUIP_K_MAX]); smaller only when a quip does not fit. */
     val quipKMax: Int = maxOf(1, PlayLayout.Chrome.size(QUIP_K_MAX, play.grid.scale))
 
-    private val P = PlayLayout.PLAYERS
+    private val P = play.playerCount
     private val W = play.panelW
     private val H = play.panelH
 

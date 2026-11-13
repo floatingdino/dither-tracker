@@ -76,7 +76,7 @@ class FirstPlayer(
     private fun show(s: Int, text: String) {
         clear()
         val l = layout ?: return
-        if (s < 0 || s >= PlayLayout.PLAYERS) return
+        if (s < 0 || s >= l.play.playerCount) return
         seat = s
         caption = text
         l.arrange(s, caption)
@@ -96,12 +96,13 @@ class FirstPlayer(
     override fun onLayout(play: PlayLayout, tiles: TileSlots) {
         val l = FirstPlayerLayout(play)
         layout = l
+        if (seat >= play.playerCount) { seat = -1; caption = "" }
         if (seat >= 0) l.arrange(seat, caption)
     }
 
     override fun prewarm(f: Frame) {
         val l = layout ?: return
-        for (rot in ROTATIONS) for (kk in 1..l.kMax) {
+        for (rot in l.play.rotations) for (kk in 1..l.kMax) {
             for (line in flavour.lines(QuipKind.STARTING_PLAYER)) f.text.draw(l.ui, line.uppercase(), 0, 0, kk, rot, invert = true)
         }
     }
@@ -150,6 +151,5 @@ class FirstPlayer(
         /** How long the highlight stays without a touch. */
         const val SHOW_MS = 5_000L
 
-        private val ROTATIONS = intArrayOf(0, 180)
     }
 }

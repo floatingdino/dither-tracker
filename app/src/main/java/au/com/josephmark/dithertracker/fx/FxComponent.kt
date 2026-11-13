@@ -99,7 +99,7 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
         stopAll()
         l = play
         t = tiles
-        rotations = play.rotation.distinct().toIntArray()
+        rotations = play.rotations
         resync()
         if (FxDebug.gallery != null && !galleryStarted) {
             galleryStarted = true
@@ -371,7 +371,7 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
     }
 
     companion object {
-        private const val P = PlayLayout.PLAYERS
+        private const val P = PlayLayout.MAX_PLAYERS
         private const val GALLERY_TIMER = P
         const val GALLERY_START_MS = 1_500L
         const val GALLERY_GAP_MS = 2_000L

@@ -64,7 +64,7 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
 
     override fun prewarm(f: Frame) {
         val c = layout ?: return
-        for (rot in ROTATIONS) for (k in 1..c.quipKMax) f.text.draw(c.ui, WARM_UI, 0, 0, k, rot)
+        for (rot in c.play.rotations) for (k in 1..c.quipKMax) f.text.draw(c.ui, WARM_UI, 0, 0, k, rot)
         f.icons.prewarm(WARM_ICONS, c.tk)
     }
 
@@ -234,7 +234,6 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
         private const val MINUS = "-"
         private const val PLUS = "+"
         private const val WARM_UI = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '.,-&"
-        private val ROTATIONS = intArrayOf(0, 180)
         private val WARM_ICONS = arrayOf(Icon.LIFE, Icon.COMMANDER, Icon.PARTNER, Icon.CLOSE)
     }
 }

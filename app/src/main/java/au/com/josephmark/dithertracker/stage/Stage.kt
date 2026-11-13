@@ -34,8 +34,8 @@ class Stage(
     val session: GameSession,
     val settings: SettingsHolder,
     private val platform: Platform,
-    /** Seats the per-seat zone blocks are sized for. */
-    val seats: Int = PlayLayout.PLAYERS,
+    /** Seats the per-seat zone blocks are sized for: the most any layout has (T11), so a new count needs no rebuild. */
+    val seats: Int = PlayLayout.MAX_PLAYERS,
 ) : PlayInput.ZoneMap, PlayInput.Sink, Scheduler.Target, GameSession.Listener, SettingsHolder.Listener {
 
     /** What the stage needs from the platform (the Android view in the app, a fake in tests). */
@@ -53,6 +53,13 @@ class Stage(
 
         /** Wall-clock ms for core action timestamps. */
         fun now(): Long
+
+        /**
+         * The player count changed (T11): lay the screen out again for [players] seats through
+         * [Stage.layout] (the app re-picks S and prewarms). The default does nothing and the stage
+         * re-lays out on the same grid itself.
+         */
+        fun relayout(players: Int) {}
     }
 
     private val list = ArrayList<Component>()
@@ -415,6 +422,11 @@ class Stage(
         try {
             val np = new.players
             if (np.size != l.playerCount || old.players.size != np.size) {
+                if (np.size != l.playerCount) {
+                    platform.relayout(np.size)
+                    val now = layout
+                    if (now == null || now.playerCount != np.size) layout(PlayLayout.compute(l.grid, np.size, settings.current.layout))
+                }
                 for (c in comps) c.onPlayersChanged()
                 platform.invalidateAll()
                 return

@@ -20,7 +20,7 @@ class StageTest {
     class FakePlatform : Stage.Platform {
         val invalidated = ArrayList<IRect>()
         var all = 0
-        val clock = FakeScheduler(256)
+        val clock = FakeScheduler(1024) // the real component list at six seats needs ~330 ids (T11)
         override fun invalidate(left: Int, top: Int, right: Int, bottom: Int) { invalidated += IRect(left, top, right, bottom) }
         override fun invalidateAll() { all++ }
         override fun schedule(id: Int, delayMillis: Long) = clock.schedule(id, delayMillis)
@@ -72,7 +72,7 @@ class StageTest {
     private val log = ArrayList<String>()
     private val platform = FakePlatform()
     private val session = GameSession.newGame(4)
-    private val stage = Stage(session, SettingsHolder(), platform)
+    private val stage = Stage(session, SettingsHolder(), platform, seats = 4)
     private val l = PlayLayout.compute(DitherGrid(1872, 1404, 4))
 
     private val tile = stage.add(Fake("tile", Layer.TILE, Kind.CONTENT, zones = 3, timers = 2, log = log))

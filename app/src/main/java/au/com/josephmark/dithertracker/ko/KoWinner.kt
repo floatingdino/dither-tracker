@@ -84,7 +84,7 @@ class KoWinner(
         val k = k ?: return
         f.icons.prewarm(WARM_ICONS, k.iconK)
         f.icons.prewarm(WARM_ICONS, k.causeK)
-        for (rot in ROTATIONS) {
+        for (rot in k.play.rotations) {
             for (q in 1..k.warmK) f.text.draw(k.ui, WARM_UI, 0, 0, q, rot)
             f.text.draw(k.causeFont, WARM_NUM, 0, 0, k.causeK, rot)
         }
@@ -97,7 +97,7 @@ class KoWinner(
         val ps = state.players
         var alive = -1
         var n = 0
-        for (s in 0 until minOf(PlayLayout.PLAYERS, ps.size)) if (!state.isKo(ps[s])) { alive = s; n++ }
+        for (s in 0 until minOf(k.play.playerCount, ps.size)) if (!state.isKo(ps[s])) { alive = s; n++ }
         val w = if (n == 1 && ps.size > 1) alive else -1
         if (w == winner) {
             // Same winner: their life moving dismisses the caption (the tile was live all along).
@@ -144,7 +144,6 @@ class KoWinner(
     }
 
     companion object {
-        private val ROTATIONS = intArrayOf(0, 180)
         private val WARM_ICONS = arrayOf(Icon.MONARCH, Icon.LIFE)
         private const val WARM_UI = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 '.,-:?"
         private const val WARM_NUM = "0123456789-"

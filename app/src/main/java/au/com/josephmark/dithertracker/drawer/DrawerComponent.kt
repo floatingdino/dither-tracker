@@ -31,7 +31,7 @@ import au.com.josephmark.dithertracker.stage.ZoneSink
  */
 class DrawerComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = DrawerZones.PER_SEAT), TileSlots.LowerTile {
 
-    val state = DrawerState(PlayLayout.PLAYERS)
+    val state = DrawerState(PlayLayout.MAX_PLAYERS)
     lateinit var controller: DrawerController
         private set
 
@@ -148,6 +148,6 @@ class DrawerComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = Drawe
 
     /** A cover now hiding a seat closes its drawer (commander mode closes them all). */
     override fun onCoversChanged() {
-        for (s in 0 until PlayLayout.PLAYERS) if (state.isOpen(s) && !visible(s)) controller.close(s)
+        for (s in 0 until (dl?.play?.playerCount ?: 0)) if (state.isOpen(s) && !visible(s)) controller.close(s)
     }
 }

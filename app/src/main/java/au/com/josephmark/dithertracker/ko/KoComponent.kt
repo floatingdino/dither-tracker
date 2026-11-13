@@ -86,7 +86,7 @@ class KoComponent(
     private val cn = IRect()
     private val scratch = IRect()
     private var tomb: MonoImage = Icon.DEAD
-    private var tombHalo: Array<MonoImage> = emptyArray() // [upright, rotated 180]
+    private var tombHalo: Array<MonoImage> = emptyArray() // by rotation / 90
     private val chip = IRect()
 
     /** The quip shown on [seat] ("" when alive), in caps. */
@@ -104,11 +104,11 @@ class KoComponent(
         val k = KoLayout(play)
         layout = k
         tomb = if (k.iconK == 1) Icon.DEAD else Zoomed(Icon.DEAD, k.iconK)
-        tombHalo = arrayOf(Halo(tomb, k.halo), Halo(tomb, k.halo, rotate180 = true))
+        tombHalo = Array(4) { Halo(tomb, k.halo, it * 90) }
         stage.log?.invoke("$k")
         for (s in 0 until P) {
             disarm(s)
-            if (quips[s].isNotEmpty()) k.arrange(s, quips[s], blocks[s])
+            if (s < play.playerCount && quips[s].isNotEmpty()) k.arrange(s, quips[s], blocks[s])
         }
         sync(stage.session.state, invalidate = false)
     }
@@ -128,9 +128,9 @@ class KoComponent(
     override fun prewarm(f: Frame) {
         val k = layout ?: return
         f.r.blit(tomb, 0, 0)
-        for (h in tombHalo) f.r.fillMask(h, 0, 0, Role.SURFACE)
+        for (rot in k.play.rotations) f.r.fillMask(tombHalo[rot / 90], 0, 0, Role.SURFACE)
         f.icons.prewarm(CAUSE_ICONS, k.causeK)
-        for (rot in ROTATIONS) {
+        for (rot in k.play.rotations) {
             for (q in 1..k.warmK) f.text.draw(k.ui, WARM_UI, 0, 0, q, rot)
             f.text.draw(k.causeFont, WARM_NUM, 0, 0, k.causeK, rot)
         }
@@ -241,7 +241,7 @@ class KoComponent(
         if (armed and bit == 0) return
         armed = armed and bit.inv()
         timers.cancel(ARM_TIMER + seat)
-        layout?.let { it.heroArea(seat, scratch); invalidate(scratch) }
+        layout?.let { if (seat < it.play.playerCount) { it.heroArea(seat, scratch); invalidate(scratch) } }
     }
 
     override fun zones(seat: Int, z: ZoneSink) {
@@ -306,7 +306,7 @@ class KoComponent(
         k.emblem(seat, tr)
         if (f.hit(tr)) {
             val g = k.halo
-            f.r.fillMask(tombHalo[if (rot == 180) 1 else 0], tr.left - g, tr.top - g, Role.SURFACE)
+            f.r.fillMask(tombHalo[rot / 90], tr.left - g, tr.top - g, Role.SURFACE)
             f.r.blit(tomb, tr.left, tr.top, rot)
         }
 
@@ -354,7 +354,7 @@ class KoComponent(
     }
 
     companion object {
-        private const val P = PlayLayout.PLAYERS
+        private const val P = PlayLayout.MAX_PLAYERS
 
         const val ZONE = 0
 
@@ -368,7 +368,6 @@ class KoComponent(
         /** The longest an effect may hold the dead treatment off (safety net). */
         const val HOLD_MAX_MS = 4_000L
 
-        private val ROTATIONS = intArrayOf(0, 180)
         private val CAUSE_ICONS = arrayOf(Icon.LIFE, Icon.POISON, Icon.COMMANDER)
         private const val WARM_UI = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 '.,-:?"
         private const val WARM_NUM = "0123456789-"

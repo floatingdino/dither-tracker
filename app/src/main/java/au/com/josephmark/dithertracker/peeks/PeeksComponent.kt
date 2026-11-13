@@ -31,21 +31,21 @@ class PeeksComponent : Component(Layer.TILE, Kind.CONTENT) {
     private val chip = IRect()
     private val icon = IRect()
     private val fp = IRect()
-    private val cornerL = Array(PlayLayout.PLAYERS) { IRect() }
-    private val cornerR = Array(PlayLayout.PLAYERS) { IRect() }
+    private val cornerL = Array(PlayLayout.MAX_PLAYERS) { IRect() }
+    private val cornerR = Array(PlayLayout.MAX_PLAYERS) { IRect() }
 
     override fun onLayout(play: PlayLayout, tiles: TileSlots) {
         val k = PeekLayout(play)
         pk = k
         t = tiles
-        for (s in 0 until PlayLayout.PLAYERS) { k.corner(s, 0, cornerL[s]); k.corner(s, 1, cornerR[s]) }
+        for (s in 0 until play.playerCount) { k.corner(s, 0, cornerL[s]); k.corner(s, 1, cornerR[s]) }
         stage.log?.invoke("$k")
     }
 
     override fun prewarm(f: Frame) {
         val k = pk ?: return
         f.icons.prewarm(DrawerItems.TRAY_ICONS, k.tk)
-        for (rot in ROTATIONS) f.text.draw(k.num, WARM_CHARS, 0, 0, k.tk, rot)
+        for (rot in k.play.rotations) f.text.draw(k.num, WARM_CHARS, 0, 0, k.tk, rot)
     }
 
     override fun draw(f: Frame, seat: Int) {
@@ -99,7 +99,7 @@ class PeeksComponent : Component(Layer.TILE, Kind.CONTENT) {
 
     override fun onSettingsChanged(old: AppSettings, new: AppSettings) {
         if (pk == null) return
-        if (old.drawerCounters != new.drawerCounters) for (s in 0 until PlayLayout.PLAYERS) invalidateCorners(s)
+        if (old.drawerCounters != new.drawerCounters) for (s in 0 until (pk?.play?.playerCount ?: 0)) invalidateCorners(s)
     }
 
     private fun invalidateCorners(seat: Int) {
@@ -109,6 +109,5 @@ class PeeksComponent : Component(Layer.TILE, Kind.CONTENT) {
 
     companion object {
         private const val WARM_CHARS = "0123456789+-"
-        private val ROTATIONS = intArrayOf(0, 180)
     }
 }

@@ -32,7 +32,7 @@ class LifeComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = 2) {
 
     override fun prewarm(f: Frame) {
         val l = l ?: return
-        for (rot in ROTATIONS) for (k in 1..l.kMax) {
+        for (rot in l.rotations) for (k in 1..l.kMax) {
             f.text.draw(l.font, WARM_CHARS, 0, 0, k, rot)
             f.text.draw(l.pmFont, PM_CHARS, 0, 0, k, rot)
         }
@@ -100,6 +100,5 @@ class LifeComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = 2) {
         private const val PLUS_GLYPH = "+"
         private const val WARM_CHARS = "0123456789-+−"
         private const val PM_CHARS = "-+"
-        private val ROTATIONS = intArrayOf(0, 180)
     }
 }

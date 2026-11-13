@@ -25,16 +25,16 @@ import au.com.josephmark.dithertracker.stage.Readouts
  *
  * [Kind.READOUT]: commander mode keeps it visible.
  */
-class ReadoutComponent : Component(Layer.TILE, Kind.READOUT, timerCount = PlayLayout.PLAYERS), Readouts, PendingDeltas.Sink {
+class ReadoutComponent : Component(Layer.TILE, Kind.READOUT, timerCount = PlayLayout.MAX_PLAYERS), Readouts, PendingDeltas.Sink {
 
     private lateinit var pending: PendingDeltas
-    private val keys = arrayOfNulls<String>(PlayLayout.PLAYERS)
+    private val keys = arrayOfNulls<String>(PlayLayout.MAX_PLAYERS)
     private var l: PlayLayout? = null
     private var t: TileSlots? = null
     private val fp = IRect()
 
     override fun onAdded() {
-        pending = PendingDeltas(PlayLayout.PLAYERS, timers, this, stage.session.history.coalesceWindowMillis)
+        pending = PendingDeltas(PlayLayout.MAX_PLAYERS, timers, this, stage.session.history.coalesceWindowMillis)
         stage.readouts = this
     }
 
@@ -45,7 +45,7 @@ class ReadoutComponent : Component(Layer.TILE, Kind.READOUT, timerCount = PlayLa
 
     override fun prewarm(f: Frame) {
         val l = l ?: return
-        for (rot in ROTATIONS) for (k in 1..maxOf(l.readoutK, l.tk)) f.text.draw(l.readoutFont, WARM_CHARS, 0, 0, k, rot)
+        for (rot in l.rotations) for (k in 1..maxOf(l.readoutK, l.tk)) f.text.draw(l.readoutFont, WARM_CHARS, 0, 0, k, rot)
     }
 
     override fun draw(f: Frame, seat: Int) {
@@ -108,6 +108,5 @@ class ReadoutComponent : Component(Layer.TILE, Kind.READOUT, timerCount = PlayLa
 
     companion object {
         private const val WARM_CHARS = "0123456789-+−"
-        private val ROTATIONS = intArrayOf(0, 180)
     }
 }

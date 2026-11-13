@@ -60,6 +60,10 @@ class PlayView(
         override fun cancel(id: Int) = timers.cancel(id)
         override fun cancelAllTimers() = timers.cancelAll()
         override fun now(): Long = System.currentTimeMillis()
+
+        override fun relayout(players: Int) {
+            if (width > 0 && height > 0) relayout(width, height)
+        }
     }
 
     private val stage: Stage = PlayScreen.build(Stage(session, SettingsHolder.shared, platform), random)
@@ -125,7 +129,7 @@ class PlayView(
     private val settingsListener = SettingsHolder.Listener { old, new ->
         if (old.inverted != new.inverted) setInverted(new.inverted)
         if (old.holdRepeatStep != new.holdRepeatStep) stage.holdStep = new.holdRepeatStep
-        if (old.scale != new.scale) {
+        if (old.scale != new.scale || old.layout != new.layout) {
             mainHandler.removeCallbacks(relayoutTask)
             mainHandler.post(relayoutTask)
         }
@@ -165,13 +169,15 @@ class PlayView(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) = relayout(w, h)
 
-    /** Grid + layout for a [w]×[h] view at the scale the settings ask for (AUTO or a fixed S). */
+    /** Grid + layout for a [w]×[h] view at the scale the settings ask for (AUTO or a fixed S), for the game's player count. */
     private fun relayout(w: Int, h: Int) {
-        val s = PlayLayout.chooseScale(w, h, resources.displayMetrics.densityDpi, stage.settings.current.scale)
+        val app = stage.settings.current
+        val players = stage.session.state.players.size
+        val s = PlayLayout.chooseScale(w, h, resources.displayMetrics.densityDpi, app.scale, players, app.layout)
         val grid = DitherGrid(w, h, s)
         r.setGrid(grid)
         r.prewarm()
-        val l = PlayLayout.compute(grid)
+        val l = PlayLayout.compute(grid, players, app.layout)
         stage.layout(l)
         prewarm()
         if (trace) Log.d(TAG, "layout $l")

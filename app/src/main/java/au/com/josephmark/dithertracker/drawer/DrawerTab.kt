@@ -28,7 +28,7 @@ class DrawerTab(private val drawer: DrawerComponent) : Component(Layer.TILE_CHRO
 
     override fun onLayout(play: PlayLayout, tiles: TileSlots) {
         l = play
-        dots = Array(PlayLayout.PLAYERS) { HaloGlyph.of(play.tabDots, it * 3, 3, play.halo) }
+        dots = Array(play.playerCount) { HaloGlyph.of(play.tabDots, it * 3, 3, play.halo) }
     }
 
     override fun prewarm(f: Frame) {

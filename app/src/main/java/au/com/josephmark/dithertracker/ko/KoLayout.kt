@@ -94,7 +94,16 @@ class KoLayout(val play: PlayLayout) {
     val detailTop: Int = slotBottom + PlayLayout.V_MIN
     val detailBottom: Int = H - play.chrome.tabH - play.chrome.tabHitPad - PlayLayout.V_MIN
 
-    val emblemTop: Int = PlayLayout.V_MIN + gutter
+    /**
+     * Top of the emblem: [PlayLayout.V_MIN] inside the field, or (T11) below the diamond's paper ring
+     * where the diamond sits in the middle of the far edge (2, 5 and 6 players).
+     */
+    val emblemTop: Int = run {
+        val w = PlayLayout.ICON * Chrome.size(ICON_K, s) + 2 * halo
+        val x = (W - w) / 2
+        val reach = play.farReach(x - gutter, x + w + gutter)
+        if (reach > 0) maxOf(PlayLayout.V_MIN + gutter, reach + gutter + halo + 1) else PlayLayout.V_MIN + gutter
+    }
 
     /** Hero text box (cap bands and descenders; the ground grows [halo] beyond it). */
     val textLeft: Int = PlayLayout.EDGE_MIN

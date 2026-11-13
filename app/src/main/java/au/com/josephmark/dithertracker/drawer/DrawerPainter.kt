@@ -95,7 +95,7 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
     fun prewarm(l: DrawerLayout) {
         icons.prewarm(WARM_ICONS, l.tk)
         for (d in l.dotsGlyph) d.prewarm(r)
-        for (rot in intArrayOf(0, 180)) text.draw(l.numFont, "0123456789+-", 0, 0, l.tk, rot)
+        for (rot in l.play.rotations) text.draw(l.numFont, "0123456789+-", 0, 0, l.tk, rot)
     }
 
     private fun hit(a: IRect, clip: IRect): Boolean =

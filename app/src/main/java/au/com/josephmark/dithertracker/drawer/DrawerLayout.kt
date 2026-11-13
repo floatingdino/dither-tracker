@@ -139,7 +139,7 @@ class DrawerLayout(val play: PlayLayout) {
     private val colX: IntArray
 
     // ---- screen rects, per seat ----------------------------------------------------------------
-    private val P = PlayLayout.PLAYERS
+    private val P = play.playerCount
     private val MS = DrawerZones.MAX_SLOTS
 
     val upper: Array<IRect> = Array(P) { IRect() }
@@ -240,15 +240,21 @@ class DrawerLayout(val play: PlayLayout) {
         val stack = roH + readoutGap + nH
         val bottom = up - barHitPad
         var t = PlayLayout.V_MIN + maxOf(0, (bottom - PlayLayout.V_MIN - stack) / 2)
-        // Corner reach of the diamond into a panel (both far corners, whichever seat).
-        val reach = play.diamondHalf
+        // Reach of the diamond into the tile across each piece's columns (a far corner on a 2×2, the
+        // middle of the far edge for some counts, T11; [PlayLayout.farReach] is 0 where it is clear).
         val roW = play.readoutFont.widthOf(PlayLayout.READOUT_CHARS, rk)
-        if ((W - roW) / 2 < reach) t = maxOf(t, reach)
-        val side = (W - f.widthOf(PlayLayout.MAX_CHARS, k)) / 2
-        if (side < reach) t = maxOf(t, reach - roH - readoutGap)
+        val roX = (W - roW) / 2
+        val rr = play.farReach(roX, roX + roW)
+        if (rr > 0) t = maxOf(t, rr)
+        val slotW = f.widthOf(PlayLayout.MAX_CHARS, k)
+        val side = (W - slotW) / 2
+        val nr = play.farReach(side, side + slotW)
+        if (nr > 0) t = maxOf(t, nr - roH - readoutGap)
         val pmK = PlayLayout.pmK(k)
-        val pmX = (side - play.pmFont.glyphWidth * pmK) / 2
-        if (pmX < reach) t = maxOf(t, reach - roH - readoutGap - (play.pmCapAlignedY(0, k)))
+        val pmW = play.pmFont.glyphWidth * pmK
+        val pmX = (side - pmW) / 2
+        val pr = maxOf(play.farReach(pmX, pmX + pmW), play.farReach(W - pmX - pmW, W - pmX))
+        if (pr > 0) t = maxOf(t, pr - roH - readoutGap - (play.pmCapAlignedY(0, k)))
         return if (t + stack <= bottom) t else -1
     }
 
