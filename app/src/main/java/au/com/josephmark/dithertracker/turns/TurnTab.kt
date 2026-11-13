@@ -94,19 +94,35 @@ class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, time
         val l = layout ?: return -1
         if (!l.enabled || !stage.settings.current.turnTracker || !s.turn.started) return -1
         val id = s.turn.activePlayer ?: return -1
-        val seat = s.indexOf(id)
+        val seat = seatOf(s, id)
         if (seat < 0 || seat >= l.play.playerCount) return -1
         if (gameOver(s)) return -1
         if (!visible(seat) || stage.covered(Kind.CHROME, Stage.SCREEN)) return -1
         return seat
     }
 
+    /** Seat of player [id], or −1 (an index loop: `GameState.indexOf` walks an iterator, 32 bytes a call). */
+    private fun seatOf(s: GameState, id: Int): Int {
+        val ps = s.players
+        for (i in ps.indices) if (ps[i].id == id) return i
+        return -1
+    }
+
+    /** One player (or none) left standing; cached per player list (a minute tick asks again, core's `isKo` allocates). */
     private fun gameOver(s: GameState): Boolean {
+        if (s.players === overFor && s.settings === overRules) return over
         var alive = 0
         val ps = s.players
         for (i in ps.indices) if (!s.isKo(ps[i])) alive++
-        return alive <= 1
+        overFor = ps
+        overRules = s.settings
+        over = alive <= 1
+        return over
     }
+
+    private var overFor: List<*>? = null
+    private var overRules: Any? = null
+    private var over = false
 
     /** Minutes for [s]'s clock under the settings at [now], or −1 when the timer shows none. */
     private fun minutesFor(s: GameState, now: Long): Int {
@@ -218,7 +234,7 @@ class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, time
     override fun onRepeat(seat: Int, local: Int) {
         val s = stage.session.state
         val id = s.turn.activePlayer ?: return
-        val from = s.indexOf(id)
+        val from = seatOf(s, id)
         if (from < 0) return
         val ps = s.players
         for (step in 1 until ps.size) {

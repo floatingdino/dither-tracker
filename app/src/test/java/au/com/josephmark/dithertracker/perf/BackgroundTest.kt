@@ -1,10 +1,12 @@
 package au.com.josephmark.dithertracker.perf
 
 import au.com.josephmark.dithertracker.core.Action
+import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.purity.ScreenRig
 import au.com.josephmark.dithertracker.stage.Events
 import au.com.josephmark.dithertracker.stage.Stage
+import au.com.josephmark.dithertracker.turns.TurnTab
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -64,5 +66,39 @@ class BackgroundTest {
         assertFalse(rig.fx.player.isPlaying(1))
         // The KO tile's own safety timer was released with the hold; nothing else remains.
         assertEquals("timers armed after pause", "", armed(rig))
+    }
+
+    /**
+     * T17: the turn timer's one tick is armed only while it shows and the app is in the foreground —
+     * nothing in the background however long, one redraw on resume (re-synced from the wall clock),
+     * and nothing at all while the timer is off.
+     */
+    @Test fun turnTimerNeverTicksInTheBackgroundAndResyncsOnResume() {
+        val rig = ScreenRig(1872, 1404, 4)
+        val turn = rig.stage.components.filterIsInstance<TurnTab>().single()
+        rig.dispatch(Action.SetStartingPlayer(rig.id(2)))
+        assertEquals("tracking on, timer off (the default): nothing armed", "", armed(rig))
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.TURN))
+        assertTrue(turn.ticking)
+        rig.advance(90_000)
+        assertEquals(1, turn.minutes)
+
+        rig.stage.send(Events.PAUSE, Stage.SCREEN)
+        assertEquals("timers armed after pause", "", armed(rig))
+        val before = rig.platform.count
+        rig.advance(3 * 3_600_000L) // three hours in a pocket
+        assertEquals("nothing redraws in the background", before, rig.platform.count)
+
+        rig.stage.send(Events.RESUME, Stage.SCREEN)
+        assertEquals(181, turn.minutes)
+        assertEquals("one redraw on resume", before + 1, rig.platform.count)
+        assertTrue(turn.ticking)
+
+        // Off: disarmed at once, and an idle hour draws nothing.
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.OFF))
+        assertEquals("", armed(rig))
+        val idle = rig.platform.count
+        rig.advance(3_600_000L)
+        assertEquals(idle, rig.platform.count)
     }
 }

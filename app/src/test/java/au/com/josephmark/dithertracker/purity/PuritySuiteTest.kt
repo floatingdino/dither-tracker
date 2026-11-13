@@ -19,6 +19,8 @@ import au.com.josephmark.dithertracker.stage.Stage
 import au.com.josephmark.dithertracker.tools.DiceLayout
 import au.com.josephmark.dithertracker.tools.DiceOverlay
 import au.com.josephmark.dithertracker.tools.DiceState
+import au.com.josephmark.dithertracker.turns.TurnTab
+import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.MonoImage
 import org.junit.Assert.assertTrue
@@ -384,6 +386,39 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         shot("76_first_player")
         rig.advance(10_000)
         shot("77_first_player_gone")
+    }
+
+    // ---- T17: turn tracker and timer ---------------------------------------------------------------------------
+
+    @Test fun turns() = script { rig ->
+        val turn = rig.stage.components.filterIsInstance<TurnTab>().single()
+        rig.dispatch(Action.SetToggle(rig.id(0), Toggle.MONARCH, true))
+        rig.dispatch(Action.ChangeCommanderTax(rig.id(3), Commander.PRIMARY, 2))
+        rig.dispatch(Action.SetStartingPlayer(rig.id(0)))
+        rig.advance(10_000)
+        shot("80_turn_tab")
+        if (turn.shownSeat < 0) return@script // S = 5, 6 on the Nomad: not comfortable, no far strip (never offered)
+        rig.press(turn, 0, TurnTab.PASS)
+        shot("81_turn_tab_pressed")
+        rig.cancel()
+        rig.tap(turn, 0, TurnTab.PASS)
+        rig.tap(rig.life, 1, PlayLayout.MINUS) // the active seat's readout under its tab
+        shot("82_passed_with_readout")
+        rig.advance(10_000)
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.GAME))
+        rig.advance(7 * 60_000L)
+        shot("83_game_clock_7")
+        rig.advance(100 * 60_000L)
+        shot("84_game_clock_107")
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.TURN))
+        rig.tap(turn, 1, TurnTab.PASS)
+        shot("85_turn_timer_0")
+        rig.dispatch(Action.SetLife(rig.id(2), 0)) // the active seat goes out on its own turn
+        rig.advance(10_000)
+        shot("86_ko_active_near_edge")
+        rig.tap(turn, 2, TurnTab.PASS)
+        shot("87_passed_on_from_ko")
+        // (2, 3, 5 and 6 seats, the narrow tier and sideways seats: turns/TurnTabTest on CountRig.)
     }
 
     // ---- effect keyframes ----------------------------------------------------------------------------------------

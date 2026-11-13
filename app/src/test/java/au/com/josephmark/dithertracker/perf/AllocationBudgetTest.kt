@@ -2,6 +2,7 @@ package au.com.josephmark.dithertracker.perf
 
 import au.com.josephmark.dithertracker.commander.CommanderZones
 import au.com.josephmark.dithertracker.core.Action
+import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.drawer.DrawerZones
 import au.com.josephmark.dithertracker.fx.Fx
 import au.com.josephmark.dithertracker.ko.KoComponent
@@ -11,6 +12,8 @@ import au.com.josephmark.dithertracker.purity.ScreenRig
 import au.com.josephmark.dithertracker.stage.Stage
 import au.com.josephmark.dithertracker.tools.DiceLayout
 import au.com.josephmark.dithertracker.tools.DiceState
+import au.com.josephmark.dithertracker.turns.TurnLayout
+import au.com.josephmark.dithertracker.turns.TurnTab
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -195,5 +198,33 @@ class AllocationBudgetTest {
 
         /** Core's immutable state change for one ±1 (measured ~1 KB on JDK 21; a regression guard, not a target). */
         const val CORE_BUDGET_BYTES = 4_096L
+    }
+
+    /**
+     * T17: the turn tab draws allocation-free (far edge with minutes, pressed, on a KO tile at the near
+     * edge), and a minute tick (timer callback, re-sync, digits invalidation, re-arm) allocates nothing.
+     */
+    @Test fun turnTabDrawAndMinuteTickAllocateNothing() {
+        val rig = rig()
+        val turn = rig.stage.components.filterIsInstance<TurnTab>().single()
+        rig.dispatch(Action.SetStartingPlayer(rig.id(3)))
+        assertDrawFree(rig, "turn tab")
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.GAME))
+        rig.advance(12 * 60_000L)
+        assertEquals(12, turn.minutes)
+        assertDrawFree(rig, "turn tab with minutes")
+        rig.press(turn, 3, TurnTab.PASS)
+        assertDrawFree(rig, "turn tab pressed")
+        rig.cancel()
+        assertEquals("a minute tick", 0L, bytes { rig.advance(60_000) })
+        val tab = rig.pointOf(turn, 3, TurnTab.PASS)!!
+        assertEquals("press + cancel on the turn tab", 0L, bytes {
+            rig.stage.down(0, tab[0], tab[1], rig.now)
+            rig.stage.cancel()
+        })
+        rig.dispatch(Action.SetLife(rig.id(3), 0))
+        rig.advance(6_000)
+        assertEquals(TurnLayout.NEAR, turn.place)
+        assertDrawFree(rig, "turn tab on a KO tile")
     }
 }
