@@ -75,6 +75,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T24 | done | — | Icon redesign per Sam's feedback: redo `poison` (ugly), `rads` (too large in the set), refine `storm`; rework `experience`, `life`, `energy`, `commander` (too simplistic/off); add weight and a slightly cutesy/wacky character across the set, keeping the filled-arrow feel of `refresh`/`reset`. | `design/icons/` |
 | T25a | wip | T03 | Personality copy tables in core: original quips (KO lines by reason, dice/coin lines, reset confirm, empty history, default player names) with a pure picker taking `Random`; length-checked against the `ui` face budget. | `core/src/**/flavour/` |
 | T25b | todo | T25a T15 T16 | Show quips at their call sites (KO panel, tools, reset confirm, history) as static text; "quips" setting. | call sites |
+| T26 | wip | — | Hero numeral exploration: 4–5 heavier, more characterful candidates for life totals, rendered in-context at device pixels for Sam to pick. | `design/font/candidates/` (or `design/font-candidates/`) |
+| T27 | todo | T26 + Sam's pick | Replace `num-l` with the chosen design; re-derive play layout; verify on device. | `design/font/num-l/`, `play/` |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
 
 ## Task notes
@@ -151,3 +153,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   onZonePressed/Released (T07), `RESERVED` hits for tab/diamond (T08/T09), `GameSession.replace` (T10b).
   Agent saw one unreproduced run with 3 lost taps under adb injection — watch for it.
   Dispatched T07, T10b, T25a. Play-view files are single-writer: T08, T09, T11, T15 queue behind T07.
+- 2026-11-13 — Sam's feedback (device): old `monarch` restored; `night` = old moon + two dot stars
+  (the 4-point star read as a plus / experience) — done by coordinator; hero numerals too thin/boring
+  -> T26 exploration dispatched; drawer tab and menu diamond too small -> forwarded to the T07 agent
+  (owns PlayLayout); hold for +/-10 confirmed (T07).
