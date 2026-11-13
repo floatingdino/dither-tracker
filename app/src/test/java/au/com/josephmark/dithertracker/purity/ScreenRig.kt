@@ -20,6 +20,7 @@ import au.com.josephmark.dithertracker.settings.SettingsOverlay
 import au.com.josephmark.dithertracker.stage.Component
 import au.com.josephmark.dithertracker.stage.Frame
 import au.com.josephmark.dithertracker.stage.IconPainter
+import au.com.josephmark.dithertracker.stage.PlayInput
 import au.com.josephmark.dithertracker.stage.Stage
 import au.com.josephmark.dithertracker.stage.StageTest
 import au.com.josephmark.dithertracker.tools.DiceOverlay
@@ -81,7 +82,20 @@ class ScreenRig(val w: Int, val h: Int, val s: Int, seed: Long = 7) {
 
     // ---- input ------------------------------------------------------------------------------------
 
+    // MotionEvent-like pointer ids: small, reused (PlayInput ignores ids >= MAX_POINTERS, so a plain
+    // counter made a script quietly stop tapping after 32 touches). Ids held by a [press] are skipped
+    // until [cancel].
     private var pointer = 0
+    private var held = 0
+
+    private fun nextPointer(): Int {
+        for (i in 0 until PlayInput.MAX_POINTERS) {
+            val p = pointer
+            pointer = (pointer + 1) % PlayInput.MAX_POINTERS
+            if ((held ushr p) and 1 == 0) return p
+        }
+        return pointer.also { pointer = (pointer + 1) % PlayInput.MAX_POINTERS } // every id held: reuse
+    }
 
     /** A point inside [c]'s zone ([seat], [local]) that hit-tests to it, or null when it is not declared / fully covered. */
     fun pointOf(c: Component, seat: Int, local: Int): IntArray? {
@@ -102,7 +116,7 @@ class ScreenRig(val w: Int, val h: Int, val s: Int, seed: Long = 7) {
         pointOf(c, seat, local) ?: throw AssertionError("${c.javaClass.simpleName} seat $seat zone $local is not tappable")
 
     fun tapAt(gx: Int, gy: Int) {
-        val p = pointer++
+        val p = nextPointer()
         stage.down(p, gx, gy, now)
         stage.up(p)
     }
@@ -112,9 +126,16 @@ class ScreenRig(val w: Int, val h: Int, val s: Int, seed: Long = 7) {
     /** Puts a finger down on the zone and leaves it there (render, then [release] or [cancel]). */
     fun press(c: Component, seat: Int, local: Int) = need(c, seat, local).let { pressAt(it[0], it[1]) }
 
-    fun pressAt(gx: Int, gy: Int) = stage.down(pointer++, gx, gy, now)
+    fun pressAt(gx: Int, gy: Int) {
+        val p = nextPointer()
+        held = held or (1 shl p)
+        stage.down(p, gx, gy, now)
+    }
 
-    fun cancel() = stage.cancel()
+    fun cancel() {
+        held = 0
+        stage.cancel()
+    }
 
     fun openMenu() = tapAt(l.diamondCx, l.diamondCy)
 

@@ -147,7 +147,11 @@ class PlayInput(
     }
 
     companion object {
-        /** MotionEvent pointer ids are small dense ints; ids beyond this are ignored. */
+        /**
+         * MotionEvent pointer ids are small dense ints, 0..31 on Android (`MAX_POINTER_ID` = 31), so
+         * no real touch is dropped; ids outside `0 until MAX_POINTERS` are ignored silently. Test rigs
+         * must reuse ids like a device does (`ScreenRig`, `CountRig`), not count up forever.
+         */
         const val MAX_POINTERS = 32
 
         /** Long enough that a deliberate tap (≈100–250 ms on glass) never becomes a hold. */
