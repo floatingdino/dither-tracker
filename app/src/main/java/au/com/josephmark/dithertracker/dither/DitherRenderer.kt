@@ -7,6 +7,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.Shader
 import android.os.Build
 import java.nio.ByteBuffer
@@ -238,6 +240,97 @@ class DitherRenderer {
 
     fun icon(icon: Icon, x: Int, y: Int, rotation: Int = 0, invert: Boolean = false, opaque: Boolean = false) =
         blit(icon, x, y, rotation, invert, opaque)
+
+    // ---- effect masks (T28e) --------------------------------------------------------------
+
+    /** What [drawMask] does under the ink pixels of its mask (pixels outside the mask are untouched). */
+    enum class MaskOp {
+        /** Inverts what is already drawn (ink↔paper). API 29+; see [drawMask]'s `underlay` below that. */
+        INVERT,
+        /** Ink where the tile has ink; untouched where it has paper. */
+        TILE_INK,
+        /** Paper where the tile has ink; untouched where it has paper. */
+        TILE_PAPER,
+        /** The tile opaque: its ink as ink, its paper as paper. */
+        TILE_FILL,
+    }
+
+    /**
+     * Draws through the ink pixels of [img] — already turned, no rotation is applied, so a tile's
+     * phase stays global — with its top-left at dither (x, y), one drawBitmap of the cached ALPHA_8
+     * mask (effects, T28e):
+     * - [MaskOp.INVERT]: blend DIFFERENCE with white, like [invertRect] but mask-shaped; colours
+     *   don't matter (an invert is its own dark mode). Below API 29 ([canInvertInPlace] false) it
+     *   instead runs [underlay] — which must redraw everything under the mask — with [inverted]
+     *   flipped into a layer clipped to the mask (DST_IN); with no [underlay] it does nothing.
+     * - `TILE_*`: [tile] at global phase through the mask; ink/paper follow [inverted].
+     * No allocations after the first call per (image, S) and (tile, colour, S).
+     */
+    fun drawMask(img: MonoImage, x: Int, y: Int, op: MaskOp, tile: Tile = Patterns.D[16], underlay: Runnable? = null) {
+        val c = canvas!!
+        val bmp = mask(img)
+        val dx = grid.toDeviceX(x).toFloat()
+        val dy = grid.toDeviceY(y).toFloat()
+        val full = tile.width * tile.height
+        val paint: Paint = when (op) {
+            MaskOp.INVERT -> {
+                if (!canInvertInPlace) {
+                    if (underlay == null) return
+                    val s = grid.scale
+                    c.saveLayer(dx, dy, dx + img.width * s, dy + img.height * s, null)
+                    try {
+                        withInverted { underlay.run() }
+                        c.drawBitmap(bmp, dx, dy, maskClipPaint)
+                    } finally {
+                        c.restore()
+                    }
+                    return
+                }
+                diffPaint
+            }
+            MaskOp.TILE_INK, MaskOp.TILE_PAPER -> {
+                if (tile.inkCount == 0) return
+                val white = inverted == (op == MaskOp.TILE_INK) // ink is white when inverted; paper otherwise
+                if (tile.inkCount == full) solid.also { it.color = if (white) Color.WHITE else Color.BLACK }
+                else sparseTilePaint(tile, white)
+            }
+            MaskOp.TILE_FILL -> when (tile.inkCount) {
+                0 -> solid.also { it.color = paper }
+                full -> solid.also { it.color = ink }
+                else -> tilePaint(tile, inverted)
+            }
+        }
+        c.drawBitmap(bmp, dx, dy, paint)
+    }
+
+    // drawMask's helpers: tile shaders whose paper is transparent, per (tile, white), rebuilt on a
+    // scale change and re-anchored to the grid origin on every use.
+    private val sparseTilePaints = arrayOfNulls<Paint>(Patterns.all.size * 2)
+    private var sparseScale = 0
+    private val maskClipPaint = crisp().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }
+
+    private fun sparseTilePaint(tile: Tile, white: Boolean): Paint {
+        val s = grid.scale
+        if (sparseScale != s) {
+            for (i in sparseTilePaints.indices) sparseTilePaints[i] = null
+            sparseScale = s
+        }
+        val i = tile.id * 2 + if (white) 1 else 0
+        val p = sparseTilePaints[i] ?: run {
+            val w = tile.width * s
+            val h = tile.height * s
+            val inkC = if (white) Color.WHITE else Color.BLACK
+            val px = IntArray(w * h)
+            for (y in 0 until h) for (x in 0 until w) {
+                px[y * w + x] = if (tile.isInk(x / s, y / s)) inkC else Color.TRANSPARENT
+            }
+            val bmp = Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
+            crisp().apply { shader = BitmapShader(bmp, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT) }
+                .also { sparseTilePaints[i] = it }
+        }
+        p.shader.setLocalMatrix(tileMatrix)
+        return p
+    }
 
     // ---- internals ------------------------------------------------------------------------
 
