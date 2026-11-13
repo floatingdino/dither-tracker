@@ -13,6 +13,7 @@ import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.play.GameSession
 import au.com.josephmark.dithertracker.play.PlayView
+import kotlin.random.Random
 
 class MainActivity : Activity() {
 
@@ -29,6 +30,8 @@ class MainActivity : Activity() {
         //   --ez trace true     log Play onDraw clip + duration (tag PlayView)
         //   --es partners 1,3   (debuggable builds only) set `partner` on exactly these seats (T30/T32
         //                       QA until T13 adds a UI for it); an empty string clears every partner
+        //   --el seed N         (debuggable builds only) seed the commander-mode quip picker, so
+        //                       `tools/capture_scenarios.sh` captures are reproducible
         val inverted = if (intent?.hasExtra("inverted") == true) {
             intent.getBooleanExtra("inverted", false)
         } else {
@@ -40,12 +43,19 @@ class MainActivity : Activity() {
             DitherDemoView(this).apply { setInverted(inverted) }
         } else {
             // The game lives in GameSession.shared (process memory, restored from disk by Persistence).
-            PlayView(this, GameSession.shared).apply {
+            PlayView(this, GameSession.shared, debugRandom() ?: Random(System.nanoTime())).apply {
                 trace = intent?.getBooleanExtra("trace", false) == true
                 setInverted(inverted)
             }
         }
         setContentView(root)
+    }
+
+    /** Debug-only capture hook: `--el seed N` makes the commander-mode quip picks reproducible. */
+    private fun debugRandom(): Random? {
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return null
+        if (intent?.hasExtra("seed") != true) return null
+        return Random(intent.getLongExtra("seed", 0L))
     }
 
     /** Debug-only QA hook: `--es partners 1,3` sets the partner flag on exactly those seats. */

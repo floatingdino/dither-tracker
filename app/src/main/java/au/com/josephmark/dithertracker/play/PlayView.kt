@@ -60,7 +60,12 @@ import kotlin.random.Random
  * - readout commit (3 s idle on that seat): 1, readout rect only.
  */
 @SuppressLint("ViewConstructor")
-class PlayView(context: Context, private val session: GameSession) :
+class PlayView(
+    context: Context,
+    private val session: GameSession,
+    /** Picks the commander-mode quip; seedable for the capture harness (`--el seed N`, debug builds). */
+    random: Random = Random(System.nanoTime()),
+) :
     View(context), GameSession.Listener, PlayInput.Sink, PendingDeltas.Sink, PlayInput.ZoneMap,
     DrawerController.Host, SettingsHolder.Listener, CommanderMode.Host {
 
@@ -79,7 +84,7 @@ class PlayView(context: Context, private val session: GameSession) :
     private val drawer = DrawerController(drawers, this)
     private val painter = DrawerPainter(r, text)
     private val settings = SettingsHolder.shared
-    private val mode = CommanderMode(modeTimers, this, Random(System.nanoTime())).also { modeTimers.target = it }
+    private val mode = CommanderMode(modeTimers, this, random).also { modeTimers.target = it }
 
     /** Core coalesce key of each seat's open readout group when it is not a life group (damage, T30). */
     private val readoutKey = arrayOfNulls<String>(PlayLayout.PLAYERS)
