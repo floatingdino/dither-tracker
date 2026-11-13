@@ -53,12 +53,14 @@ class PlayView(
     private val platform = object : Stage.Platform {
         override fun invalidate(left: Int, top: Int, right: Int, bottom: Int) {
             if (trace) Log.d(TAG, "inval $left $top $right $bottom")
+            if (stopped) { dirtyWhileStopped = true; return }
             @Suppress("DEPRECATION")
             this@PlayView.invalidate(left, top, right, bottom)
         }
 
         override fun invalidateAll() {
             if (trace) Log.d(TAG, "inval all")
+            if (stopped) { dirtyWhileStopped = true; return }
             this@PlayView.invalidate()
         }
         override fun schedule(id: Int, delayMillis: Long) = timers.schedule(id, delayMillis)
@@ -171,6 +173,26 @@ class PlayView(
     fun onHostPause() = stage.send(Events.PAUSE, Stage.SCREEN)
 
     fun onHostResume() = stage.send(Events.RESUME, Stage.SCREEN)
+
+    // Not visible (T20): a timer that still fires in the background (a menu or mode timing out) only
+    // notes that a redraw is due; the one redraw happens when the window is visible again. On the
+    // Nomad, such frames were drawn in the background (up to 20 ms each).
+    private var stopped = false
+    private var dirtyWhileStopped = false
+
+    /** The activity stopped (not visible): hold redraws until [onHostStart]. */
+    fun onHostStop() {
+        stopped = true
+    }
+
+    /** The activity is visible again: one redraw if anything changed while stopped. */
+    fun onHostStart() {
+        stopped = false
+        if (dirtyWhileStopped) {
+            dirtyWhileStopped = false
+            invalidate()
+        }
+    }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) = relayout(w, h)
 

@@ -75,6 +75,15 @@ class ReadoutComponent : Component(Layer.TILE, Kind.READOUT, timerCount = PlayLa
 
     override fun onDetach() = pending.commitAll()
 
+    /**
+     * The app went to the background (T20): commit now rather than 3 s later in the background, so
+     * nothing is left ticking, the closed group is in the save `onPause` flushes, and the effect a
+     * commit triggers is dropped (the effects component stops everything on the same event).
+     */
+    override fun onEvent(event: Int, seat: Int) {
+        if (event == Events.PAUSE) pending.commitAll()
+    }
+
     override fun onTimer(id: Int) = pending.onTimer(id)
 
     // ---- PendingDeltas.Sink ----------------------------------------------------------------------

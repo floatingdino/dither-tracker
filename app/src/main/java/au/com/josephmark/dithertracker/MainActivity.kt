@@ -213,8 +213,14 @@ class MainActivity : Activity() {
         Persistence.flush()
     }
 
+    override fun onStart() {
+        super.onStart()
+        (root as? PlayView)?.onHostStart()
+    }
+
     override fun onStop() {
         super.onStop()
+        (root as? PlayView)?.onHostStop() // timers that still fire draw nothing until visible again
         Persistence.flush() // no-op unless something changed since onPause
     }
 

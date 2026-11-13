@@ -146,6 +146,11 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
     // ---- triggers ----------------------------------------------------------------------------------
 
     override fun onEvent(event: Int, seat: Int) {
+        if (event == Events.PAUSE) { // the app went to the background (T20): no keyframes nobody sees
+            if (gallery != null) stopGallery()
+            stopAll()
+            return
+        }
         if (seat !in 0 until P) return
         when (event) {
             Events.TOUCH_DOWN -> {
