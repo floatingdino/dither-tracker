@@ -81,7 +81,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T29 | wip | T03 | Core: per-seat undo grouping so interleaved taps from different seats don't split one seat's burst into several undo steps/log entries. JVM-only. | `core/src/` |
 | T26 | done | — | Hero numeral exploration: 4–5 heavier, more characterful candidates for life totals, rendered in-context at device pixels for Sam to pick. | `design/font/candidates/` (or `design/font-candidates/`) |
 | T28a | done | — | Hit/heal effect sprites: 3–4 damage and 2–3 heal effect concepts (swipe, crunch, fizzle, sparkle…), 2–4 frames each as 1-bit ASCII frames, with offline previews (frame strips + in-context mock). | `design/fx/` |
-| T28b | todo | T28a T07 + Sam's pick | Effect player in the play screen: frame scheduler (injectable clock), small-region invalidation, cancel on tap, trigger rule (on delta commit / big hits), settings toggle; tune hold time on device and film it. | `play/`, `app/**/fx/` |
+| T28b | wip | T28a | Effect engine (JVM-only): build step turning `design/fx/<name>/` frames + meta into generated Kotlin, pure `FxPlayer` state machine (injectable scheduler; trigger/cancel/no-queue/max-two rules), draw helper (black + knock-out layers, rotation). Ships `pow` and `twinkle`. No PlayView wiring. | `app/**/fx/`, `app/build.gradle.kts` |
+| T28c | todo | T28b T08 T27 | Wire effects into the play screen: trigger on delta commit by sign, cancel on tap, settings toggle; re-fit frames to sticker numerals; tune hold time and film on the Nomad. | `play/`, `design/fx/` |
+| T28d | wip | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
 | T27 | todo | T08 (owns play/) | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
 
@@ -118,10 +120,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - Quips (T25a) are in `design/copy/quips.md` for Sam to mark up. Least sure: "All quiet on the
   battlefield", "Took it personally", "Tails never fails, they say", "Drew nothing but lands" (close in
   spirit to Lotus's "flooded").
-
-- **Pick hit/heal effects** (T28a): `design/fx/sheet.png`, in-context mocks, `design/fx/README.md`.
-  Agent recommends `pow` (damage) + `heart` (heal) first; trigger once per committed delta group, never
-  per tap. Frames were drawn over the old thin numerals — re-fit to sticker in T28b.
 
 ## Tick log
 
@@ -198,3 +196,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-13 — Tick 16: Sam picked **sticker** for life totals -> T27 specified, queued behind T08.
   T28a reviewed (sheet eyeballed; passes 1-bit check per agent) and committed: pow, zap, claw, crack
   (damage); heart, sprout, twinkle (heal); wham (big hit), fizzle (KO) optional. T08, T29 running.
+- 2026-11-13 — Sam on effects: `pow`, `crack`, `twinkle` good; `claw` close; likes knock-out cut-outs
+  over the numerals; wants options that open up and cover more of the tile; start building with `pow`
+  and `twinkle`. SPEC rule 4 footprint wording loosened. Dispatched T28b (engine, JVM-only) and T28d
+  (more options, design-only). T08 (device), T29 running.

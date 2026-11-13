@@ -21,8 +21,9 @@ A 1-bit life tracker for MTG Commander, built for E-ink. Primary target: **Super
    welcome: a few hand-drawn 1-bit keyframes (typically 2–4), each a complete still held long enough
    for the panel to settle (≥ ~250 ms, tuned on device). Uses: hit/heal effects (swipe, crunch,
    fizzle), a KO or winner flourish, dice/coin reveals, a drawer or menu arriving in one or two
-   beats. Constraints: keep the changed region small (never animate a whole panel when a corner will
-   do); end on a clean frame with no residue; never delay or block input (a tap cancels a running
+   beats. Constraints: effects may open up across a player's tile when it earns it (Sam likes
+   cut-outs knocked through the numerals and wants options that use more of the tile), but keep ink
+   sparse so few pixels flip and stay inside that player's tile; end on a clean frame with no residue; never delay or block input (a tap cancels a running
    sequence, sequences never queue); plain state changes stay a single redraw; effects can be
    switched off in settings. If something looks smeary or trashy on the Nomad it is cut.
 5. **Cheap.** No Compose, no heavy deps. Custom `View`s drawing on `Canvas`. No allocations in

@@ -25,9 +25,19 @@ Read the sources for signatures; this file records the behaviour a UI author mus
   that slot's tax and dealt damage without refunding life. Damage from different commanders never sums.
 - **KO:** manual DEAD always counts. Revive sets ALIVE only while a lethal rule still matches; ALIVE
   clears itself once the player recovers.
-- **Undo grouping:** pass `action.coalesceKey` to `dispatch`; same-key repeats inside the window
-  become one undo step and one merged log entry. Call `endGroup()` when the pending-delta readout
-  commits. A group netting to zero disappears.
+- **Undo grouping (per key, T29):** pass `action.coalesceKey` to `dispatch`; each key's repeats
+  inside the window (measured from that key's own last action) become one undo step and one merged
+  log entry, however other keys interleave — four seats tapping at once give one step per seat.
+  Undo removes the *last-touched* step as a whole and nothing else: other seats' interleaved
+  changes stay, re-applied through `reduce` on the snapshot from before the undone group (so
+  clamping, linked-life refunds, KO flips and overrides come out exactly as if the group never
+  happened). Redo restores exactly what undo removed. A group's merged log entry sits where it was
+  last touched (the log reads in undo order); its values are those after its latest action.
+  `endGroup(key)` closes one group (call it when that seat's readout commits); `endGroup()`,
+  undo, redo and any null-key action close all of them. `openGroups` / `isGroupOpen(key)` list
+  them; `openGroup` is the most recently touched one (compat). A group netting to zero
+  disappears. A step pushed out by `maxDepth` becomes permanent and closed (its seat's next tap
+  starts a new group). `past` is now `List<UndoStep>` (key, merged entries, open flag).
 - **Log:** NewGame/Reset start a fresh log (undo restores it). Entries hold ids, not names — the
   history screen needs a fallback for removed players. `turn == 0` means turn tracking not started.
 - **Misc:** `startingLife` changes apply on NewGame/Reset. NewGame keeps names/patterns/partners;
