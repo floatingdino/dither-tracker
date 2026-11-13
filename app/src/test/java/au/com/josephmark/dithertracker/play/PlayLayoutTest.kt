@@ -33,17 +33,26 @@ class PlayLayoutTest {
         assertEquals(468, l.grid.width); assertEquals(351, l.grid.height)
         assertEquals(233, l.panelW); assertEquals(175, l.panelH)
         assertEquals(0, l.originX); assertEquals(0, l.originY) // 1 spare column goes right
-        assertEquals(2, l.kMax); assertEquals(1, l.pmK)
-        // Bottom-left seat (upright): − at x 12, slot 40..192 (−999 at k=2 is 152 wide), + at 205.
-        assertEquals(IRect(12, 176 + 73, 28, 176 + 101), l.minusGlyph[3])
-        assertEquals(IRect(40, 176 + 59, 192, 176 + 115), l.numberSlot[3])
-        assertEquals(IRect(205, 176 + 73, 221, 176 + 101), l.plusGlyph[3])
+        assertEquals(1, l.kMax); assertEquals(1, l.pmK); assertTrue(l.pmVisible) // sticker, T27
+        // Bottom-left seat (upright): − at x 13, slot 46..186 (−999 at k=1 is 140 wide), + at 200;
+        // the ± cap band (17) is centred on the number's (53).
+        assertEquals(IRect(13, 176 + 77, 33, 176 + 97), l.minusGlyph[3])
+        assertEquals(IRect(46, 176 + 59, 186, 176 + 115), l.numberSlot[3])
+        assertEquals(IRect(200, 176 + 77, 220, 176 + 97), l.plusGlyph[3])
+        // Commander button (T30): 22×22 card 4 px in from the bottom-right corner, 30×30 hit.
+        assertEquals(IRect(207, 176 + 149, 229, 176 + 171), l.cmdVis[3])
+        assertEquals(IRect(203, 176 + 145, 233, 351), l.cmdHit[3])
+        assertEquals(IRect(210, 176 + 152, 226, 176 + 168), l.cmdIcon[3])
+        // Under-number row: between the number (bottom 115) and the button hit (top 145).
+        assertEquals(IRect(8, 176 + 121, 225, 176 + 139), l.underRow[3])
+        // Rotated seat: button in the screen's top-left corner of its panel.
+        assertEquals(IRect(4, 4, 26, 26), l.cmdVis[0])
         assertEquals(IRect(72, 330, 161, 351), l.tab[3]) // 89×21 (T06: 55×12)
         assertEquals(IRect(58, 176 + 15, 174, 176 + 43), l.readoutSlot[3]) // 6 × num-m at k=2, above the number
         assertEquals(2, l.readoutK)
         // Top-left seat (180°): mirrored, tab on the screen top edge.
-        assertEquals(IRect(205, 74, 221, 102), l.minusGlyph[0])
-        assertEquals(IRect(12, 74, 28, 102), l.plusGlyph[0])
+        assertEquals(IRect(200, 78, 220, 98), l.minusGlyph[0])
+        assertEquals(IRect(13, 78, 33, 98), l.plusGlyph[0])
         assertEquals(IRect(72, 0, 161, 21), l.tab[0])
         assertEquals(IRect(59, 132, 175, 160), l.readoutSlot[0]) // "above" = towards the screen centre
         assertEquals(233, l.diamondCx); assertEquals(175, l.diamondCy)
@@ -54,12 +63,15 @@ class PlayLayoutTest {
     @Test fun kMaxIsConsistentInPhysicalSizeOnTheNomad() {
         // Same physical number height (≈224 device px) whatever S, where the panel allows it.
         val ks = (2..6).map { PlayLayout.compute(DitherGrid(1872, 1404, it)).kMax }
-        assertEquals(listOf(4, 3, 2, 1, 1), ks)
+        // Sticker is drawn natively at k = 1 (T27): k = 2 at S = 2 is the same physical size as k = 1
+        // at S = 4; S = 5/6 cannot fit −999 with ± at all (not comfortable, never auto-chosen).
+        assertEquals(listOf(2, 1, 1, 1, 1), ks)
+        assertEquals(listOf(true, true, true, false, false), (2..6).map { PlayLayout.compute(DitherGrid(1872, 1404, it)).comfortable })
     }
 
     @Test fun kMaxIsTheLargestThatFits() {
         for (l in layouts()) {
-            fun fits(k: Int) = PlayLayout.fits(l.font, k, l.panelW, l.panelH, l.chrome.tabH)
+            fun fits(k: Int) = PlayLayout.fits(l.font, l.pmFont, k, l.panelW, l.panelH, l.chrome.tabH)
             if (l.comfortable) assertTrue("$l", fits(l.kMax)) else assertEquals(1, l.kMax)
             assertFalse("$l", fits(l.kMax + 1))
         }
@@ -116,8 +128,10 @@ class PlayLayoutTest {
 
     @Test fun wideNumbersDropKOnlyWhenNeeded() {
         val l = PlayLayout.compute(DitherGrid(1872, 1404, 4))
-        for (n in 1..4) assertEquals(2, l.numberK(n))
-        assertEquals(1, l.numberK(5)) // never happens with core limits, but stays inside the slot
+        for (n in 1..5) assertEquals(1, l.numberK(n)) // k = 1 is the smallest the face has
+        val s2 = PlayLayout.compute(DitherGrid(1872, 1404, 2))
+        for (n in 1..4) assertEquals(2, s2.numberK(n))
+        assertEquals(1, s2.numberK(5)) // never happens with core limits, but stays inside the slot
     }
 
     @Test fun rotatedSeatsMirrorUprightOnes() {
@@ -186,15 +200,25 @@ class PlayLayoutTest {
     }
 
     @Test fun everyAutoScaleLayoutIsComfortable() {
+        // Since T27/T30 (sticker numerals at k = 1 + the under-number row) a 1280×800 screen has no
+        // comfortable S at all — even S = 2 leaves a 199-px panel with no room for the row under the
+        // number. There the auto scale bottoms out at MIN_SCALE; everywhere else it is comfortable.
         for ((w, h) in screens) for (dpi in intArrayOf(160, 213, 240, 300, 320, 400)) {
             val g = DitherGrid(w, h, PlayLayout.chooseScale(w, h, dpi))
-            assertTrue("$g", PlayLayout.compute(g).comfortable)
+            val anyComfortable = (DitherGrid.MIN_SCALE..6).any { PlayLayout.compute(DitherGrid(w, h, it)).comfortable }
+            if (anyComfortable) assertTrue("$g", PlayLayout.compute(g).comfortable)
+            else assertEquals("$g", DitherGrid.MIN_SCALE, g.scale)
+        }
+        assertFalse((DitherGrid.MIN_SCALE..6).any { PlayLayout.compute(DitherGrid(1280, 800, it)).comfortable })
+        for ((w, h) in listOf(1872 to 1404, 2560 to 1600, 1404 to 1053)) {
+            assertTrue("$w×$h", (DitherGrid.MIN_SCALE..6).any { PlayLayout.compute(DitherGrid(w, h, it)).comfortable })
         }
     }
 
     @Test fun nomadAutoScaleIs4() {
         assertEquals(4, PlayLayout.chooseScale(1872, 1404, 300))
-        assertEquals(4, PlayLayout.chooseScale(1404, 1872, 300))
+        // Portrait (not used: the app is landscape-locked) is too narrow for the sticker at S = 4.
+        assertEquals(3, PlayLayout.chooseScale(1404, 1872, 300))
     }
 
     @Test fun tinyScreensStillProduceALayout() {
@@ -217,7 +241,7 @@ class PlayLayoutTest {
     @Test fun readoutNeverOverlapsAnythingAtS2to6() {
         val fp = IRect()
         val deltas = intArrayOf(1, -1, -7, 12, -20, 100, -999, 9999, -10998, 10998)
-        for (l in nomadScales + layouts().filter { it.comfortable }.toList()) for (s in 0 until 4) {
+        for (l in nomadScales.filter { it.comfortable } + layouts().filter { it.comfortable }.toList()) for (s in 0 until 4) {
             val ro = l.readoutSlot[s]
             assertTrue("$l", inside(ro, l.panels[s]))
             for (other in listOf(l.numberSlot[s], l.minusGlyph[s], l.plusGlyph[s], l.tab[s], l.tabHit[s], l.diamond)) {
@@ -242,8 +266,8 @@ class PlayLayoutTest {
 
     @Test fun readoutIsHalfTheNumberOnTheNomad() {
         // num-m is half num-l's height; same k → half-size readout, same physical size at S=2..4.
-        assertEquals(listOf(4, 3, 2, 1, 1), nomadScales.map { it.readoutK })
-        for (l in nomadScales) assertEquals(l.font.height(l.kMax), 2 * l.readoutFont.height(l.readoutK))
+        assertEquals(listOf(4, 2, 2), nomadScales.take(3).map { it.readoutK })
+        for (l in nomadScales.take(3)) assertEquals(l.font.height(l.kMax), 2 * l.readoutFont.height(l.readoutK))
     }
 
     @Test fun rotatedReadoutMirrorsUpright() {
@@ -290,11 +314,56 @@ class PlayLayoutTest {
     }
 
     @Test fun tabAndDiamondClearNumberAndGlyphsAtS2to6() {
-        for (l in nomadScales) for (s in 0 until 4) {
+        for (l in nomadScales.filter { it.comfortable }) for (s in 0 until 4) {
             for (r in listOf(l.numberSlot[s], l.minusGlyph[s], l.plusGlyph[s])) {
                 assertFalse("$l", overlaps(r, l.tabHit[s]))
                 assertFalse("$l", overlaps(r, l.diamond))
             }
+        }
+    }
+
+    // ---- T30/T32: commander button and the under-number row ---------------------------------
+
+    @Test fun commanderButtonIsFingertipSizedAndClearOfEverything() {
+        for (l in nomadScales.filter { it.comfortable } + layouts().filter { it.comfortable }.toList()) for (s in 0 until 4) {
+            val S = l.grid.scale
+            val hit = l.cmdHit[s]
+            assertTrue("$l btn ${hit.width}", minOf(hit.width, hit.height) * S >= PlayLayout.MIN_TOUCH_DEVICE_PX)
+            assertTrue(inside(hit, l.panels[s])); assertTrue(inside(l.cmdVis[s], hit)); assertTrue(inside(l.cmdIcon[s], l.cmdVis[s]))
+            for (other in listOf(l.numberSlot[s], l.minusGlyph[s], l.plusGlyph[s], l.readoutSlot[s], l.tabHit[s], l.diamond, l.underRow[s])) {
+                assertFalse("$l seat $s $hit vs $other", overlaps(hit, other))
+            }
+            assertFalse(l.inDiamondHit(hit.left, hit.top)); assertFalse(l.inDiamondHit(hit.right - 1, hit.bottom - 1))
+            // In the player's bottom-right corner: touching the near edge and the player's right edge.
+            if (l.rotation[s] == 0) {
+                assertEquals(l.panels[s].bottom, hit.bottom); assertEquals(l.panels[s].right, hit.right)
+            } else {
+                assertEquals(l.panels[s].top, hit.top); assertEquals(l.panels[s].left, hit.left)
+            }
+        }
+    }
+
+    @Test fun underRowSitsBetweenNumberAndTab() {
+        for (l in nomadScales.filter { it.comfortable } + layouts().filter { it.comfortable }.toList()) for (s in 0 until 4) {
+            val row = l.underRow[s]
+            if (row.width == 0) continue
+            assertTrue(inside(row, l.panels[s]))
+            for (other in listOf(l.numberSlot[s], l.minusGlyph[s], l.plusGlyph[s], l.readoutSlot[s], l.tabHit[s], l.cmdHit[s], l.diamond)) {
+                assertFalse("$l seat $s $row vs $other", overlaps(row, other))
+            }
+            assertEquals(PlayLayout.ICON * l.tk + 2 * l.halo, row.height)
+        }
+        // The Nomad's comfortable scales all have the row.
+        for (l in nomadScales.filter { it.comfortable }) assertTrue("$l", l.underH > 0)
+    }
+
+    @Test fun pmGlyphsShareTheNumbersCapCentre() {
+        for (l in nomadScales.filter { it.comfortable }) {
+            val k = l.kMax
+            val numCapMid2 = 2 * (l.numberSlotY + l.font.capTop * k) + l.font.capHeight * k
+            val pmY = l.pmCapAlignedY(l.numberSlotY, k)
+            val pmCapMid2 = 2 * (pmY + l.pmFont.capTop * k) + l.pmFont.capHeight * k
+            assertTrue("$l $numCapMid2 vs $pmCapMid2", Math.abs(numCapMid2 - pmCapMid2) <= 1)
         }
     }
 }

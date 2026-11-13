@@ -3,7 +3,6 @@ package au.com.josephmark.dithertracker.drawer
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.Counter
-import au.com.josephmark.dithertracker.core.Limits
 import au.com.josephmark.dithertracker.core.Player
 
 /**
@@ -11,21 +10,17 @@ import au.com.josephmark.dithertracker.core.Player
  *
  * - [COUNTER]: arg = `Counter.ordinal`.
  * - [TAX]: arg = commander slot ([Commander.PRIMARY] / [Commander.PARTNER]).
- * - [DAMAGE]: arg = `sourceSeat * 2 + slot` — damage *received* from that opponent's commander.
  *
- * Item lists per view (in display order):
- * - tray: commander tax (primary, then partner when the player has `partner`) followed by the
- *   configured `drawerCounters` in their order. Tax goes first because it sits next to the
- *   COMMANDER DAMAGE button (both are about commanders) and is used every game.
- * - commander: every opponent clockwise from the player (seat + 1, seat + 2, …), primary commander,
- *   then the partner slot when that opponent has `partner`.
+ * The tray, in display order: commander tax (primary, then partner when the player has `partner`)
+ * followed by the configured `drawerCounters` in their order. Tax goes first because it is used
+ * every game. Commander damage is not a drawer item since T30 (see `play.CommanderMode`). The same
+ * order is used by the closed-drawer counter peeks (T32).
  */
 object DrawerItems {
     const val COUNTER = 1
     const val TAX = 2
-    const val DAMAGE = 3
 
-    /** Largest list either view can produce (5 opponents × 2 commanders; 7 counters + 2 tax). */
+    /** Largest tray list (7 counters + 2 tax), with room to spare. */
     const val MAX_ITEMS = 16
 
     /** Commander tax steps by 2 (each recast costs two more). */
@@ -34,12 +29,12 @@ object DrawerItems {
     /** Hold-to-repeat amount for counters and commander damage (life uses the life hold step). */
     const val HOLD_STEP = 5
 
+    /** Poison at or above this gets the inverted "nearly lethal" peek (lethal is 10, T32). */
+    const val POISON_WARN = 8
+
     fun item(kind: Int, arg: Int): Int = (kind shl 16) or arg
     fun kind(item: Int): Int = item ushr 16
     fun arg(item: Int): Int = item and 0xFFFF
-
-    fun damageSource(item: Int): Int = arg(item) / 2
-    fun damageSlot(item: Int): Int = arg(item) % 2
 
     private val counters = Counter.entries
 
@@ -55,34 +50,19 @@ object DrawerItems {
         return n
     }
 
-    /** Fills [out] with the commander-damage items for the player at [seat]; returns the count. */
-    fun commander(seat: Int, players: List<Player>, out: IntArray, offset: Int = 0): Int {
-        var n = 0
-        val count = players.size
-        for (d in 1 until count) {
-            val src = (seat + d) % count
-            out[offset + n++] = item(DAMAGE, src * 2 + Commander.PRIMARY)
-            if (players[src].partner && n < MAX_ITEMS) out[offset + n++] = item(DAMAGE, src * 2 + Commander.PARTNER)
-        }
-        return n
-    }
-
     /** Current value of [item] for [player] (the drawer's owner). */
-    fun value(item: Int, player: Player, players: List<Player>): Int = when (kind(item)) {
+    fun value(item: Int, player: Player): Int = when (kind(item)) {
         COUNTER -> player.counters[counters[arg(item)]]
         TAX -> player.commanderTax[arg(item)]
-        DAMAGE -> {
-            val src = damageSource(item)
-            if (src in players.indices) player.commanderDamageFrom(players[src].id, damageSlot(item)) else 0
-        }
         else -> 0
     }
 
-    /** Whether the value deserves the inverted "lethal" treatment (commander damage ≥ 21). */
-    fun isLethal(item: Int, value: Int): Boolean = kind(item) == DAMAGE && value >= Limits.LETHAL_COMMANDER_DAMAGE
+    /** Whether [value] of [item] is at or near lethal (poison ≥ [POISON_WARN]): drawn inverted. */
+    fun isWarning(item: Int, value: Int): Boolean =
+        kind(item) == COUNTER && arg(item) == Counter.POISON.ordinal && value >= POISON_WARN
 
-    /** Whether holding the cell repeats (counters and damage; tax is tapped once per cast). */
-    fun repeats(item: Int): Boolean = kind(item) == COUNTER || kind(item) == DAMAGE
+    /** Whether holding the cell repeats (counters; tax is tapped once per cast). */
+    fun repeats(item: Int): Boolean = kind(item) == COUNTER
 
     /** Signed change for a tap on [item]'s half ([DrawerZones.MINUS]/[DrawerZones.PLUS]). */
     fun tapDelta(item: Int, half: Int): Int {
@@ -93,17 +73,10 @@ object DrawerItems {
     /** Signed change for one hold repeat. */
     fun holdDelta(half: Int): Int = if (half == DrawerZones.PLUS) HOLD_STEP else -HOLD_STEP
 
-    /**
-     * The core action for changing [item] of [player] by [delta]. Commander damage passes
-     * `linkLife = null`, so the game's "commander damage affects life" setting decides.
-     */
-    fun action(item: Int, player: Player, players: List<Player>, delta: Int): Action? = when (kind(item)) {
+    /** The core action for changing [item] of [player] by [delta]. */
+    fun action(item: Int, player: Player, delta: Int): Action? = when (kind(item)) {
         COUNTER -> Action.ChangeCounter(player.id, counters[arg(item)], delta)
         TAX -> Action.ChangeCommanderTax(player.id, arg(item), delta)
-        DAMAGE -> {
-            val src = damageSource(item)
-            if (src in players.indices) Action.ChangeCommanderDamage(player.id, players[src].id, damageSlot(item), delta, linkLife = null) else null
-        }
         else -> null
     }
 }

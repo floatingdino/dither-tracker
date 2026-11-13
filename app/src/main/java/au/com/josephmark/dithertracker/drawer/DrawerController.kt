@@ -65,7 +65,6 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         val off = seat * DrawerItems.MAX_ITEMS
         counts[seat] = when (state.mode(seat)) {
             DrawerState.TRAY -> DrawerItems.tray(g.players[seat], host.drawerCounters, items, off)
-            DrawerState.COMMANDER -> DrawerItems.commander(seat, g.players, items, off)
             else -> 0
         }
         state.setPaging(seat, counts[seat], l.perPage)
@@ -73,6 +72,23 @@ class DrawerController(val state: DrawerState, private val host: Host) {
 
     fun refreshAll() {
         for (s in 0 until S) refresh(s)
+    }
+
+    /**
+     * Closes every open drawer (entering commander-damage mode, T30): cancels their touches and
+     * invalidates their panels. Returns true if any was open.
+     */
+    fun closeAll(): Boolean {
+        val l = layout
+        var any = false
+        for (s in 0 until S) {
+            if (!state.isOpen(s)) continue
+            host.cancelTouches(DrawerZones.seatFirst(s), DrawerZones.seatEnd(s))
+            state.setOpen(s, false)
+            if (l != null) host.invalidate(l.play.panels[s])
+            any = true
+        }
+        return any
     }
 
     /** Whether holding [zone] (a drawer zone) repeats. */
@@ -103,11 +119,6 @@ class DrawerController(val state: DrawerState, private val host: Host) {
                 if (!moved) return false
                 pageChanged(s)
             }
-            local == DrawerZones.HEADER -> {
-                state.setMode(s, if (state.mode(s) == DrawerState.TRAY) DrawerState.COMMANDER else DrawerState.TRAY)
-                refresh(s)
-                pageChanged(s)
-            }
             else -> {
                 val item = itemAt(s, DrawerZones.slotOf(local))
                 if (item < 0) return false
@@ -129,14 +140,14 @@ class DrawerController(val state: DrawerState, private val host: Host) {
     private fun apply(seat: Int, item: Int, delta: Int): Boolean {
         val g = host.game
         if (seat !in g.players.indices) return false
-        val a = DrawerItems.action(item, g.players[seat], g.players, delta) ?: return false
+        val a = DrawerItems.action(item, g.players[seat], delta) ?: return false
         host.dispatch(seat, a)
         return true
     }
 
     private fun pageChanged(s: Int) {
         val l = layout ?: return
-        // Cells (and header) change meaning; the bar's chevrons may appear/disappear.
+        // Cells change meaning; the bar's chevrons may appear/disappear.
         host.cancelTouches(DrawerZones.zone(s, DrawerZones.PREV), DrawerZones.seatEnd(s))
         host.invalidate(l.drawer[s])
     }
@@ -164,8 +175,8 @@ class DrawerController(val state: DrawerState, private val host: Host) {
             for (slot in 0 until n) {
                 val item = itemAt(s, slot)
                 if (item < 0) continue
-                val a = DrawerItems.value(item, op[s], op)
-                val b = DrawerItems.value(item, np[s], np)
+                val a = DrawerItems.value(item, op[s])
+                val b = DrawerItems.value(item, np[s])
                 if (a != b) host.invalidate(l.cellVis[s * DrawerZones.MAX_SLOTS + slot])
             }
         }

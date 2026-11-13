@@ -35,38 +35,30 @@ class DrawerLayoutTest {
         assertEquals(4, d.scale)
         assertEquals(1, d.tk)
         assertEquals(27, d.target)
-        assertEquals(4, d.cols); assertEquals(2, d.rows); assertEquals(2, d.headerSpan); assertEquals(6, d.perPage)
-        assertEquals(32, d.rowH); assertEquals(21, d.barH)
-        assertEquals(85, d.drawerH); assertEquals(90, d.upperH)
-        assertEquals(2, d.numberK) // the life total keeps its closed size
+        // No header button since T30: the tray has the whole body, rows are fingertip-high (27).
+        assertEquals(4, d.cols); assertEquals(2, d.rows); assertEquals(8, d.perPage)
+        assertEquals(27, d.rowH); assertEquals(21, d.barH)
+        assertEquals(75, d.drawerH); assertEquals(100, d.upperH)
+        assertEquals(1, d.numberK) // the life total keeps its closed size (sticker k = 1, T27)
         assertEquals(1, d.readoutK)
-        assertEquals(8, d.labelChars) // "PLAYER 1" fits
         assertTrue(d.comfortable)
         // Bottom-left seat (upright): drawer on the screen's bottom edge, number moved up.
-        assertEquals(IRect(0, 176 + 90, 233, 351), d.drawer[3])
-        assertEquals(IRect(0, 176 + 90, 233, 176 + 111), d.bar[3])
+        assertEquals(IRect(0, 176 + 100, 233, 351), d.drawer[3])
+        assertEquals(IRect(0, 176 + 100, 233, 176 + 121), d.bar[3])
         // Top-left seat (180°): drawer on the screen's top edge.
-        assertEquals(IRect(0, 0, 233, 85), d.drawer[0])
+        assertEquals(IRect(0, 0, 233, 75), d.drawer[0])
     }
 
     @Test fun everyNomadScaleIsComfortableAndKeepsTheClosedNumberSize() {
-        for (d in nomad) {
+        // S = 5/6 cannot fit the sticker numerals at all (PlayLayout not comfortable, never auto-chosen).
+        for (d in nomad.take(3)) {
             assertTrue("$d", d.comfortable)
             assertEquals("$d", d.play.kMax, d.numberK)
             assertTrue("$d", d.perPage >= 2)
         }
-        // S = 2..4 (same physical size): two rows of four, six cells a page
+        // S = 2..4 (same physical size): two rows of four, eight cells a page
         for (d in nomad.take(3)) {
-            assertEquals("$d", 2, d.rows); assertEquals("$d", 6, d.perPage)
-        }
-    }
-
-    @Test fun headerLabelsFit() {
-        for (d in layouts()) for (s in 0 until 4) {
-            val full = if (d.headerShort) DrawerPainter.CMD_DAMAGE_SHORT else DrawerPainter.CMD_DAMAGE
-            val back = if (d.headerShort) DrawerPainter.BACK_SHORT else DrawerPainter.BACK
-            assertTrue("$d", d.ui.measure(full, d.tk) <= maxOf(d.headerLabel[s].width, d.headerLabel[s].height))
-            assertTrue("$d", d.ui.measure(back, d.tk) <= maxOf(d.headerLabelAfterIcon[s].width, d.headerLabelAfterIcon[s].height))
+            assertEquals("$d", 2, d.rows); assertEquals("$d", 8, d.perPage)
         }
     }
 
@@ -74,7 +66,7 @@ class DrawerLayoutTest {
         // Panels ≥ ~51 mm tall (the Nomad's is 59 mm). Smaller grids (e.g. 1280×800 forced to S = 4,
         // a 99-px panel) degrade: one row, smallest number, content may touch — but never crash.
         for (d in layouts()) {
-            if (d.play.panelH * d.scale >= 600) assertTrue("$d", d.comfortable)
+            if (d.play.comfortable && d.play.panelH * d.scale >= 600) assertTrue("$d", d.comfortable)
             assertTrue("$d", d.perPage >= 1)
         }
     }
@@ -88,7 +80,6 @@ class DrawerLayoutTest {
             }
             if (!d.comfortable) continue
             for (s in 0 until 4) {
-                ok(d.headerHit[s], "header")
                 for (i in 0 until 3) ok(d.barHit[s * 3 + i], "bar$i")
                 for (slot in 0 until d.perPage) for (h in 0..1) ok(d.halfHit[(s * DrawerZones.MAX_SLOTS + slot) * 2 + h], "cell$slot.$h")
             }
@@ -116,21 +107,17 @@ class DrawerLayoutTest {
                 // drawer parts
                 assertTrue(inside(d.bar[s], d.drawer[s])); assertTrue(inside(d.body[s], d.drawer[s]))
                 assertFalse(overlaps(d.bar[s], d.body[s]))
-                assertTrue(inside(d.headerVis[s], d.body[s]))
                 assertTrue(inside(d.dotsBacking[s], d.barSeg[s * 3 + 1]))
                 for (i in 0 until 2) assertTrue("$d chevron", inside(d.chevron[s * 2 + i], d.barSeg[s * 3 + i * 2]))
                 val cells = (0 until d.perPage).map { d.cellVis[s * DrawerZones.MAX_SLOTS + it] }
                 for ((a, ca) in cells.withIndex()) {
                     assertTrue(inside(ca, d.body[s]))
-                    assertFalse(overlaps(ca, d.headerVis[s]))
                     for (b in a + 1 until cells.size) assertFalse("$d cells $a $b", overlaps(ca, cells[b]))
                     val i = s * DrawerZones.MAX_SLOTS + a
-                    for (r in listOf(d.trayIcon[i], d.trayValue[i], d.dmgLabel[i], d.dmgIcon[i], d.dmgValue[i])) {
+                    for (r in listOf(d.trayIcon[i], d.trayValue[i])) {
                         assertTrue("$d content $r in $ca", inside(r, ca))
                     }
                     assertFalse(overlaps(d.trayIcon[i], d.trayValue[i]))
-                    assertFalse(overlaps(d.dmgLabel[i], d.dmgIcon[i]))
-                    assertFalse(overlaps(d.dmgIcon[i], d.dmgValue[i]))
                 }
             }
         }
@@ -138,7 +125,7 @@ class DrawerLayoutTest {
 
     @Test fun cellHitsTileTheBody() {
         for (d in nomad) for (s in 0 until 4) {
-            var area = d.headerHit[s].width * d.headerHit[s].height
+            var area = 0
             for (slot in 0 until d.perPage) for (h in 0..1) {
                 val r = d.halfHit[(s * DrawerZones.MAX_SLOTS + slot) * 2 + h]
                 area += r.width * r.height
@@ -153,7 +140,7 @@ class DrawerLayoutTest {
             fun rel(r: IRect, p: IRect) = IRect(r.left - p.left, r.top - p.top, r.right - p.left, r.bottom - p.top)
             fun mirror(r: IRect, p: IRect) = IRect(p.right - r.right, p.bottom - r.bottom, p.right - r.left, p.bottom - r.top)
             for ((up, rot) in listOf(3 to 0, 2 to 1)) {
-                for (arr in listOf(d.drawer, d.bar, d.headerVis, d.numberSlot, d.readoutSlot)) {
+                for (arr in listOf(d.drawer, d.bar, d.numberSlot, d.readoutSlot)) {
                     assertEquals(rel(arr[up], pl.panels[up]), mirror(arr[rot], pl.panels[rot]))
                 }
             }
@@ -173,8 +160,6 @@ class DrawerLayoutTest {
             val c2 = mid(right)
             assertEquals(DrawerZones.cellZone(s, 0, DrawerZones.PLUS), d.hitTest(c2[0], c2[1], st))
             if (d.play.rotation[s] == 180) assertTrue(left.left > right.left) else assertTrue(left.left < right.left)
-            val h = mid(d.headerHit[s])
-            assertEquals(DrawerZones.zone(s, DrawerZones.HEADER), d.hitTest(h[0], h[1], st))
             val b = mid(d.barSeg[s * 3 + 1])
             assertEquals(DrawerZones.zone(s, DrawerZones.TAB), d.hitTest(b[0], b[1], st))
             // upper area still drives life
@@ -213,7 +198,7 @@ class DrawerLayoutTest {
         assertEquals(d.play.tab[1], out)
         assertTrue(d.feedbackRect(PlayLayout.zone(1, PlayLayout.MINUS), st, out))
         assertEquals(d.play.zones[PlayLayout.zone(1, PlayLayout.MINUS)], out)
-        assertFalse(d.feedbackRect(DrawerZones.zone(1, DrawerZones.HEADER), st, out))
+        assertFalse(d.feedbackRect(DrawerZones.cellZone(1, 0, DrawerZones.PLUS), st, out)) // closed
         st.setOpen(1, true)
         assertTrue(d.feedbackRect(PlayLayout.zone(1, PlayLayout.MINUS), st, out))
         assertEquals(d.lifeZones[PlayLayout.zone(1, PlayLayout.MINUS)], out)

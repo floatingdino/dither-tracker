@@ -7,13 +7,46 @@ import au.com.josephmark.dithertracker.dither.PackedImage
  * One glyph of a [Font]: a 1-bit bitmap exactly `glyphWidth × glyphHeight` font px.
  * [char] is `'\u0000'` for the face's `.notdef` box.
  */
-class Glyph internal constructor(val char: Char, width: Int, height: Int, rows: IntArray) :
-    PackedImage(width, height, rows) {
+class Glyph internal constructor(
+    val char: Char,
+    width: Int,
+    height: Int,
+    rows: IntArray,
+    shadowRows: IntArray? = null,
+) : PackedImage(width, height, rows) {
 
     /** True for glyphs with no ink (space): drawing skips the blit. */
     val isBlank: Boolean get() = inkCount == 0
 
+    /**
+     * The glyph's drop-shadow *mask* (T27): the `:` cells of its source, same box as the glyph, or
+     * null when it has none. It is a region, not ink: [TextRenderer] fills it with a dither tile at
+     * global pattern phase (SPEC rule 3) before drawing the glyph's ink.
+     */
+    val shadow: PackedImage? =
+        if (shadowRows != null && shadowRows.any { it != 0 }) PackedImage(width, height, shadowRows) else null
+
     private val scaled = arrayOfNulls<MonoImage>(Font.MAX_K + 1)
+
+    // Shadow masks enlarged k× and turned by rotation/90, built once per (k, rotation) on first use.
+    private val shadowTurned = arrayOfNulls<MonoImage>(4 * (Font.MAX_K + 1))
+
+    /**
+     * [shadow] enlarged k× and turned [rotation]° clockwise about its own box (footprint h×w for
+     * 90/270), as a stable instance. Pre-turned rather than rotated at blit time, so a pattern fill
+     * through it is drawn without any canvas transform and stays in global phase.
+     */
+    fun shadowMask(k: Int, rotation: Int): MonoImage? {
+        val src = shadow ?: return null
+        require(k in 1..Font.MAX_K) { "glyph scale $k out of 1..${Font.MAX_K}" }
+        val q = when (rotation) {
+            0 -> 0; 90 -> 1; 180 -> 2; 270 -> 3
+            else -> throw IllegalArgumentException("rotation must be 0/90/180/270, was $rotation")
+        }
+        val i = q * (Font.MAX_K + 1) + k
+        shadowTurned[i]?.let { return it }
+        return Turned(src, k, q).also { shadowTurned[i] = it }
+    }
 
     /**
      * This glyph enlarged k× (nearest neighbour), as a stable [MonoImage] instance so the renderer's
@@ -32,6 +65,26 @@ class Glyph internal constructor(val char: Char, width: Int, height: Int, rows: 
         override val width: Int = src.width * k
         override val height: Int = src.height * k
         override fun isInk(x: Int, y: Int): Boolean = src.isInk(x / k, y / k)
+    }
+
+    /** [src] scaled k× then turned q quarter-turns clockwise (same maths as a rotated blit). */
+    private class Turned(private val src: MonoImage, private val k: Int, private val q: Int) : MonoImage {
+        private val sw = src.width * k
+        private val sh = src.height * k
+        override val width: Int = if (q % 2 == 0) sw else sh
+        override val height: Int = if (q % 2 == 0) sh else sw
+        override fun isInk(x: Int, y: Int): Boolean {
+            // (x, y) in the turned footprint → (u, v) in the scaled source.
+            val u: Int
+            val v: Int
+            when (q) {
+                0 -> { u = x; v = y }
+                1 -> { u = y; v = sh - 1 - x }
+                2 -> { u = sw - 1 - x; v = sh - 1 - y }
+                else -> { u = sw - 1 - y; v = x }
+            }
+            return src.isInk(u / k, v / k)
+        }
     }
 }
 
@@ -53,6 +106,8 @@ class Font(
     val capHeight: Int,
     chars: String,
     rows: IntArray,
+    /** Optional drop-shadow mask rows, parallel to [rows] (see [Glyph.shadow]). */
+    shadowRows: IntArray? = null,
 ) {
     /** Glyphs in source order (excluding [notdef]). */
     val glyphs: List<Glyph>
@@ -69,6 +124,9 @@ class Font(
     /** The character used for negative numbers: a true minus (U+2212) when the face has one. */
     val minusChar: Char
 
+    /** True when any glyph carries a drop-shadow mask ([Glyph.shadow]). */
+    val hasShadow: Boolean
+
     private val ascii = arrayOfNulls<Glyph>(128)
     private val extraChars: CharArray
     private val extraGlyphs: Array<Glyph>
@@ -77,15 +135,23 @@ class Font(
         require(rows.size == (chars.length + 1) * glyphHeight) {
             "$name: ${rows.size} rows for ${chars.length} glyphs + notdef of height $glyphHeight"
         }
+        require(shadowRows == null || shadowRows.size == rows.size) { "$name: shadow rows must parallel glyph rows" }
         val list = ArrayList<Glyph>(chars.length)
         val extras = ArrayList<Glyph>()
         for (i in chars.indices) {
-            val g = Glyph(chars[i], glyphWidth, glyphHeight, rows.copyOfRange(i * glyphHeight, (i + 1) * glyphHeight))
+            val g = Glyph(
+                chars[i], glyphWidth, glyphHeight, rows.copyOfRange(i * glyphHeight, (i + 1) * glyphHeight),
+                shadowRows?.copyOfRange(i * glyphHeight, (i + 1) * glyphHeight),
+            )
             list += g
             if (g.char.code < 128) ascii[g.char.code] = g else extras += g
         }
         glyphs = list
-        notdef = Glyph('\u0000', glyphWidth, glyphHeight, rows.copyOfRange(chars.length * glyphHeight, rows.size))
+        notdef = Glyph(
+            '\u0000', glyphWidth, glyphHeight, rows.copyOfRange(chars.length * glyphHeight, rows.size),
+            shadowRows?.copyOfRange(chars.length * glyphHeight, rows.size),
+        )
+        hasShadow = notdef.shadow != null || list.any { it.shadow != null }
         extraChars = CharArray(extras.size) { extras[it].char }
         extraGlyphs = extras.toTypedArray()
         minusChar = if (find(MINUS) != null) MINUS else '-'

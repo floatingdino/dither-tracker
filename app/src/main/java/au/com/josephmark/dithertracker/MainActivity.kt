@@ -2,12 +2,14 @@ package au.com.josephmark.dithertracker
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
+import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import au.com.josephmark.dithertracker.data.Persistence
+import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.play.GameSession
 import au.com.josephmark.dithertracker.play.PlayView
@@ -25,11 +27,14 @@ class MainActivity : Activity() {
         //   --ez inverted true  start in dark mode (overrides the saved setting either way)
         //   --ez demo true      the T04/T05 engine + type demo instead of the Play screen (portrait)
         //   --ez trace true     log Play onDraw clip + duration (tag PlayView)
+        //   --es partners 1,3   (debuggable builds only) set `partner` on exactly these seats (T30/T32
+        //                       QA until T13 adds a UI for it); an empty string clears every partner
         val inverted = if (intent?.hasExtra("inverted") == true) {
             intent.getBooleanExtra("inverted", false)
         } else {
             SettingsHolder.shared.current.inverted
         }
+        applyDebugPartners()
         root = if (intent?.getBooleanExtra("demo", false) == true) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             DitherDemoView(this).apply { setInverted(inverted) }
@@ -41,6 +46,18 @@ class MainActivity : Activity() {
             }
         }
         setContentView(root)
+    }
+
+    /** Debug-only QA hook: `--es partners 1,3` sets the partner flag on exactly those seats. */
+    private fun applyDebugPartners() {
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return
+        val spec = intent?.getStringExtra("partners") ?: return
+        val seats = spec.split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
+        val session = GameSession.shared
+        for (p in session.state.players) {
+            val want = p.seat in seats
+            if (p.partner != want) session.dispatch(Action.SetPartner(p.id, want), System.currentTimeMillis())
+        }
     }
 
     override fun onPause() {

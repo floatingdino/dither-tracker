@@ -69,15 +69,12 @@ class DrawerState(val seats: Int) {
     fun closeAll() { open.fill(false) }
 
     companion object {
-        /** Counters + commander tax. */
+        /** Counters + commander tax. (Commander damage moved to the main tiles in T30.) */
         const val TRAY = 0
 
-        /** Commander damage received, one cell per enemy commander. */
-        const val COMMANDER = 1
-
         /** Reserved for T14 (monarch, initiative, city's blessing, ring-bearer) / T13 (partner): not built. */
-        const val TOGGLES = 2
+        const val TOGGLES = 1
 
-        const val MODES = 3
+        const val MODES = 2
     }
 }

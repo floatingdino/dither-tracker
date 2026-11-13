@@ -18,6 +18,7 @@ class FontTest {
             "+-−×/:.,!?()[]%#&'\"<>=_| ",
         Fonts.NUM_L to "$digits-+ ",
         Fonts.NUM_M to "$digits+-/: ",
+        Fonts.NUM_L_PM to "+-− ",
     )
 
     @Test fun everyRequiredCharIsPresentExactly() {
@@ -30,7 +31,7 @@ class FontTest {
     }
 
     @Test fun allFacesAreGenerated() {
-        assertEquals(setOf("ui", "num-l", "num-m"), Fonts.all.map { it.name }.toSet())
+        assertEquals(setOf("ui", "num-l", "num-l-pm", "num-m"), Fonts.all.map { it.name }.toSet())
     }
 
     @Test fun glyphBoxesAreConsistentAndMetricsSane() {
@@ -43,7 +44,7 @@ class FontTest {
             assertEquals(font.glyphWidth + font.tracking, font.advance)
             assertTrue("${font.name} notdef must have ink", font.notdef.inkCount > 0)
             assertTrue(font.glyph(' ').isBlank)
-            for (c in digits) assertFalse(font.glyph(c).isBlank)
+            if (font !== Fonts.NUM_L_PM) for (c in digits) assertFalse(font.glyph(c).isBlank)
             // No duplicate characters.
             assertEquals(font.glyphs.size, font.glyphs.map { it.char }.toSet().size)
         }
@@ -106,13 +107,58 @@ class FontTest {
         assertEquals(5 + 1 + 5, ui.measure("AB"))
         assertEquals(16 * 5 + 15 * 2, ui.measure("COMMANDER DAMAGE", tracking = 2))
         assertEquals(3 * (2 * 5 + 1), ui.measure("AB", k = 3))
-        val nl = Fonts.NUM_L // 16 wide, tracking 4
-        assertEquals(36, nl.measure("40"))
-        assertEquals(36, nl.measureInt(40))
+        val nl = Fonts.NUM_L // 32 wide, tracking 4 (sticker, T27)
+        assertEquals(68, nl.measure("40"))
+        assertEquals(68, nl.measureInt(40))
         assertEquals(nl.measure("-12"), nl.measureInt(-12))
         assertEquals(nl.measure("+7"), nl.measureInt(7, signed = true))
         assertEquals(nl.measure("0"), nl.measureInt(0, signed = true))
-        assertEquals(2 * 28, nl.height(2))
+        assertEquals(2 * 56, nl.height(2))
+        assertEquals(140, nl.measureInt(-999)) // the widest life total, k = 1
+    }
+
+    @Test fun stickerShadowMasksAreSeparateFromInkAndOutsideCounters() {
+        for (font in listOf(Fonts.NUM_L, Fonts.NUM_L_PM)) {
+            assertTrue(font.hasShadow)
+            for (g in font.glyphs) {
+                val sh = g.shadow ?: continue
+                for (y in 0 until g.height) for (x in 0 until g.width) {
+                    // never both ink and shadow; a 1-px paper keyline separates them
+                    if (sh.isInk(x, y)) {
+                        assertFalse("$g ($x,$y)", g.isInk(x, y))
+                        for (dy in -1..1) for (dx in -1..1) {
+                            val u = x + dx; val v = y + dy
+                            if (u in 0 until g.width && v in 0 until g.height) assertFalse("$g keyline ($x,$y)", g.isInk(u, v))
+                        }
+                    }
+                }
+            }
+            // every digit/sign with ink has a shadow, falling down-right of the body
+            for (g in font.glyphs) if (!g.isBlank) assertNotNull("$g", g.shadow)
+        }
+        assertFalse(Fonts.NUM_M.hasShadow); assertFalse(Fonts.UI.hasShadow)
+        assertNull(Fonts.NUM_L.glyph(' ').shadow)
+    }
+
+    @Test fun turnedShadowMasksMatchARotatedBlit() {
+        val g = Fonts.NUM_L.glyph('7')
+        val sh = g.shadow!!
+        for (k in 1..2) {
+            assertSame(g.shadowMask(k, 180), g.shadowMask(k, 180))
+            val m0 = g.shadowMask(k, 0)!!
+            val m90 = g.shadowMask(k, 90)!!
+            val m180 = g.shadowMask(k, 180)!!
+            val m270 = g.shadowMask(k, 270)!!
+            val w = g.width * k; val h = g.height * k
+            assertEquals(w, m180.width); assertEquals(h, m90.width); assertEquals(w, m90.height)
+            for (y in 0 until h) for (x in 0 until w) {
+                val src = sh.isInk(x / k, y / k)
+                assertEquals(src, m0.isInk(x, y))
+                assertEquals(src, m180.isInk(w - 1 - x, h - 1 - y))
+                assertEquals(src, m90.isInk(h - 1 - y, x))
+                assertEquals(src, m270.isInk(y, w - 1 - x))
+            }
+        }
     }
 
     @Test fun intFormatting() {

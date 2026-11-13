@@ -8,9 +8,10 @@ import au.com.josephmark.dithertracker.play.PlayLayout
  *
  * - `0 until LIFE` — life zones, `seat * 2 + side` exactly as [PlayLayout.zone].
  * - `LIFE until COUNT` — one block of [PER_SEAT] ids per seat: [TAB] (the closed tab, or the open
- *   bar's close area), [PREV]/[NEXT] (page chevrons), [HEADER] (the black COMMANDER DAMAGE / back
- *   button), then two ids per cell on the current page: `CELL0 + slot * 2 + half` (half 0 = the
- *   player's left = `−`, 1 = right = `+`).
+ *   bar's close area), [PREV]/[NEXT] (page chevrons), then two ids per cell on the current page:
+ *   `CELL0 + slot * 2 + half` (half 0 = the player's left = `−`, 1 = right = `+`).
+ * - `COUNT until` [CommanderZones][au.com.josephmark.dithertracker.play.CommanderZones]`.END`: the
+ *   commander-damage button and mode zones (T30).
  *
  * A cell id names a *position on the current page*, not an item: the item is looked up when the tap
  * applies. Anything that changes what a position shows (page, mode, open/close) cancels the seat's
@@ -28,8 +29,7 @@ object DrawerZones {
     const val TAB = 0
     const val PREV = 1
     const val NEXT = 2
-    const val HEADER = 3
-    const val CELL0 = 4
+    const val CELL0 = 3
     const val PER_SEAT = CELL0 + 2 * MAX_SLOTS
 
     /** Total number of zone ids. */

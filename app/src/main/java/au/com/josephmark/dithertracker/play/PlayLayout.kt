@@ -25,15 +25,23 @@ import au.com.josephmark.dithertracker.type.TextLayout
  * core life limits) at [kMax], so ± never move and a value never overlaps them; [numberK] still
  * drops k for anything wider (defensive, and for future faces). Above the number (towards the far
  * edge, the Lotus convention) sits the pending-delta [readoutSlot]; the drawer tab is on the near
- * edge; the centre diamond takes one far corner.
+ * edge; the centre diamond takes one far corner. T30/T32 add the commander button in the near-right
+ * corner beside the tab ([cmdHit]: the near edge is the one place every seat keeps clear of the
+ * diamond, and the corner leaves the tab centred) and the [underRow] between number and tab, which
+ * holds counter peeks normally and the commander-mode labels in the mode.
  *
- * Choice of k (by maths, not by eye): [kMax] is the largest integer glyph scale such that
- * - horizontally `2·EDGE_MIN + 2·pmW + 2·GAP_MIN + width(MAX_CHARS, k) ≤ panelW`, where the ±
- *   glyphs are the same face at `pmK = max(1, k / 2)` (half-size: the ± are targets, the number is
- *   the hero), and
+ * Choice of k (by maths, not by eye; T27): the hero face is the sticker `num-l`, drawn natively at
+ * k = 1 (32×56 box, `−999` = 140×56), and the ± are their own half-size face `num-l-pm` (20×20 box,
+ * 17-px body) drawn at the *same* k, so `pmK == k`. [kMax] is the largest integer k such that
+ * - horizontally `2·EDGE_MIN + 2·pmW(k) + 2·GAP_MIN + width(MAX_CHARS, k) ≤ panelW`
+ *   (`= 32 + 180·k` dither px), and
  * - vertically `height(k) + 2·(tabH + V_MIN) ≤ panelH` (the number clears the drawer tab whichever
  *   way up the panel is).
- * Falls back to k = 1 when even that does not fit (tiny screens).
+ * On the Nomad (1872×1404) that gives k = 2 at S = 2 (panel 467 wide: 392 ≤ 467, k = 3 needs 572),
+ * k = 1 at S = 3 and 4 (311 / 233 wide ≥ 212), and *nothing* at S = 5 and 6 (186 / 155 < 212): the
+ * face has no smaller integer size, so those layouts fall back to k = 1, are not [comfortable], and
+ * [chooseScale] never picks them; the ± glyphs are hidden ([pmVisible] false) when they would touch
+ * the number. Falls back to k = 1 the same way on any tiny screen.
  *
  * Chrome (tab, diamond, their glyphs) is sized by [Chrome.forScale]: designed in dither px at S = 4
  * and converted through device px, so its *physical* size stays roughly constant across S (a
@@ -48,8 +56,10 @@ class PlayLayout private constructor(
     val originX: Int,
     val originY: Int,
     val kMax: Int,
-    /** Glyph scale of the ± glyphs. */
+    /** Glyph scale of the ± glyphs (face [pmFont]); equal to [kMax] since T27. */
     val pmK: Int,
+    /** Face of the ± zone glyphs (half-size sticker `+`/`−`, T27). */
+    val pmFont: Font,
     /** Tab / diamond sizes for this S. */
     val chrome: Chrome,
     /** Face of the pending-delta readout. */
@@ -57,8 +67,15 @@ class PlayLayout private constructor(
 ) {
     val playerCount: Int get() = PLAYERS
 
-    /** False when even k = 1 breaks the spacing minimums (screen too small at this S): content may touch. */
-    val comfortable: Boolean = fits(font, kMax, panelW, panelH, chrome.tabH)
+    /**
+     * False when even k = 1 breaks the spacing minimums, the commander button's hit square would
+     * touch the tab's, or there is no room for the [underRow] (screen too small at this S): content
+     * may touch, and the mode labels / peeks are not drawn.
+     */
+    val comfortable: Boolean
+
+    /** False when the ± glyphs would touch the number (only on layouts that are not [comfortable]): they are not drawn. */
+    val pmVisible: Boolean
 
     /** Screen rect of each panel (divider excluded). */
     val panels: Array<IRect> = Array(PLAYERS) { IRect() }
@@ -80,8 +97,39 @@ class PlayLayout private constructor(
      */
     val readoutSlot: Array<IRect> = Array(PLAYERS) { IRect() }
 
-    /** Glyph scale of the readout (≤ [kMax]: half the number's height in `num-m`). */
+    /** Glyph scale of the readout (`num-m` at about half the number's height). */
     val readoutK: Int
+
+    /** Minimum hit size in dither px: ceil([MIN_TOUCH_DEVICE_PX] / S) (≈ 9 mm on the Nomad). */
+    val target: Int = (MIN_TOUCH_DEVICE_PX + grid.scale - 1) / grid.scale
+
+    /** Glyph/icon scale for small chrome content (icons, `ui`, `num-m`): physical size ≈ S = 4's. */
+    val tk: Int = maxOf(1, Chrome.size(1, grid.scale))
+
+    /** Paper rim around small content drawn on top of something else. */
+    val halo: Int = Chrome.size(HALO, grid.scale)
+
+    /**
+     * Commander-damage button (T30) in the player's bottom-right corner, beside the tab: visible card
+     * ([cmdVis]: paper, 1-px ink frame, the commander icon at [tk]), the icon footprint ([cmdIcon]) and
+     * the hit square ([cmdHit], ≥ [target], running to the panel's corner).
+     */
+    val cmdVis: Array<IRect> = Array(PLAYERS) { IRect() }
+    val cmdIcon: Array<IRect> = Array(PLAYERS) { IRect() }
+    val cmdHit: Array<IRect> = Array(PLAYERS) { IRect() }
+
+    /**
+     * The row under the number (player frame: between the number slot and the tab/button hit areas,
+     * [V_MIN] clear of both), one icon tall plus a paper rim. Counter peeks (T32) and the commander
+     * mode labels (T30) live here. Empty (zero size) when the band is too short for it.
+     */
+    val underRow: Array<IRect> = Array(PLAYERS) { IRect() }
+
+    /** Player-frame x / y / w / h of [underRow] (identical for every seat). */
+    val underX: Int
+    val underY: Int
+    val underW: Int
+    val underH: Int
 
     /** Drawer tab: visual rect and (larger) reserved hit rect. Visual only here; behaviour is T08. */
     val tab: Array<IRect> = Array(PLAYERS) { IRect() }
@@ -129,18 +177,20 @@ class PlayLayout private constructor(
         diamondTip = minOf(c.diamondCut, diamondHalf)
 
         // Player-frame layout, identical for every seat.
-        val pmW = font.glyphWidth * pmK
-        val pmH = font.glyphHeight * pmK
+        val pmW = pmFont.glyphWidth * pmK
+        val pmH = pmFont.glyphHeight * pmK
         val slotW = font.widthOf(MAX_CHARS, kMax)
         val slotH = font.height(kMax)
         val side = (panelW - slotW) / 2 // space between panel edge and number slot
         val pmX = (side - pmW) / 2 // ± centred in that space
-        val pmY = (panelH - pmH) / 2
         val slotY = (panelH - slotH) / 2
+        val pmY = pmCapAlignedY(slotY, kMax)
+        pmVisible = pmX >= 0 && pmX + pmW <= side
 
-        // Readout: largest k ≤ kMax whose box fits above the number with V_MIN either side, and
-        // whose width stays clear of the diamond corner (GAP_MIN beyond its reach) on both sides.
-        var rk = kMax
+        // Readout: `num-m` at half the number's height (k = 2 under a k = 1 sticker), stepped down
+        // while its box does not fit above the number with V_MIN either side, or its width would
+        // reach the diamond corner (GAP_MIN beyond its reach) on either side.
+        var rk = maxOf(1, font.height(kMax) / 2 / readoutFont.glyphHeight)
         val clearW = panelW - 2 * (diamondHalf + GAP_MIN)
         while (rk > 1 && (readoutFont.height(rk) + 2 * V_MIN > slotY || readoutFont.widthOf(READOUT_CHARS, rk) > clearW)) rk--
         readoutK = rk
@@ -158,6 +208,36 @@ class PlayLayout private constructor(
         val dotY = tabY + (tabH - c.dot) / 2
         val half = panelW / 2
 
+        // Commander button: icon + pad + 1-px frame, BTN_MARGIN from the bottom-right corner; the hit
+        // square runs to the corner: the card plus its margin all round, trimmed (never below
+        // `target`) to the space beside the tab's hit area on small panels.
+        val iconS = ICON * tk
+        val btnPad = Chrome.size(BTN_PAD, grid.scale)
+        val btnVis = iconS + 2 * (btnPad + 1)
+        val btnMargin = Chrome.size(BTN_MARGIN, grid.scale)
+        val besideTab = panelW - (tabX + tabW + c.tabHitPad)
+        val btnHit = minOf(maxOf(target, minOf(btnVis + 2 * btnMargin, besideTab)), panelW, panelH)
+        val btnX = panelW - btnMargin - btnVis
+        val btnY = panelH - btnMargin - btnVis
+
+        // Under-number row: centred in the band between the number slot and the higher of the tab's
+        // and the button's hit tops (V_MIN clear of each).
+        val rowH = iconS + 2 * halo
+        val bandTop = slotY + slotH + V_MIN
+        val bandBottom = minOf(tabY - c.tabHitPad, panelH - btnHit) - V_MIN
+        if (bandBottom - bandTop >= rowH) {
+            underH = rowH
+            underY = bandTop + (bandBottom - bandTop - rowH) / 2
+            underX = EDGE_MIN
+            underW = panelW - 2 * EDGE_MIN
+        } else {
+            underH = 0; underY = 0; underX = 0; underW = 0
+        }
+        val tabHitRight = tabX + tabW + c.tabHitPad
+        // The under row is required too: commander mode's labels and the target's life live there.
+        comfortable = fits(font, pmFont, kMax, panelW, panelH, c.tabH) && tabHitRight <= panelW - btnHit &&
+            btnVis <= btnHit && underH > 0
+
         for (s in 0 until PLAYERS) {
             map(s, pmX, pmY, pmW, pmH, minusGlyph[s])
             map(s, panelW - pmX - pmW, pmY, pmW, pmH, plusGlyph[s])
@@ -169,6 +249,10 @@ class PlayLayout private constructor(
             map(s, dotX - c.dotHalo, dotY - c.dotHalo, dotsW + 2 * c.dotHalo, c.dot + 2 * c.dotHalo, tabDotsBacking[s])
             map(s, 0, 0, half, panelH, zones[zone(s, MINUS)])
             map(s, half, 0, panelW - half, panelH, zones[zone(s, PLUS)])
+            map(s, btnX, btnY, btnVis, btnVis, cmdVis[s])
+            map(s, btnX + btnPad + 1, btnY + btnPad + 1, iconS, iconS, cmdIcon[s])
+            map(s, panelW - btnHit, panelH - btnHit, btnHit, btnHit, cmdHit[s])
+            map(s, underX, underY, underW, underH, underRow[s])
         }
 
         // Diamond: a stepped diamond, |dx| + |dy| ≤ R with the four tips cut flat.
@@ -191,6 +275,15 @@ class PlayLayout private constructor(
     /** Top of the number slot in the player's frame (drawer closed). */
     val numberSlotY: Int get() = (panelH - font.height(kMax)) / 2
 
+    /**
+     * Player-frame y of the ± glyph box for a number slot at [slotY] sized for glyph scale [k]: the
+     * ± cap band is centred on the number's cap band (both drawn at k).
+     */
+    fun pmCapAlignedY(slotY: Int, k: Int): Int {
+        val capTop = slotY + font.capTop * k
+        return capTop + TextLayout.centre(font.capHeight * k, pmFont.capHeight * k) - pmFont.capTop * k
+    }
+
     /** Maps a player-frame rect of seat [s] to the screen (also used by the drawer layout, T08). */
     fun mapRect(s: Int, lx: Int, ly: Int, w: Int, h: Int, out: IRect) = map(s, lx, ly, w, h, out)
 
@@ -205,6 +298,9 @@ class PlayLayout private constructor(
             TextLayout.footprintH(r, w, h),
         )
     }
+
+    /** Player-frame number slot width at glyph scale [k] (fits [MAX_CHARS]). */
+    fun slotWidth(k: Int): Int = font.widthOf(MAX_CHARS, k)
 
     /** Largest glyph scale ≤ [kTop] at which [chars] glyphs fit a number slot sized for [kTop]. */
     fun numberK(chars: Int, kTop: Int = kMax): Int {
@@ -234,7 +330,9 @@ class PlayLayout private constructor(
         val slotH = font.height(kTop)
         val side = (panelW - slotW) / 2
         val lx = side + TextLayout.centre(slotW, tw)
-        val ly = slotY + TextLayout.centre(slotH, font.capHeight * k) - font.capTop * k
+        // The box (not the cap band) is centred: the sticker's shadow rows below the cap band stay
+        // inside the slot. With k == kTop it fills the slot exactly.
+        val ly = slotY + TextLayout.centre(slotH, th)
         map(seat, lx, ly, tw, th, out)
         return k
     }
@@ -291,7 +389,8 @@ class PlayLayout private constructor(
 
     override fun toString(): String =
         "PlayLayout(grid ${grid.width}x${grid.height} S=${grid.scale}, origin $originX,$originY, panel ${panelW}x$panelH, " +
-            "kMax $kMax, pmK $pmK, readoutK $readoutK, $chrome)"
+            "kMax $kMax, pmK $pmK${if (pmVisible) "" else " (hidden)"}, readoutK $readoutK, " +
+            "under row $underX,$underY ${underW}x$underH, ${if (comfortable) "" else "UNCOMFORTABLE, "}$chrome)"
 
     /**
      * Sizes of the drawer tab and centre diamond for one S, in dither px. Designed at [BASE_SCALE]
@@ -386,6 +485,15 @@ class PlayLayout private constructor(
         /** Minimum dither px between the number and the tab band, above and below (and around the readout). */
         const val V_MIN = 4
 
+        /** 9 mm at 300 dpi (the Nomad): the fingertip minimum for every hit rect. */
+        const val MIN_TOUCH_DEVICE_PX = 106
+
+        /** Icon art size (16×16) and small-chrome design values at S = 4 (converted per S like [Chrome]). */
+        const val ICON = 16
+        const val BTN_PAD = 2
+        const val BTN_MARGIN = 4
+        const val HALO = 1
+
         const val MINUS = 0
         const val PLUS = 1
 
@@ -399,14 +507,19 @@ class PlayLayout private constructor(
         /** Life delta for a zone: −1 for [MINUS], +1 for [PLUS]. */
         fun zoneDelta(zone: Int): Int = if (zoneSide(zone) == PLUS) 1 else -1
 
-        fun compute(grid: DitherGrid, font: Font = Fonts.NUM_L, readoutFont: Font = Fonts.NUM_M): PlayLayout {
+        fun compute(
+            grid: DitherGrid,
+            font: Font = Fonts.NUM_L,
+            readoutFont: Font = Fonts.NUM_M,
+            pmFont: Font = Fonts.NUM_L_PM,
+        ): PlayLayout {
             val panelW = maxOf(1, (grid.width - 1) / 2)
             val panelH = maxOf(1, (grid.height - 1) / 2)
             val spareX = maxOf(0, grid.width - (2 * panelW + 1))
             val spareY = maxOf(0, grid.height - (2 * panelH + 1))
             val chrome = Chrome.forScale(grid.scale)
-            val k = maxK(font, panelW, panelH, chrome.tabH)
-            return PlayLayout(grid, font, panelW, panelH, spareX / 2, spareY / 2, k, pmK(k), chrome, readoutFont)
+            val k = maxK(font, pmFont, panelW, panelH, chrome.tabH)
+            return PlayLayout(grid, font, panelW, panelH, spareX / 2, spareY / 2, k, pmK(k), pmFont, chrome, readoutFont)
         }
 
         /**
@@ -420,17 +533,18 @@ class PlayLayout private constructor(
             return s
         }
 
-        fun pmK(k: Int): Int = maxOf(1, k / 2)
+        /** Glyph scale of the ± for a number at [k]: the same k (their face is already half-size, T27). */
+        fun pmK(k: Int): Int = k
 
         /** Largest k that fits (see class doc), or 1. */
-        fun maxK(font: Font, panelW: Int, panelH: Int, tabH: Int): Int {
+        fun maxK(font: Font, pmFont: Font, panelW: Int, panelH: Int, tabH: Int): Int {
             var best = 1
-            for (k in 1..Font.MAX_K) if (fits(font, k, panelW, panelH, tabH)) best = k else break
+            for (k in 1..Font.MAX_K) if (fits(font, pmFont, k, panelW, panelH, tabH)) best = k else break
             return best
         }
 
-        fun fits(font: Font, k: Int, panelW: Int, panelH: Int, tabH: Int): Boolean {
-            val w = 2 * EDGE_MIN + 2 * font.glyphWidth * pmK(k) + 2 * GAP_MIN + font.widthOf(MAX_CHARS, k)
+        fun fits(font: Font, pmFont: Font, k: Int, panelW: Int, panelH: Int, tabH: Int): Boolean {
+            val w = 2 * EDGE_MIN + 2 * pmFont.glyphWidth * pmK(k) + 2 * GAP_MIN + font.widthOf(MAX_CHARS, k)
             val h = font.height(k) + 2 * (tabH + V_MIN)
             return w <= panelW && h <= panelH
         }

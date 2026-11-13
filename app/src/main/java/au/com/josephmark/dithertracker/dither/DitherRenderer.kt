@@ -216,6 +216,26 @@ class DitherRenderer {
         c.restore()
     }
 
+    /**
+     * Fills the ink pixels of [mask] (already turned: no rotation is applied) with [tile] at global
+     * phase — the tile's ink as ink, its paper as paper; pixels outside the mask are untouched. Used
+     * for glyph drop shadows (T27). One drawBitmap of the cached ALPHA_8 mask with the tile's shader
+     * paint: an alpha-only bitmap is coloured by the paint's shader, which stays anchored to the grid
+     * origin because the canvas is untransformed. [invert] swaps the tile's polarity.
+     */
+    fun fillMask(mask: MonoImage, x: Int, y: Int, tile: Tile, invert: Boolean = false) {
+        val c = canvas!!
+        val inv = inverted != invert
+        val paint = when (tile.inkCount) {
+            0 -> solid.also { it.color = if (inv) Color.BLACK else Color.WHITE }
+            tile.width * tile.height -> solid.also { it.color = if (inv) Color.WHITE else Color.BLACK }
+            else -> tilePaint(tile, inv)
+        }
+        c.drawBitmap(mask(mask), grid.toDeviceX(x).toFloat(), grid.toDeviceY(y).toFloat(), paint)
+    }
+
+    fun fillMask(mask: MonoImage, x: Int, y: Int, role: Role, invert: Boolean = false) = fillMask(mask, x, y, role.tile, invert)
+
     fun icon(icon: Icon, x: Int, y: Int, rotation: Int = 0, invert: Boolean = false, opaque: Boolean = false) =
         blit(icon, x, y, rotation, invert, opaque)
 

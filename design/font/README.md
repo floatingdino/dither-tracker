@@ -8,15 +8,23 @@ malformed. Draw them with `type.TextRenderer`; see `type.Font` for metrics.
 | Face    | Box (w×h) | Tracking | Cap band  | Use | Charset |
 |---------|-----------|----------|-----------|-----|---------|
 | `ui`    | 5×9       | 1        | rows 0–6  | labels, buttons, menus, settings, log | A–Z, a–z (x-height rows 2–6, descenders 7–8), 0–9, `+ - − × / : ; . , ! ? ( ) [ ] % # & ' " < > = _ \| *`, space |
-| `num-l` | 16×28     | 4        | rows 0–27 | hero life totals | 0–9, `+`, `-`, space |
-| `num-m` | 8×14      | 2        | rows 0–13 | counters, commander damage, pending deltas, dice | 0–9, `+ - / :`, space |
+| `num-l` | 32×56     | 4        | rows 0–52 | hero life totals and commander damage ("sticker", T27) | 0–9, `+`, `-`, space |
+| `num-l-pm` | 20×20  | 4        | rows 0–16 | the −/+ zone glyphs beside the hero number (T27) | `+ - −`, space |
+| `num-m` | 8×14      | 2        | rows 0–13 | counters, pending deltas, peeks, dice | 0–9, `+ - / :`, space |
 
-All three share one skeleton language: dotted zero, round bowls built from midpoint-circle
-corners, a slope-2 diagonal on the `4`, a 3-rows-per-step `7`. `num-l` is that skeleton drawn with
-a 2×2 pen (2 px strokes, 45° runs 3 px wide); `num-m` and `ui` are 1 px.
+`num-l` is the **sticker** face (T26 candidate, adopted T27): puffy bubble numerals on a ~10 px
+round pen with ball terminals and a drop shadow. `num-l-pm` is its half-size `+`/`−` (5 px pen,
+rounded ends, same shadow). `num-m` has 2 px strokes since T27 so it sits next to the heavy
+numerals and solid icons; `ui` is 1 px. The previous thin `num-l` is kept in
+`candidates/num-l-thin/` (not built).
+
+**Drop shadows.** In a glyph, `:` marks the shadow *mask*: paper in the glyph, filled at draw
+time by `TextRenderer` with `Role.SHADOW` (50% checker) at global pattern phase (SPEC rule 3),
+before any ink. The mask turns with the text, so the shadow falls down-right in the reader's
+frame. Convention: 3 px down-right of the body, a 1 px paper keyline, never inside a counter.
 
 Any face can be drawn at an integer glyph scale `k` (each font px → k dither px → k·S device px).
-At S=4 on the Nomad, `num-l` k=1 is 112 device px tall (the Figma life total); `ui` k=1 has a
+At S=4 on the Nomad, `num-l` k=1 is 224 device px tall (body 212 px, 18 mm); `ui` k=1 has a
 2.4 mm cap height.
 
 ## File format (`<face>/glyphs.txt`)
@@ -29,7 +37,7 @@ tracking 2          # default paper gap between glyph boxes
 cap 0 14            # cap band: top row and height (vertical centring aligns this band)
 
 --- 0               # glyph header: one character ...
-..####..            # exactly <height> rows of exactly <width> chars: '#' ink, '.' paper
+..####..            # exactly <height> rows of exactly <width> chars: '#' ink, '.' paper, ':' shadow mask
 ...
 --- U+2212          # ... or U+XXXX (uppercase hex; required for space: U+0020) ...
 --- notdef          # ... or notdef: the box drawn for unknown characters (required)

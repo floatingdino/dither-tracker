@@ -169,4 +169,6 @@ enum class Role(val tile: Tile) {
     DEAD(Patterns.CROSSHATCH),
     /** Dotted divider lines (a 1-px slice of a checkerboard = 1 on / 1 off, globally phased). */
     DOTTED(Patterns.CHECKER),
+    /** Drop shadow of the hero numerals (T27): a 50% checker filled through each glyph's shadow mask. */
+    SHADOW(Patterns.CHECKER),
 }

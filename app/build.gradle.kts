@@ -164,7 +164,11 @@ abstract class GenerateFontsTask : DefaultTask() {
     private class Face(val id: String, val w: Int, val h: Int, val tracking: Int, val capTop: Int, val capH: Int) {
         val chars = StringBuilder()
         val rows = ArrayList<Int>()
+        /** Drop-shadow mask rows (`:` cells), parallel to [rows]; all zero for faces without a shadow. */
+        val shadow = ArrayList<Int>()
         var notdef: IntArray? = null
+        var notdefShadow: IntArray? = null
+        val hasShadow: Boolean get() = shadow.any { it != 0 } || (notdefShadow?.any { it != 0 } ?: false)
     }
 
     @TaskAction
@@ -208,6 +212,14 @@ abstract class GenerateFontsTask : DefaultTask() {
                         appendLine("            " + g.joinToString(", ") { if (it >= 0) "0x%X".format(it) else it.toString() } + ",")
                     }
                     appendLine("        ),")
+                    if (fc.hasShadow) {
+                        val sh = fc.shadow + fc.notdefShadow!!.toList()
+                        appendLine("        shadowRows = intArrayOf(")
+                        sh.chunked(fc.h).forEach { g ->
+                            appendLine("            " + g.joinToString(", ") { if (it >= 0) "0x%X".format(it) else it.toString() } + ",")
+                        }
+                        appendLine("        ),")
+                    }
                     appendLine("    )")
                     appendLine()
                 }
@@ -278,6 +290,7 @@ abstract class GenerateFontsTask : DefaultTask() {
             seen[norm] = i
             i++
             val rows = IntArray(h)
+            val shadowRows = IntArray(h)
             var ok = true
             for (y in 0 until h) {
                 if (i >= lines.size || lines[i].startsWith("--- ") || lines[i].isEmpty()) {
@@ -289,7 +302,8 @@ abstract class GenerateFontsTask : DefaultTask() {
                     when (c) {
                         '#' -> if (x < w) rows[y] = rows[y] or (1 shl (w - 1 - x))
                         '.' -> {}
-                        else -> { err(i, "glyph $norm: invalid char '$c' at column ${x + 1} (only '#' and '.')"); ok = false }
+                        ':' -> if (x < w) shadowRows[y] = shadowRows[y] or (1 shl (w - 1 - x))
+                        else -> { err(i, "glyph $norm: invalid char '$c' at column ${x + 1} (only '#', '.' and ':')"); ok = false }
                     }
                 }
                 i++
@@ -299,7 +313,9 @@ abstract class GenerateFontsTask : DefaultTask() {
                 while (i < lines.size && lines[i].isNotBlank() && !lines[i].startsWith("--- ")) i++
             }
             if (!ok || ch == '\u0000') continue
-            if (ch == null) face.notdef = rows else { face.chars.append(ch); face.rows.addAll(rows.toList()) }
+            if (ch == null) { face.notdef = rows; face.notdefShadow = shadowRows } else {
+                face.chars.append(ch); face.rows.addAll(rows.toList()); face.shadow.addAll(shadowRows.toList())
+            }
         }
         if (face.notdef == null) errors += "${f.path}: missing required 'notdef' glyph (drawn for unknown chars)"
         return face

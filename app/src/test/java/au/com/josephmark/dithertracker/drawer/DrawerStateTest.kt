@@ -29,9 +29,9 @@ class DrawerStateTest {
 
     @Test fun eachModeRemembersItsPage() {
         st.setPaging(2, 9, 6); st.nextPage(2)
-        assertTrue(st.setMode(2, DrawerState.COMMANDER))
+        assertTrue(st.setMode(2, DrawerState.TOGGLES))
         assertEquals(0, st.page(2))
-        assertFalse(st.setMode(2, DrawerState.COMMANDER))
+        assertFalse(st.setMode(2, DrawerState.TOGGLES))
         st.setMode(2, DrawerState.TRAY)
         assertEquals(1, st.page(2))
     }

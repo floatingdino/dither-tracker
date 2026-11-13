@@ -17,8 +17,8 @@ import au.com.josephmark.dithertracker.type.Fonts
  *             │ readout (num-m, [readoutK])  │  upper area: life total and ± still live here
  *             │ −   number ([numberK])    +  │  (left half = −, right half = +, hold works)
  *  upper      ├────┬───────── ••• ────────┬──┤  bar (TAB dither): ‹ prev · close · next ›
- *  bodyTop    │ COMMANDER DAMAGE │ cell │ cell │  body (DRAWER dither): [cols] × [rows] grid,
- *             │ cell │ cell │ cell │ cell     │  header button spans [headerSpan] columns
+ *  bodyTop    │ cell │ cell │ cell │ cell     │  body (DRAWER dither): [cols] × [rows] grid of
+ *             │ cell │ cell │ cell │ cell     │  tray cells (commander tax + counters)
  *  panelH     └──────────────────────────────┘
  * ```
  * The drawer covers the lower part of the panel instead of overlaying the number: the number keeps
@@ -28,7 +28,10 @@ import au.com.josephmark.dithertracker.type.Fonts
  * fits means `V_MIN + readoutH + gap + numberH + barHitPad ≤ upper`, where the bar hit extension
  * ([PlayLayout.Chrome.tabHitPad]) stays clear of the number.
  *
- * Touch targets: every hit rect (each cell half, header, bar segments incl. their extension) is at
+ * Commander damage left the drawer in T30 (it is a mode on the main tiles now, see `play.CommanderMode`),
+ * so the tray has the whole body: no header button.
+ *
+ * Touch targets: every hit rect (each cell half, bar segments incl. their extension) is at
  * least [target] dither px (≈ 9 mm, [MIN_TOUCH_DEVICE_PX]) in its short dimension: columns are
  * `≥ 2 · target` wide and rows `≥ target` tall. The cell hit grid tiles the body exactly; the
  * visible card is the hit rect inset by [inset].
@@ -49,7 +52,6 @@ class DrawerLayout(val play: PlayLayout) {
     val iconSize: Int = ICON * tk
     val inset: Int = PlayLayout.Chrome.size(INSET, scale)
     val pad: Int = PlayLayout.Chrome.size(PAD, scale)
-    val labelGap: Int = PlayLayout.Chrome.size(LABEL_GAP, scale)
     val iconGap: Int = PlayLayout.Chrome.size(ICON_GAP, scale)
     val readoutGap: Int = PlayLayout.Chrome.size(READOUT_GAP, scale)
 
@@ -60,8 +62,8 @@ class DrawerLayout(val play: PlayLayout) {
     val barH: Int = maxOf(play.chrome.tabH, iconSize + 2)
     val barHitPad: Int = play.chrome.tabHitPad
 
-    /** Tallest cell content: the commander-damage cell (label cap band, gap, icon row). */
-    val contentH: Int = ui.capHeight * tk + labelGap + iconSize
+    /** Tallest cell content: an icon or a `num-m` value. */
+    val contentH: Int = maxOf(iconSize, numFont.height(tk))
 
     /** Widest tray-cell content: icon, gap, three digits of num-m. */
     val contentW: Int = iconSize + iconGap + numFont.widthOf(3, tk)
@@ -69,10 +71,9 @@ class DrawerLayout(val play: PlayLayout) {
     val rowH: Int = maxOf(target, contentH + 2 * pad + 2 * inset)
     val cols: Int
     val rows: Int
-    val headerSpan: Int
 
-    /** Cells per page (grid minus the header button). */
-    val perPage: Int get() = cols * rows - headerSpan
+    /** Cells per page. */
+    val perPage: Int get() = cols * rows
 
     /** Drawer height (bar + body) and the upper area left for the life total, player frame. */
     val drawerH: Int
@@ -88,9 +89,6 @@ class DrawerLayout(val play: PlayLayout) {
 
     /** False when no combination met the spacing minimums (content may touch; tiny screens only). */
     val comfortable: Boolean
-
-    /** Max ui chars that fit a cell's label line. */
-    val labelChars: Int
 
     private val colX: IntArray
 
@@ -121,13 +119,6 @@ class DrawerLayout(val play: PlayLayout) {
     val dots: Array<IRect> = Array(P * 3) { IRect() }
     val dotsBacking: Array<IRect> = Array(P) { IRect() }
 
-    /** Header button (black, spans [headerSpan] columns): visible card, hit, icon slot, label rect. */
-    val headerVis: Array<IRect> = Array(P) { IRect() }
-    val headerHit: Array<IRect> = Array(P) { IRect() }
-    val headerIcon: Array<IRect> = Array(P) { IRect() }
-    val headerLabelAfterIcon: Array<IRect> = Array(P) { IRect() }
-    val headerLabel: Array<IRect> = Array(P) { IRect() }
-
     /** Cells, index `seat * MAX_SLOTS + slot` (slot = position on the page). */
     val cellVis: Array<IRect> = Array(P * MS) { IRect() }
     val cellHit: Array<IRect> = Array(P * MS) { IRect() }
@@ -140,11 +131,6 @@ class DrawerLayout(val play: PlayLayout) {
     val trayIcon: Array<IRect> = Array(P * MS) { IRect() }
     val trayValue: Array<IRect> = Array(P * MS) { IRect() }
 
-    /** Commander-damage cell interior: label line, icon footprint, value rect. */
-    val dmgLabel: Array<IRect> = Array(P * MS) { IRect() }
-    val dmgIcon: Array<IRect> = Array(P * MS) { IRect() }
-    val dmgValue: Array<IRect> = Array(P * MS) { IRect() }
-
     init {
         val W = play.panelW
         val H = play.panelH
@@ -153,9 +139,6 @@ class DrawerLayout(val play: PlayLayout) {
         var c = (W / (2 * target)).coerceIn(1, DrawerZones.MAX_COLS)
         while (c > 1 && W / c - 2 * inset - 2 * pad < contentW) c--
         cols = c
-        // The header takes two columns where there are four or more (full label); on narrower grids
-        // it takes one and the painter uses the short label ([headerShort]).
-        headerSpan = if (cols >= 4) 2 else 1
         colX = IntArray(cols + 1) { it * W / cols }
 
         // Rows and number/readout scale: first combination that fits (see class doc).
@@ -185,9 +168,6 @@ class DrawerLayout(val play: PlayLayout) {
         readoutTop = if (top >= 0) top else PlayLayout.V_MIN
         numberTop = readoutTop + play.readoutFont.height(readoutK) + readoutGap
 
-        val visW0 = colX[1] - colX[0] - 2 * inset
-        labelChars = maxOf(1, (visW0 - 2 * pad + ui.tracking * tk) / (ui.advance * tk))
-
         layoutSeats(W)
     }
 
@@ -211,13 +191,10 @@ class DrawerLayout(val play: PlayLayout) {
         val side = (W - f.widthOf(PlayLayout.MAX_CHARS, k)) / 2
         if (side < reach) t = maxOf(t, reach - roH - readoutGap)
         val pmK = PlayLayout.pmK(k)
-        val pmX = (side - f.glyphWidth * pmK) / 2
-        if (pmX < reach) t = maxOf(t, reach - roH - readoutGap - (nH - f.glyphHeight * pmK) / 2)
+        val pmX = (side - play.pmFont.glyphWidth * pmK) / 2
+        if (pmX < reach) t = maxOf(t, reach - roH - readoutGap - (play.pmCapAlignedY(0, k)))
         return if (t + stack <= bottom) t else -1
     }
-
-    /** Narrow grids (header in one column) use the short header labels. */
-    val headerShort: Boolean get() = headerSpan < 2
 
     private fun layoutSeats(W: Int) {
         val pl = play
@@ -227,10 +204,10 @@ class DrawerLayout(val play: PlayLayout) {
         val slotH = f.height(numberK)
         val side = (W - slotW) / 2
         val pmK = PlayLayout.pmK(numberK)
-        val pmW = f.glyphWidth * pmK
-        val pmH = f.glyphHeight * pmK
+        val pmW = pl.pmFont.glyphWidth * pmK
+        val pmH = pl.pmFont.glyphHeight * pmK
         val pmX = (side - pmW) / 2
-        val pmY = numberTop + (slotH - pmH) / 2
+        val pmY = pl.pmCapAlignedY(numberTop, numberK)
         val roW = pl.readoutFont.widthOf(PlayLayout.READOUT_CHARS, readoutK)
         val roH = pl.readoutFont.height(readoutK)
         val roX = (W - roW) / 2
@@ -270,26 +247,13 @@ class DrawerLayout(val play: PlayLayout) {
             for (i in 0 until 3) pl.mapRect(s, dotX + i * (c.dot + c.dotGap), dotY, c.dot, c.dot, dots[s * 3 + i])
             pl.mapRect(s, dotX - c.dotHalo, dotY - c.dotHalo, dotsW + 2 * c.dotHalo, c.dot + 2 * c.dotHalo, dotsBacking[s])
 
-            // Header button: grid (0..span-1, row 0).
-            val hx = colX[0]
-            val hw = colX[headerSpan] - hx
-            pl.mapRect(s, hx, bodyTop, hw, rowH, headerHit[s])
-            pl.mapRect(s, hx + inset, bodyTop + inset, hw - 2 * inset, rowH - 2 * inset, headerVis[s])
-            val innerX = hx + inset + pad
-            val innerW = hw - 2 * inset - 2 * pad
-            val innerY = bodyTop + inset
-            val innerH = rowH - 2 * inset
-            pl.mapRect(s, innerX, innerY, innerW, innerH, headerLabel[s])
-            pl.mapRect(s, innerX, innerY + (innerH - iconSize) / 2, iconSize, iconSize, headerIcon[s])
-            pl.mapRect(s, innerX + iconSize + iconGap, innerY, innerW - iconSize - iconGap, innerH, headerLabelAfterIcon[s])
-
             // Cells.
             for (slot in 0 until MS) {
                 val i = s * MS + slot
-                val g = headerSpan + slot
-                if (slot >= perPage || g >= cols * rows) {
+                val g = slot
+                if (slot >= perPage) {
                     // Unused at this size: empty rects (never hit, never drawn).
-                    for (r in arrayOf(cellVis[i], cellHit[i], trayIcon[i], trayValue[i], dmgLabel[i], dmgIcon[i], dmgValue[i])) r.set(0, 0, 0, 0)
+                    for (r in arrayOf(cellVis[i], cellHit[i], trayIcon[i], trayValue[i])) r.set(0, 0, 0, 0)
                     for (h in 0..1) { halfVis[i * 2 + h].set(0, 0, 0, 0); halfHit[i * 2 + h].set(0, 0, 0, 0) }
                     continue
                 }
@@ -313,13 +277,6 @@ class DrawerLayout(val play: PlayLayout) {
                 val valW = vx + vw - pad - valX
                 pl.mapRect(s, ix, vy + (vh - iconSize) / 2, iconSize, iconSize, trayIcon[i])
                 pl.mapRect(s, valX, vy, valW, vh, trayValue[i])
-
-                val capH = ui.capHeight * tk
-                val top = vy + (vh - contentH) / 2
-                pl.mapRect(s, ix, top, vw - 2 * pad, capH, dmgLabel[i])
-                val rowY = top + capH + labelGap
-                pl.mapRect(s, ix, rowY, iconSize, iconSize, dmgIcon[i])
-                pl.mapRect(s, valX, rowY, valW, iconSize, dmgValue[i])
             }
         }
     }
@@ -337,7 +294,7 @@ class DrawerLayout(val play: PlayLayout) {
     /**
      * Zone id ([DrawerZones]) under dither (gx, gy) given the drawers' [state]; [PlayLayout.RESERVED]
      * for the centre diamond (T09), [PlayLayout.NONE] for dividers, margins and empty drawer areas.
-     * Priority inside an open panel: bar (incl. its upward extension) → header → cells → life halves.
+     * Priority inside an open panel: bar (incl. its upward extension) → cells → life halves.
      */
     fun hitTest(gx: Int, gy: Int, state: DrawerState): Int {
         val pl = play
@@ -356,7 +313,6 @@ class DrawerLayout(val play: PlayLayout) {
                 return DrawerZones.zone(s, if (state.hasNext(s)) DrawerZones.NEXT else DrawerZones.TAB)
             }
             if (barHit[s * 3 + 1].contains(gx, gy)) return DrawerZones.zone(s, DrawerZones.TAB)
-            if (headerHit[s].contains(gx, gy)) return DrawerZones.zone(s, DrawerZones.HEADER)
             val n = minOf(state.itemsOnPage(s), perPage)
             for (slot in 0 until n) {
                 val i = (s * MS + slot) * 2
@@ -377,7 +333,7 @@ class DrawerLayout(val play: PlayLayout) {
 
     /**
      * The rect a pressed [zone] inverts (rule 6): life half (upper area when open), the closed tab,
-     * a bar segment, the header card or a cell half card. Returns false (and leaves [out]) if none.
+     * a bar segment or a cell half card. Returns false (and leaves [out]) if none.
      */
     fun feedbackRect(zone: Int, state: DrawerState, out: IRect): Boolean {
         if (DrawerZones.isLife(zone)) {
@@ -394,7 +350,6 @@ class DrawerLayout(val play: PlayLayout) {
             !open -> return false
             local == DrawerZones.PREV -> copy(barSeg[s * 3], out)
             local == DrawerZones.NEXT -> copy(barSeg[s * 3 + 2], out)
-            local == DrawerZones.HEADER -> copy(headerVis[s], out)
             else -> {
                 val slot = DrawerZones.slotOf(local)
                 if (slot >= perPage) return false
@@ -409,19 +364,18 @@ class DrawerLayout(val play: PlayLayout) {
     }
 
     override fun toString(): String =
-        "DrawerLayout(S=$scale tk $tk target $target, cols $cols rows $rows rowH $rowH header $headerSpan perPage $perPage, " +
-            "drawerH $drawerH (bar $barH) upperH $upperH, numberK $numberK at $numberTop, readoutK $readoutK at $readoutTop, " +
-            "labelChars $labelChars${if (comfortable) "" else ", UNCOMFORTABLE"})"
+        "DrawerLayout(S=$scale tk $tk target $target, cols $cols rows $rows rowH $rowH perPage $perPage, " +
+            "drawerH $drawerH (bar $barH) upperH $upperH, numberK $numberK at $numberTop, readoutK $readoutK at $readoutTop" +
+            "${if (comfortable) "" else ", UNCOMFORTABLE"})"
 
     companion object {
         /** 9 mm at 300 dpi (the Nomad): the fingertip minimum for every drawer hit rect. */
-        const val MIN_TOUCH_DEVICE_PX = 106
+        const val MIN_TOUCH_DEVICE_PX = PlayLayout.MIN_TOUCH_DEVICE_PX
 
         /** Design values at S = 4 (converted per S like [PlayLayout.Chrome]). */
         const val ICON = 16
         const val INSET = 2
         const val PAD = 2
-        const val LABEL_GAP = 1
         const val ICON_GAP = 2
         const val READOUT_GAP = 6
         const val HALO = 1
