@@ -97,7 +97,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | ID | Status | Deps | Task | Files |
 |----|--------|------|------|-------|
 | T16 | done | T34 T09 | Random starting player, dice (d6/d20/custom), coin flip — static result reveal, 1-bit dice faces. | `app/src/main/**/tools/` |
-| T17 | wip | T34 T09 T03 | Turn tracker + optional turn/game timer (redraw at most once a minute; partial refresh). | `tools/`, `core/` |
+| T17 | review | T34 T09 T03 | Turn tracker + optional turn/game timer (redraw at most once a minute; partial refresh). | `tools/`, `core/` |
 | T18 | done | T34 T09 T03 | Game history log view (scrolling by page, not smooth scroll). | `app/src/main/**/history/` |
 | T44 | done | T18 | **Seat glyph instead of player names** (Sam, 2026-11-14: "Player 1/2/3/4 are meaningless"). A small table diagram with one position filled marks the affected seat; drawn from the real layout (2x2 today, any 2–6 layout later) and turned with the card so it always matches the physical table. Use it in history rows (source -> target as two glyphs) and anywhere else a default name appears. Emulator 5570. | new `seat/` package, `history/` |
 
@@ -632,3 +632,14 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   44.8→14.2 ms (the KO cost was the old halo built four times, not quips). Agent's pixel check:
   1280 JVM shots and 47 non-effect device captures byte-identical. Not re-measured on the Nomad.
   Running: T17.
+- 2026-11-14 — Tick 62: T17 reported (`f515ab6`, `81b457f`, `1376d64`, `2a9ba5e`, `8c5f031`,
+  `ad1897c`, `a361ec7`), verified by coordinator at HEAD: 166 core + 1294 app, release builds,
+  10 captures pure, `check_purity.sh` 98/98. Tracking starts when FIRST picks a player; the active
+  seat shows a solid ink "turn tab" (89×21 at S=4) on its far edge; tap passes (skips KO'd, one undo
+  step), hold ≥1.5 s corrects without counting. Settings row `Turns [OFF][ON][GAME][TURN]` (tracker
+  on, timer off by default); timer shows whole minutes on the tab, one timer armed only while on,
+  showing and in the foreground (tests: 3 h paused arms nothing; 0 B per tick). Save format v3
+  (v1/v2 load). In `review`.
+  **Needs Sam (design):** is the tab visible enough across the table; keep hold-to-correct?; game
+  clock reads "107" not "1:47"; turn/round number on the play screen?; no icon on 6-player middle
+  tabs with the timer on.
