@@ -130,6 +130,35 @@ effect invalidates its own seat only, at most one panel = 25 %.)
    closeables, activity leaks), log only. The one deliberate main-thread read (the save, below) is
    allowed explicitly.
 
+7. **Layout before the first frame** (T50, `44a1494` and the settings commit after it). The
+   trace's per-component `layout …us` lines showed where it went:
+   - `KoComponent.onLayout` was not the quips (they are only arranged for seats already dead): it
+     built the tombstone's cut-out four times, once per rotation, with a per-pixel dilation through
+     `TextLayout.pointX/Y` — slow when interpreted (debug). It now builds one mask with the shared
+     `HaloMask.of` and lets `blitHaloed` turn it (pixel-identical). KO and winner tiles still lay out
+     and prewarm before the first frame (`PrewarmPhaseTest`).
+   - `SettingsOverlay.onLayout` measured the card: every row on every page, and the scale row's
+     options, which lay the Play screen out at each S (`SettingsTable.scaleValues`). The card cannot be
+     open before the first frame, so `onLayout` now only records the grid and the card is measured on
+     first need: the post-first-frame prewarm (an overlay, so `LATER`) or an `open`, whichever comes
+     first; a relayout while it is open re-measures at once (`perf/LayoutDeferralTest`).
+
+   Emulator (debug, cold start with `--ez trace true`, median of 8; relative numbers only — the
+   emulator is several times faster than the Nomad):
+
+   | | before (`02f301c`) | after |
+   |---|---:|---:|
+   | layout before the first frame (`layout took`) | 44.8 ms | 14.2 ms |
+   | `KoComponent.onLayout` | 30.7 ms | 2.5 ms |
+   | `SettingsOverlay.onLayout` | 5.9 ms | 0.0 ms (its measure moved into the `LATER` prewarm: 1.7 → 6.2 ms) |
+   | prewarm before the first frame | 63.8 ms | 61.8 ms |
+   | first `onDraw` after process start | 289 ms | 242 ms |
+
+   Pixel-identical: of the emulator's 98 purity captures, the 47 non-effect ones are byte-identical to
+   the build before; the effect captures differ only in the dead seat's random KO quip (carried into
+   the gallery) and, with that seat masked, have the same keyframe sets (claw-cut and fault caught one
+   more keyframe than the before run: timing). The JVM purity suite's 1280 shots are byte-identical.
+
 ## Regression tests
 
 - `perf/AllocationBudgetTest` — `ThreadMXBean` per-thread allocated bytes over the real Play screen
@@ -140,6 +169,8 @@ effect invalidates its own seat only, at most one panel = 25 %.)
   no redraw over a minute; also mid-effect and mid-KO.
 - `perf/PrewarmPhaseTest` — the first prewarm phase covers a fresh table, KO tiles and a winner at
   S = 2..6, both orientations and colour modes; the phases add up to everything.
+- `perf/LayoutDeferralTest` — the settings card is not measured in the layout pass, and measures the
+  same on open, after a relayout while open, and after a relayout while closed.
 - Purity suite (`purity/PuritySuiteTest`): every image or sparse tile paint a shot draws must have
   been built by the host's prewarm (`RasterRenderer.warm` / `cold`), so the device never builds a
   bitmap in `onDraw`. (The `effects` script is exempt: it plays the gallery's non-policy effects.)
@@ -155,9 +186,10 @@ effect invalidates its own seat only, at most one panel = 25 %.)
   per-seat `RenderNode`s (API 29+) re-recorded only when that seat is invalidated, drawn in layer
   order with `drawRenderNode`. Not done: it reorders the host's layer-by-layer draw and its
   press-inversion pass, for no visible gain.
-- **Layout before the first frame** is 140 ms debug / 86 ms release, mostly `KoComponent` (46 ms
-  debug: quip layouts), `SettingsOverlay` (35 ms: every page) and `DrawerComponent` (14 ms). The
-  overlays' layout could also move after the first frame; left for the owners of those packages.
+- **Layout before the first frame** was 140 ms debug / 86 ms release on the Nomad, mostly
+  `KoComponent` (46 ms debug) and `SettingsOverlay` (35 ms) — cut in T50 (fix 7). What remains is
+  `DrawerComponent` (14 ms debug on the Nomad, 2 ms on the emulator) and the tile shaders; not
+  re-measured on the Nomad.
 - **`onCreate`** is ~380 ms debug / ~50 ms release: `Persistence.start` (100 / 6.5 ms: thread start,
   the 30 ms debug decode) and building the component list, including class-initialising the
   generated effect data. Release is already small.

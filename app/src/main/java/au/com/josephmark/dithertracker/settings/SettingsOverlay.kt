@@ -4,6 +4,7 @@ import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.GameSettings
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.serial.AppSettings
+import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.menu.MenuDestination
 import au.com.josephmark.dithertracker.menu.MenuItem
@@ -88,6 +89,9 @@ class SettingsOverlay private constructor(b: Built) :
     private var painter: SettingsPainter? = null
     private var laidOut = false
 
+    /** The grid of the last [onLayout] not yet measured (T50: the card lays out on first need, see [ensureLaidOut]). */
+    private var pendingGrid: DitherGrid? = null
+
     /** True while a tap is being applied (its writes come back through the listeners). */
     private var tapping = false
     private var structureChanged = false
@@ -120,6 +124,7 @@ class SettingsOverlay private constructor(b: Built) :
         card.list.setPage(0)
         for (p in pages) for (r in p.rows) r.onOpen(access)
         isOpen = true
+        ensureLaidOut()
         refresh()
         stage.setCover(cover, Cover.ALL_SEATS, screen = true)
         if (laidOut) invalidate(card.bounds)
@@ -144,16 +149,33 @@ class SettingsOverlay private constructor(b: Built) :
 
     // ---- layout / drawing ----------------------------------------------------------------------------
 
+    /**
+     * Only records the grid: measuring the card (every row of every page, and the scale row's options,
+     * which lay the Play screen out at each S) is ~35 ms on the Nomad (debug) and the card cannot be
+     * open before the first frame, so it happens on first need — the post-first-frame prewarm or an
+     * [open], whichever comes first. A relayout while the card is open re-measures at once.
+     */
     override fun onLayout(play: PlayLayout, tiles: TileSlots) {
-        val g = play.grid
+        pendingGrid = play.grid
+        laidOut = false
+        if (isOpen) {
+            ensureLaidOut()
+            refresh()
+        }
+    }
+
+    /** Measures the card for the last [onLayout]'s grid, if not done yet. */
+    private fun ensureLaidOut() {
+        val g = pendingGrid ?: return
+        pendingGrid = null
         screen.set(0, 0, g.width, g.height)
         for (p in pages) for (r in p.rows) r.onScreen(g)
         card.measure(WidgetMetrics(g.scale), g.width, g.height, pages)
         laidOut = true
-        refresh()
     }
 
     override fun prewarm(f: Frame) {
+        ensureLaidOut()
         if (!laidOut) return
         val p = painter ?: SettingsPainter(RendererCanvas(f.r, f.text)).also { painter = it }
         refresh()
