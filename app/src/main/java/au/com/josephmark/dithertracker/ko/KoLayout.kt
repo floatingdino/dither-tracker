@@ -182,6 +182,18 @@ class KoLayout(val play: PlayLayout) {
     private val winnerWrap = TextWrap(MAX_LINES)
 
     /**
+     * Player-frame band the caption is centred in: the whole gap between the number slot and the
+     * tab's hit area ([PlayLayout.V_MIN] clear of each) — the band the under-number row is centred in.
+     */
+    val winnerTop: Int = slotY + slotH + PlayLayout.V_MIN
+    val winnerBottom: Int = H - play.chrome.tabH - play.chrome.tabHitPad - PlayLayout.V_MIN
+    private val winnerH0: Int get() = winnerBottom - winnerTop
+
+    /** The caption band on [seat] (screen): invalidate this when the winner changes. */
+    fun winnerBand(seat: Int, out: IRect) =
+        play.mapRect(seat, winnerLeft, winnerTop, winnerW, maxOf(0, winnerBottom - winnerTop), out)
+
+    /**
      * Lays out a winner [caption] (caps) on [seat] into [out]: the largest scale ≤ [quipKMax] at which
      * it wraps into at most [MAX_LINES] lines of [winnerW] without cutting a word and fits the row's
      * height; if none does, scale 1 with what fits. `out.k == 0` = no room at all.
@@ -189,35 +201,36 @@ class KoLayout(val play: PlayLayout) {
     fun arrangeWinner(seat: Int, caption: CharSequence, out: Block) {
         out.k = 0; out.lines = 0
         val w = winnerW
-        if (play.underH <= 0 || w <= 0) return
+        if (winnerH0 <= 0 || w <= 0 || winnerBottom <= winnerTop) return
         var k = quipKMax
         while (true) {
             winnerWrap.wrap(caption, ui, k, w)
-            if ((!winnerWrap.truncated && winnerH(k, winnerWrap.lines) <= play.underH) || k == 1) break
+            if ((!winnerWrap.truncated && winnerH(k, winnerWrap.lines) <= winnerH0) || k == 1) break
             k--
         }
         var n = winnerWrap.lines
-        while (n > 1 && winnerH(k, n) > play.underH) n-- // scale 1 still too tall: drop lines
-        if (n == 0 || winnerH(k, n) > play.underH) return
+        while (n > 1 && winnerH(k, n) > winnerH0) n-- // scale 1 still too tall: drop lines
+        if (n == 0 || winnerH(k, n) > winnerH0) return
         out.k = k; out.lines = n
         val lh = ui.capHeight * k
         val bh = winnerH(k, n)
-        var y = play.underY + (play.underH - bh) / 2
+        var y = winnerTop + (winnerH0 - bh) / 2 + ui.capTop * k
         for (i in 0 until n) {
             out.start[i] = winnerWrap.start[i]; out.end[i] = winnerWrap.end[i]
             val tw = ui.widthOf(out.end[i] - out.start[i], k)
             // Box top from the cap top, kept inside the row (the face's descender band may hang below).
-            val top = minOf(y - ui.capTop * k, play.underY + play.underH - ui.height(k))
-            play.mapRect(seat, winnerLeft + (w - tw) / 2, maxOf(play.underY, top), tw, ui.height(k), out.line[i])
-            y += lh + winnerGap
+            val top = minOf(y - ui.capTop * k, winnerTop + winnerH0 - ui.height(k))
+            play.mapRect(seat, winnerLeft + (w - tw) / 2, maxOf(winnerTop, top), tw, ui.height(k), out.line[i])
+            y += lh + winnerGap(k)
         }
     }
 
-    /** Gap between the caption's cap bands (tighter than the plate's: the row is one icon high). */
-    val winnerGap: Int = Chrome.size(WINNER_GAP, s)
+    /** Gap between the caption's cap bands: [WINNER_GAP], and never less than the face's descent (boxes never overlap). */
+    fun winnerGap(k: Int): Int = maxOf(Chrome.size(WINNER_GAP, s), ui.height(k) - ui.capHeight * k - ui.capTop * k)
 
-    /** Height of a [lines]-line caption's cap bands at scale [k]. */
-    private fun winnerH(k: Int, lines: Int): Int = lines * ui.capHeight * k + (lines - 1) * winnerGap
+    /** Height of a [lines]-line caption at scale [k]: cap bands, gaps and the last line's descent. */
+    private fun winnerH(k: Int, lines: Int): Int =
+        lines * ui.capHeight * k + (lines - 1) * winnerGap(k) + (ui.height(k) - ui.capHeight * k - ui.capTop * k)
 
     /** One seat's plate (screen rects), filled by [arrange]. */
     class Block {
@@ -257,6 +270,6 @@ class KoLayout(val play: PlayLayout) {
         const val LINE_GAP = 5
         const val ICON_GAP = 3
         const val CAUSE_GAP = 10
-        const val WINNER_GAP = 2
+        const val WINNER_GAP = 3
     }
 }

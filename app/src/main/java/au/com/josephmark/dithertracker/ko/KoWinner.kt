@@ -75,8 +75,8 @@ class KoWinner(
         winner = w
         caption = if (w < 0) "" else pick(k)
         if (w >= 0) k.arrangeWinner(w, caption, block)
-        if (oldW >= 0) invalidate(k.play.underRow[oldW])
-        if (w >= 0) invalidate(k.play.underRow[w])
+        if (oldW >= 0) { k.winnerBand(oldW, band); invalidate(band) }
+        if (w >= 0) { k.winnerBand(w, band); invalidate(band) }
         stage.log?.invoke("winner $oldW -> $w '$caption'")
     }
 
@@ -99,13 +99,15 @@ class KoWinner(
     }
 
     private val block = KoLayout.Block()
+    private val band = au.com.josephmark.dithertracker.dither.IRect()
     private val slice = TextSlice()
 
     override fun draw(f: Frame, seat: Int) {
         if (seat != winner || caption.isEmpty()) return
         val k = k ?: return
         if (t?.compact(seat) == true) return
-        if (!f.hit(k.play.underRow[seat])) return
+        k.winnerBand(seat, band)
+        if (!f.hit(band)) return
         val rot = k.play.rotation[seat]
         val b = block
         for (i in 0 until b.lines) {

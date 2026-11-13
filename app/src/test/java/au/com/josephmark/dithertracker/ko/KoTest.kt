@@ -121,12 +121,16 @@ class KoTest {
             for (line in Flavour.quippy.lines(QuipKind.WINNER) + Flavour.plain.lines(QuipKind.WINNER)) for (s in 0 until 4) {
                 val tag = "$w×$h S=$sc seat $s '$line'"
                 k.arrangeWinner(s, line.uppercase(), b)
-                if (l.underH == 0) { assertEquals(tag, 0, b.lines); continue } // no under row (a layout never chosen)
+                if (!l.comfortable && b.lines == 0) continue // cramped layout (never chosen): may have no room
                 assertTrue("$tag shown", b.k >= 1 && b.lines >= 1)
                 if (w == 1872 && sc <= 4) assertEquals("$tag whole caption", line.length, (0 until b.lines).sumOf { b.end[it] - b.start[it] } + b.lines - 1)
                 for (i in 0 until b.lines) {
                     val r = b.line[i]
-                    assertTrue("$tag line $i $r in under row ${l.underRow[s]}", inside(r, l.underRow[s]))
+                    val wb = IRect().also { k.winnerBand(s, it) }
+                    assertTrue("$tag line $i $r in band $wb", inside(r, wb))
+                    assertFalse("$tag line $i over the tab", overlaps(r, l.tabHit[s]))
+                    assertFalse("$tag line $i over the number", overlaps(r, l.numberSlot[s]))
+                    if (i > 0) assertFalse("$tag lines overlap", overlaps(r, b.line[i - 1]))
                     if (peek.enabled) for (col in 0..1) {
                         val c = IRect().also { peek.corner(s, col, it) }
                         assertFalse("$tag line $i over peek corner $col", overlaps(r, c))
@@ -407,7 +411,7 @@ class KoTest {
         assertTrue(r.winner.caption.isNotEmpty())
         assertEquals(r.winner.caption, r.winner.caption.uppercase())
         assertTrue(r.winner.caption in Flavour.quippy.lines(QuipKind.WINNER).map { it.uppercase() })
-        val under = IRect().also { r.l.grid.toDevice(r.l.underRow[3], it) }
+        val under = IRect().also { r.l.grid.toDevice(IRect().also { b -> r.ko.layout!!.winnerBand(3, b) }, it) }
         assertTrue(r.rig.platform.invalidated.any { overlaps(it, under) })
         // Revive one: no winner any more.
         r.tap(r.l.panels[2]); r.tap(r.l.panels[2])
