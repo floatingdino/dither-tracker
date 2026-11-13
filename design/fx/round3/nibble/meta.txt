@@ -1,0 +1,15 @@
+# nibble: Jaws snap at the top-right corner of the total and leave a scalloped bite in it.
+# trigger: damage 1-3, 1-digit totals too (anchored on the last digit)
+size 72 72
+frames 4
+role damage
+anchor tr -6 6
+hold_ms 300 350 300 0
+ink_px 600 14 8 0
+knockout_px 928 780 740 0
+flips 791 591 22 310   # total 1714, over sticker "37" on the quad tile
+# flips on the narrow tile: 791 591 22 310 (total 1714)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

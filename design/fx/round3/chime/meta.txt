@@ -1,0 +1,15 @@
+# chime: A two-note item jingle: notes hop off the shoulders of the total, an 8-bit chime.
+# trigger: heal 1-3 (pool with twinkle, sprout, heart)
+size 149 165
+frames 4
+role heal
+anchor centre 0 0
+hold_ms 300 350 250 0
+ink_px 165 447 12 0
+knockout_px 124 268 0 0
+flips 165 612 459 12   # total 1248, over sticker "37" on the quad tile
+# flips on the narrow tile: 165 612 459 12 (total 1248)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

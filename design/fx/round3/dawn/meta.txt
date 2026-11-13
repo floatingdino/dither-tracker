@@ -1,0 +1,17 @@
+# dawn: The moon sets behind the total; the sun comes up with soft rays.
+# trigger: it becomes day (every seat at once)
+size 149 165
+frames 4
+role day-night
+anchor centre 0 0
+tile 1 D4 ink
+hold_ms 300 400 250 0
+ink_px 945 252 252 0
+knockout_px 264 216 216 0
+tile_px 0 806 0 0
+flips 924 1379 547 252   # total 3102, over sticker "37" on the quad tile
+# flips on the narrow tile: 924 1368 534 252 (total 3078)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

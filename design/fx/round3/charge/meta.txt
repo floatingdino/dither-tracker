@@ -1,0 +1,16 @@
+# charge: A bolt strikes the top of the total and cracks into it, then sparks crackle round it.
+# trigger: energy counter gained
+size 149 165
+frames 4
+role energy
+anchor centre 0 0
+hold_ms 300 300 250 0
+ink_px 606 596 60 0
+knockout_px 165 591 0 0
+cut_px 81 0 0 0
+flips 687 1281 622 60   # total 2650, over sticker "37" on the quad tile
+# flips on the narrow tile: 687 1281 622 60 (total 2650)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

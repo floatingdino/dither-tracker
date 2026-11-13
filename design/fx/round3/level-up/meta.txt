@@ -1,0 +1,18 @@
+# level-up: Level up: a pillar of light behind the total, chevrons climbing both sides, a star.
+# trigger: experience counter gained
+size 149 165
+frames 4
+role experience
+anchor centre 0 0
+tile 1 D2 ink
+tile 2 D1 ink
+hold_ms 300 350 250 0
+ink_px 288 780 118 0
+knockout_px 0 608 104 0
+tile_px 8628 0 0 0
+flips 1067 1809 898 118   # total 3892, over sticker "37" on the quad tile
+# flips on the narrow tile: 1009 1747 898 118 (total 3772)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

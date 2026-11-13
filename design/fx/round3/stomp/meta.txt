@@ -1,0 +1,19 @@
+# stomp: A shadow falls over the total, a giant foot stomps it flat (digits ghosted), dust.
+# trigger: damage 10 or more (with focus)
+size 149 165
+frames 5
+role big-hit
+anchor centre 0 0
+tile 1 D12 paper
+tile 2 D2 ink
+hold_ms 250 400 300 250 0
+ink_px 0 1315 246 88 0
+knockout_px 0 1564 1528 232 0
+cut_px 0 0 122 0 0
+tile_px 9752 4161 0 0 0
+flips 1024 3200 2684 450 88   # total 7446, over sticker "37" on the quad tile
+# flips on the narrow tile: 988 3241 2757 450 88 (total 7524)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

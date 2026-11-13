@@ -1,0 +1,17 @@
+# heart-burst: A big soft heart wraps the total, then bursts into little hearts flying to the corners.
+# trigger: heal 10 or more (with sunrise, vines)
+size 149 165
+frames 4
+role heal
+anchor centre 0 0
+tile 1 D2 ink
+hold_ms 350 350 250 0
+ink_px 348 936 234 0
+knockout_px 558 440 146 0
+tile_px 10376 0 0 0
+flips 1446 2320 1162 234   # total 5162, over sticker "37" on the quad tile
+# flips on the narrow tile: 1410 2282 1162 234 (total 5088)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

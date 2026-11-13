@@ -1,0 +1,16 @@
+# slash: One clean sword stroke cuts across the total; a hairline split stays, then a glint.
+# trigger: damage 1-9 (any size: the cheapest cut-out)
+size 149 165
+frames 3
+role damage
+anchor centre 0 0
+hold_ms 350 350 0
+ink_px 88 44 0
+knockout_px 59 126 0
+cut_px 512 0 0
+flips 600 591 69   # total 1260, over sticker "37" on the quad tile
+# flips on the narrow tile: 600 591 69 (total 1260)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

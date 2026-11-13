@@ -1,0 +1,15 @@
+# crown-cut: A giant crown sticker is slapped over the total, then shrinks to sit on top of it.
+# trigger: monarch claimed (alt)
+size 149 165
+frames 3
+role monarch
+anchor centre 0 0
+hold_ms 350 350 0
+ink_px 2112 612 0
+knockout_px 816 292 0
+flips 1425 1909 612   # total 3946, over sticker "37" on the quad tile
+# flips on the narrow tile: 1425 1909 612 (total 3946)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

@@ -1,0 +1,15 @@
+# imp-raspberry: The commander imp pops up behind the total, blows a raspberry, ducks back down.
+# trigger: commander damage taken (on the target)
+size 149 165
+frames 4
+role commander
+anchor centre 0 0
+hold_ms 300 400 250 0
+ink_px 488 848 52 0
+knockout_px 288 432 165 0
+flips 492 823 883 52   # total 2250, over sticker "37" on the quad tile
+# flips on the narrow tile: 492 823 883 52 (total 2250)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

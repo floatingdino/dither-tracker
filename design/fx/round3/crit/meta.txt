@@ -1,0 +1,17 @@
+# crit: Critical: a big burst behind the total, then four fat twinkles at the corners.
+# trigger: a natural 20 is rolled (the roller, or every seat)
+size 149 165
+frames 4
+role dice
+anchor centre 0 0
+tile 1 D4 ink
+hold_ms 350 350 250 0
+ink_px 588 560 16 0
+knockout_px 834 336 0 0
+tile_px 8472 0 0 0
+flips 2307 2859 576 16   # total 5758, over sticker "37" on the quad tile
+# flips on the narrow tile: 2232 2784 576 16 (total 5608)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

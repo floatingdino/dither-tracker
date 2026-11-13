@@ -1,0 +1,17 @@
+# spotlight: A spotlight swings onto the total from the corner, then leaves a lit pool under it.
+# trigger: the turn passes to this seat (alt)
+size 149 165
+frames 3
+role turn
+anchor centre 0 0
+tile 1 D4 ink
+hold_ms 350 350 0
+ink_px 0 72 0
+knockout_px 0 80 0
+tile_px 6623 1420 0
+flips 1351 1126 427   # total 2904, over sticker "37" on the quad tile
+# flips on the narrow tile: 1306 1083 427 (total 2816)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

@@ -1,0 +1,16 @@
+# revive: A flatline runs through the total, kicks into a heartbeat, a heart pops at the end.
+# trigger: a knocked-out seat is revived
+size 149 165
+frames 4
+role revive
+anchor centre 0 0
+hold_ms 300 350 300 0
+ink_px 0 0 246 0
+knockout_px 0 0 116 0
+cut_px 145 997 0 0
+flips 145 928 1243 246   # total 2562, over sticker "37" on the quad tile
+# flips on the narrow tile: 145 928 1243 246 (total 2562)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

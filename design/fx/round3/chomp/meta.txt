@@ -1,0 +1,18 @@
+# chomp: Monster jaws open over and under the total, chomp shut through it, then leave tooth marks.
+# trigger: damage 4-9
+size 149 165
+frames 4
+role damage
+anchor centre 0 0
+tile 1 D8 fill
+hold_ms 300 350 300 0
+ink_px 934 1005 21 0
+knockout_px 1426 1422 432 0
+cut_px 0 398 0 0
+tile_px 968 968 0 0
+flips 1418 3198 2036 138   # total 6790, over sticker "37" on the quad tile
+# flips on the narrow tile: 1418 3198 2036 138 (total 6790)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

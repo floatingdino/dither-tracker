@@ -1,0 +1,17 @@
+# bunting: The castle pops up; bunting strings across the top of the total; confetti.
+# trigger: city's blessing gained
+size 149 165
+frames 4
+role citys-blessing
+anchor centre 0 0
+tile 1 CHECKER fill
+hold_ms 300 400 250 0
+ink_px 420 560 36 0
+knockout_px 164 544 0 0
+tile_px 0 202 0 0
+flips 420 983 691 36   # total 2130, over sticker "37" on the quad tile
+# flips on the narrow tile: 420 983 691 36 (total 2130)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

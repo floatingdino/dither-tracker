@@ -1,0 +1,19 @@
+# refill: A potion glugs into the total: it drains to a ghost, refills from the bottom, bubbles.
+# trigger: heal 4-9
+size 149 165
+frames 4
+role heal
+anchor centre 0 0
+tile 1 D8 fill
+tile 2 D12 paper
+hold_ms 300 300 300 0
+ink_px 318 436 144 0
+knockout_px 256 371 220 0
+cut_px 204 204 0 0
+tile_px 3409 1307 0 0
+flips 1557 1466 1175 144   # total 4342, over sticker "37" on the quad tile
+# flips on the narrow tile: 1616 1506 1200 144 (total 4466)
+# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.
