@@ -98,6 +98,37 @@ class Stage(
     /** Debug log (trace builds); null = off. Allocates when on. */
     var log: ((String) -> Unit)? = null
 
+    /**
+     * Watches every frame (T19b: the e-ink cleanup cadence, `eink.CleanComponent`). Told of each
+     * component invalidation, each pointer-down and the end of each outermost entry point.
+     */
+    interface Observer {
+        /** A component invalidated [rect] (dither px), before the union. */
+        fun onInvalidate(rect: IRect)
+
+        /** A pointer went down (after the hit-test, inside the entry point). */
+        fun onPointerDown()
+
+        /** An outermost entry point ended (after its flush); [cause] is a [Cause] constant. */
+        fun onSettled(cause: Int)
+    }
+
+    /** What started the outermost entry point ([Observer.onSettled]). */
+    object Cause {
+        const val OTHER = 0
+        const val TOUCH_DOWN = 1
+        const val TOUCH_UP = 2
+        const val TOUCH_CANCEL = 3
+        /** A hold-repeat tick. */
+        const val HOLD = 4
+        /** A component timer. */
+        const val TIMER = 5
+        /** A game change from outside the stage's own entry points (restore, debug hooks). */
+        const val STATE = 6
+    }
+
+    var observer: Observer? = null
+
     // ---- setup ---------------------------------------------------------------------------------
 
     /** Registers [c] (before [seal]). Returns it. */
@@ -149,6 +180,7 @@ class Stage(
             t += c.timerCount
         }
         timerCount = t
+        armed = BooleanArray(t)
         input = PlayInput(this, holdTimers, zoneCount)
         val cap = 2 * zoneCount + EXTRA_RECTS
         zRect = Array(cap) { IRect() }
@@ -190,6 +222,7 @@ class Stage(
             for (c in comps) c.onDetach()
         } finally { exit() }
         platform.cancelAllTimers()
+        armed.fill(false)
         settings.removeListener(this)
         if (session.listener === this) session.listener = null
     }
@@ -247,9 +280,25 @@ class Stage(
         } finally { exit() }
     }
 
+    /** Whether any active [Cover] hides a [kind] bit on [seat] ([SCREEN] for the screen layers). */
+    fun covered(kind: Int, seat: Int): Boolean {
+        if (!anyCover) return false
+        for (cv in covers) if (cv.hides and kind != 0 && cv.covers(seat)) return true
+        return false
+    }
+
+    /** Whether any timer (hold or component) is armed, ignoring [except]'s own block. */
+    fun timersPending(except: Component? = null): Boolean {
+        val skipFrom = if (except != null) timerBase[except.index] else -1
+        val skipTo = if (except != null) skipFrom + except.timerCount else -1
+        for (i in armed.indices) if (armed[i] && (i < skipFrom || i >= skipTo)) return true
+        return false
+    }
+
     /** Redraw this dither rect (unioned and flushed once per entry point). */
     fun invalidate(rect: IRect) {
         if (rect.right <= rect.left || rect.bottom <= rect.top) return
+        observer?.onInvalidate(rect)
         if (!dirtyAny) {
             dirty.set(rect.left, rect.top, rect.right, rect.bottom)
             dirtyAny = true
@@ -309,37 +358,41 @@ class Stage(
 
     internal fun scheduleTimer(c: Component, id: Int, delayMillis: Long) {
         require(id in 0 until c.timerCount) { "timer $id not in 0 until ${c.timerCount}" }
+        armed[timerBase[c.index] + id] = true
         platform.schedule(timerBase[c.index] + id, delayMillis)
     }
 
     internal fun cancelTimer(c: Component, id: Int) {
         require(id in 0 until c.timerCount) { "timer $id not in 0 until ${c.timerCount}" }
+        armed[timerBase[c.index] + id] = false
         platform.cancel(timerBase[c.index] + id)
     }
 
     // ---- entry points --------------------------------------------------------------------------
 
     fun down(pointerId: Int, gx: Int, gy: Int, eventTimeMillis: Long) {
-        enter()
+        enter(Cause.TOUCH_DOWN)
         try {
             input.down(pointerId, gx, gy, eventTimeMillis)
             val z = input.zoneOf(pointerId)
             if (z >= 0 && idSeat[z] >= 0) send(Events.TOUCH_DOWN, idSeat[z])
+            observer?.onPointerDown()
         } finally { exit() }
     }
 
     fun up(pointerId: Int) {
-        enter()
+        enter(Cause.TOUCH_UP)
         try { input.up(pointerId) } finally { exit() }
     }
 
     fun cancel() {
-        enter()
+        enter(Cause.TOUCH_CANCEL)
         try { input.cancelAll() } finally { exit() }
     }
 
     override fun onTimer(id: Int) {
-        enter()
+        if (id in armed.indices) armed[id] = false
+        enter(if (id < zoneCount) Cause.HOLD else Cause.TIMER)
         try {
             if (id < zoneCount) {
                 input.onTimer(id)
@@ -358,7 +411,7 @@ class Stage(
 
     override fun onStateChanged(old: GameState, new: GameState) {
         val l = layout ?: return
-        enter()
+        enter(Cause.STATE)
         try {
             val np = new.players
             if (np.size != l.playerCount || old.players.size != np.size) {
@@ -471,9 +524,22 @@ class Stage(
     // ---- internals -----------------------------------------------------------------------------
 
     private val holdTimers = object : Scheduler {
-        override fun schedule(id: Int, delayMillis: Long) = platform.schedule(id, delayMillis)
-        override fun cancel(id: Int) = platform.cancel(id)
+        override fun schedule(id: Int, delayMillis: Long) {
+            armed[id] = true
+            platform.schedule(id, delayMillis)
+        }
+
+        override fun cancel(id: Int) {
+            armed[id] = false
+            platform.cancel(id)
+        }
     }
+
+    /** Armed timers by global id ([timersPending]). */
+    private var armed = BooleanArray(0)
+
+    /** What started the outermost entry point in progress. */
+    private var cause = Cause.OTHER
 
     /** True while any cover is active (fast path for [isVisible]). */
     private var anyCover = false
@@ -486,10 +552,15 @@ class Stage(
     private val fbDraw = IRect()
     private val scratch = IRect()
 
-    private fun enter() { depth++ }
+    private fun enter(c: Int = Cause.OTHER) {
+        if (depth++ == 0) cause = c
+    }
 
     private fun exit() {
-        if (--depth == 0) flush()
+        if (--depth == 0) {
+            flush()
+            observer?.onSettled(cause)
+        }
     }
 
     private fun flush() {

@@ -187,4 +187,11 @@ object Events {
      * every group, life or commander damage; the net change is not carried (diff the game state).
      */
     const val READOUT_COMMITTED = 6
+
+    /** Clean the whole panel now (the menu's CLEAN; seat = [Stage.SCREEN]). T19b, `eink.CleanComponent`. */
+    const val CLEAN = 7
+
+    /** The activity paused / resumed (seat = [Stage.SCREEN]): drop optional timers / re-arm them. */
+    const val PAUSE = 8
+    const val RESUME = 9
 }
