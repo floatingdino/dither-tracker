@@ -81,7 +81,7 @@ class MenuOverlay(
         val g = gem ?: return
         val k = g.k
         f.icons.prewarm(PREWARM_ICONS, k)
-        for (item in MenuItem.entries) f.text.draw(Fonts.UI, item.label, 0, 0, k)
+        for (item in MenuItem.entries) f.text.draw(Fonts.UI, item.label, 0, 0, k, halo = true) // halos: disabled facets
         // Every reset prompt and button label (the confirm picks among them).
         for (line in flavour.lines(QuipKind.RESET_PROMPT)) f.text.draw(Fonts.UI, line, 0, 0, k)
         for (b in flavour.resetButtons) {

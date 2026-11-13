@@ -19,7 +19,7 @@ internal class GemPainter {
 
     // ---- the gem --------------------------------------------------------------------------------
 
-    /** The open gem. [enabled] per slot (disabled = `Role.DISABLED` hatch, content on paper). */
+    /** The open gem. [enabled] per slot (disabled = `Role.DISABLED` hatch, content on its halo). */
     fun gem(f: Frame, g: GemLayout, enabled: BooleanArray) {
         if (!f.hit(g.bounds)) return
         val r = f.r
@@ -80,11 +80,11 @@ internal class GemPainter {
             r.fill(Role.DOTTED, left, fy, ic.left - gap - left, 1)
             r.fill(Role.DOTTED, ic.right + gap, fy, fx + rf + 1 - (ic.right + gap), 1)
         }
-        if (!enabled) f.icons.halo(ic, 0)
-        f.icons.icon(k, item.icon, ic, rot, invert = false, opaque = false)
+        // A disabled facet's content sits on the hatch: icon and label on their 1-px paper cut-outs (T41).
+        f.icons.icon(k, item.icon, ic, rot, invert = false, opaque = false, halo = !enabled)
         val lr = g.labelRect[s]
         if (!lr.isEmpty) {
-            f.text.draw(Fonts.UI, item.label, lr.left, lr.top, k, rot, invert = false, opaque = !enabled, pad = if (enabled) 0 else k)
+            f.text.draw(Fonts.UI, item.label, lr.left, lr.top, k, rot, invert = false, halo = !enabled)
         }
     }
 
