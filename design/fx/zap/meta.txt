@@ -1,0 +1,12 @@
+# zap: A lightning bolt strikes the top of the numeral, sparks fly, a wisp of smoke rises.
+size 48 64
+frames 4
+anchor top 2 -22
+hold_ms 300 300 250 0
+ink_px 520 80 16 0
+knockout_px 176 128 0 0
+flips 500 571 103 16   # total 1190 dither px = 19040 device px, over sample "37"
+# anchor: frame centre = <ref point of the life-total ink box> + (dx, dy), dither px,
+#   seat-upright coords (y down); ref in centre|tl|tr|bl|br|top|bottom|left|right.
+# hold_ms: per frame, last frame (empty) = 0: it is the end state, the clean number.
+# flips: changed dither px per transition base->f1, f1->f2, ..., f(N-1)->fN(clean).

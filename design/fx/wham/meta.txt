@@ -1,0 +1,12 @@
+# wham: BIG HIT (optional, change >= 10): eight impact wedges slam in from all round, then recoil.
+size 120 96
+frames 3
+anchor centre 0 0
+hold_ms 400 300 0
+ink_px 320 96 0
+knockout_px 288 160 0
+flips 320 416 96   # total 832 dither px = 13312 device px, over sample "37"
+# anchor: frame centre = <ref point of the life-total ink box> + (dx, dy), dither px,
+#   seat-upright coords (y down); ref in centre|tl|tr|bl|br|top|bottom|left|right.
+# hold_ms: per frame, last frame (empty) = 0: it is the end state, the clean number.
+# flips: changed dither px per transition base->f1, f1->f2, ..., f(N-1)->fN(clean).

@@ -1,0 +1,12 @@
+# pow: Comic impact burst dents the numeral's top corner, then four chips fly off.
+size 60 60
+frames 3
+anchor tr -6 2
+hold_ms 350 300 0
+ink_px 384 96 0
+knockout_px 564 188 0
+flips 439 479 96   # total 1014 dither px = 16224 device px, over sample "37"
+# anchor: frame centre = <ref point of the life-total ink box> + (dx, dy), dither px,
+#   seat-upright coords (y down); ref in centre|tl|tr|bl|br|top|bottom|left|right.
+# hold_ms: per frame, last frame (empty) = 0: it is the end state, the clean number.
+# flips: changed dither px per transition base->f1, f1->f2, ..., f(N-1)->fN(clean).

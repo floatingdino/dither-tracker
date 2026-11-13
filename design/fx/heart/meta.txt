@@ -1,0 +1,12 @@
+# heart: A little heart pops off the numeral's shoulder: small, big with a shine and pop ticks, then gone.
+size 44 44
+frames 4
+anchor tr 6 -10
+hold_ms 300 350 250 0
+ink_px 108 316 12 0
+knockout_px 60 176 0 0
+flips 108 264 328 12   # total 712 dither px = 11392 device px, over sample "37"
+# anchor: frame centre = <ref point of the life-total ink box> + (dx, dy), dither px,
+#   seat-upright coords (y down); ref in centre|tl|tr|bl|br|top|bottom|left|right.
+# hold_ms: per frame, last frame (empty) = 0: it is the end state, the clean number.
+# flips: changed dither px per transition base->f1, f1->f2, ..., f(N-1)->fN(clean).

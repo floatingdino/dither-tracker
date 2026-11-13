@@ -1,0 +1,12 @@
+# crack: A crack zig-zags down through the numeral, splits and drops two shards, then crumbs.
+size 76 68
+frames 4
+anchor centre 4 0
+hold_ms 350 300 250 0
+ink_px 132 192 8 0
+knockout_px 240 328 0 0
+flips 148 63 219 8   # total 438 dither px = 7008 device px, over sample "37"
+# anchor: frame centre = <ref point of the life-total ink box> + (dx, dy), dither px,
+#   seat-upright coords (y down); ref in centre|tl|tr|bl|br|top|bottom|left|right.
+# hold_ms: per frame, last frame (empty) = 0: it is the end state, the clean number.
+# flips: changed dither px per transition base->f1, f1->f2, ..., f(N-1)->fN(clean).

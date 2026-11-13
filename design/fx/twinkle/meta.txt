@@ -1,0 +1,12 @@
+# twinkle: Fat-cored twinkles pop at the numeral's shoulders, then hollow glints drift up and out.
+size 100 76
+frames 4
+anchor centre 0 -4
+hold_ms 300 300 250 0
+ink_px 180 184 12 0
+knockout_px 152 164 0 0
+flips 181 361 192 12   # total 746 dither px = 11936 device px, over sample "37"
+# anchor: frame centre = <ref point of the life-total ink box> + (dx, dy), dither px,
+#   seat-upright coords (y down); ref in centre|tl|tr|bl|br|top|bottom|left|right.
+# hold_ms: per frame, last frame (empty) = 0: it is the end state, the clean number.
+# flips: changed dither px per transition base->f1, f1->f2, ..., f(N-1)->fN(clean).
