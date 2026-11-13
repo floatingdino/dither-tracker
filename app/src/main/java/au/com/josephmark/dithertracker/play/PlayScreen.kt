@@ -6,6 +6,7 @@ import au.com.josephmark.dithertracker.commander.CommanderClose
 import au.com.josephmark.dithertracker.commander.CommanderTile
 import au.com.josephmark.dithertracker.drawer.DrawerComponent
 import au.com.josephmark.dithertracker.drawer.DrawerTab
+import au.com.josephmark.dithertracker.fx.FxComponent
 import au.com.josephmark.dithertracker.ko.KoComponent
 import au.com.josephmark.dithertracker.ko.KoWinner
 import au.com.josephmark.dithertracker.life.LifeComponent
@@ -32,8 +33,7 @@ object PlayScreen {
         stage.add(ReadoutComponent())             // pending delta; the Readouts service (Kind.READOUT)
         stage.add(PeeksComponent())               // counter chips under the number (Kind.CONTENT)
         val drawer = stage.add(DrawerComponent()) // open drawer; the TileSlots lower occupant (Kind.CONTENT)
-        // slot: effects (T28c) — an `fx` component, Layer.TILE, Kind.EFFECT, drawn here: after the number,
-        //       readout and drawer, before the layer's press inversion (see fx/README.md, "Draw").
+        stage.add(FxComponent())                  // hit/heal/KO/winner effects, after the number (Kind.EFFECT)
         stage.add(KoComponent(random))            // KO: dead tile, quip, tap-tap revive; covers the seat (Kind.STATUS)
         stage.add(KoWinner(random))               // last player standing caption in the under row (Kind.CONTENT)
 
