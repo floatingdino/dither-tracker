@@ -96,8 +96,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T28e | wip | T28b | Engine support for round-two effects: `x` (invert under mask), tile-filled layers at global phase, `anchor tile`; promote chosen options from `design/fx/options/` to `design/fx/`. JVM-only. | `app/**/fx/`, `design/fx/` |
 | T28f | todo | T28c | More effects in the round-two style (Sam: "continue building out more animations in this style after all the current set"): dither shading in overlays and numeral interactions, cut-outs, tile-wide reach; new damage/heal variety, counter-specific hits (poison, commander damage), monarch/initiative gained, turn pass, dice/coin reveals. Design then promote. | `design/fx/` |
 | T33 | todo | T30 (owns flavour) | Quip tone pass: make the whole table a smidge more combative ("uh oh", "whoops", "beefed it") per SPEC Tone; keep length/charset rules and the doc mirror. | `core/**/flavour/`, `design/copy/quips.md` |
+| T37 | todo | T27 | Mini sticker numeral face (Sam, 2026-11-13): a small numeral set in the sticker style **without the shadow**, for the target's life total in commander mode (replacing `num-m` there, no black strip behind it) so it keeps its connection to the main life total; consider it for the readout and peeks too. Design candidates as mocks, then build. | `design/font/`, `type/` |
 | T28d | done | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
-| T27 | wip | T08 | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
+| T27 | done | T08 | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
 | T23 | todo | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
 
 ## Task notes
@@ -263,3 +264,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   tile button is ugly -> move the entry point into the drawer; target quip one size smaller, ALL CAPS;
   remove the imp + "TO PLAYER X" label on opponent tiles; hide tabs/peeks/centre menu in the mode and
   turn the diamond into an X close. Forwarded to the agent.
+- 2026-11-13 — Tick 24: play agent fixed the 4 failing tests in the worktree (one wrong expectation,
+  three real bugs: `UpperLabel.toString`, layouts without an under-number row marked comfortable, quip
+  scale ignoring height). Coordinator snapshotted that state, verified it in a second clean worktree
+  (core 131, app 210) and on the Nomad (sticker numerals render with rotated shadows; tap 40->39; 1.7 s
+  hold 40->60; capture passes the checker) and committed it: `6ad1f30` (target quips) and `bddac2c`
+  (T27 + first-pass T30/T32 together — interleaved in PlayView). T27 done; T30/T32 stay wip for the
+  redesign from Sam's feedback (agent continues in the worktree). Sam: no black strip behind the
+  target's life; add a shadowless mini sticker face for it -> T37. T28e unblocked (shared files clean).
