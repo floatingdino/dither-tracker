@@ -118,3 +118,9 @@ On the contact sheet, each icon is drawn at 8× nearest-neighbour inside a grey 
 - `dead` (tombstone) is the only arched slab, and its grassy ground extends past the stone. `commander` and `partner` (imps) are the only faces.
 - `new-game` (card with a plus) has a second card behind it. `dice` has pips and a thick edge.
 - `experience` (star), `ring` and `night` all carry a small sparkle. The sparkle is decoration, not the thing the icon means.
+
+## Weight pass (2026-11-14)
+
+Promoted from `candidates/heavy/`: `close` (chunky X), the four chevrons, `monarch` and `night`
+(filled, same silhouettes). `check` was redrawn separately as a 3-px bold tick. The other heavy
+candidates were not adopted — the designer preferred the existing versions.
