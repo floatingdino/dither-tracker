@@ -89,7 +89,7 @@ Icons must read clearly at S=2..6 and when inverted.
 
 **Core play**
 - 2–6 players; layouts per count, each seat rotated to face its edge. Portrait and landscape.
-- Starting life 20/25/30/40/custom. Tap ±1; press-and-hold repeats ±10 (stepwise, no animation).
+- Starting life: a three-way choice **[40] [30] [20]** (Sam, 2026-11-13) — a segmented control, not a stepper; no custom value. Tap ±1; press-and-hold repeats ±10 (stepwise, no animation).
 - Pending-delta readout (e.g. `-7`) that commits after a short idle; shown as static text.
 - Commander damage per opponent (with partner support = 2 sources per opponent), auto-links to life loss (toggle).
 - Per-player counters (drawer): poison, energy, experience, rad, storm, commander tax (per commander), tickets, generic.
