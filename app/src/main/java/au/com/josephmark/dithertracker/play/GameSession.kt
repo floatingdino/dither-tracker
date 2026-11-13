@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.play
 
 import au.com.josephmark.dithertracker.core.Action
+import au.com.josephmark.dithertracker.core.Game
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.History
 import au.com.josephmark.dithertracker.core.coalesceKey
@@ -11,9 +12,9 @@ import au.com.josephmark.dithertracker.core.coalesceKey
  * - Views read [state] and get [Listener.onStateChanged] with the old and new [GameState] after
  *   every change, so they can diff `Player` objects by reference (`old.players[i] !== new.players[i]`
  *   ⇒ seat i changed).
- * - Process memory only for now: [shared] lives as long as the process, so it survives activity
- *   recreation (config change) and back-then-relaunch. T10b restores a saved game with [replace] and
- *   persists by observing changes.
+ * - [shared] lives as long as the process, so it survives activity recreation (config change) and
+ *   back-then-relaunch. `data.Persistence` restores the saved game into it once per process (with
+ *   [replace], only while [isPristine]) and saves by observing changes via [addListener].
  * - Life taps go through [changeLife], which reuses pre-built `ChangeLife(±1)` actions and coalesce
  *   keys per seat: the only allocations on a tap are inside `History.dispatch` itself.
  */
@@ -28,7 +29,30 @@ class GameSession(history: History) {
 
     val state: GameState get() = history.state
 
+    /** The current game (state + log) — what persistence saves. */
+    val game: Game get() = history.present
+
+    /** The primary listener (the play view). Notified before the [addListener] observers. */
     var listener: Listener? = null
+
+    // Extra observers (persistence, later screens). Copy-on-write so notify iterates without allocating.
+    private var observers: Array<Listener> = emptyArray()
+
+    /** Adds an observer notified after [listener] on every state change (main thread). */
+    fun addListener(l: Listener) {
+        if (observers.none { it === l }) observers += l
+    }
+
+    fun removeListener(l: Listener) {
+        observers = observers.filter { it !== l }.toTypedArray()
+    }
+
+    /**
+     * True until the first change since this session was created: nothing has been dispatched, so
+     * restoring a saved game can't overwrite anything newer.
+     */
+    var isPristine: Boolean = true
+        private set
 
     // Per-seat cached actions, rebuilt only when the player ids at a seat change.
     private var cachedIds = IntArray(0)
@@ -72,7 +96,13 @@ class GameSession(history: History) {
         if (next === history) return
         val old = history.state
         history = next
-        if (next.state !== old) listener?.onStateChanged(old, next.state)
+        isPristine = false
+        if (next.state !== old) {
+            val new = next.state
+            listener?.onStateChanged(old, new)
+            val obs = observers
+            for (i in obs.indices) obs[i].onStateChanged(old, new)
+        }
     }
 
     private fun ensureCache(n: Int) {
@@ -93,7 +123,7 @@ class GameSession(history: History) {
     companion object {
         fun newGame(playerCount: Int = 4): GameSession = GameSession(History(GameState.create(playerCount)))
 
-        /** The process-wide session (process memory only until T10b). */
+        /** The process-wide session (restored from disk by `data.Persistence`). */
         val shared: GameSession by lazy { newGame(PlayLayout.PLAYERS) }
     }
 }

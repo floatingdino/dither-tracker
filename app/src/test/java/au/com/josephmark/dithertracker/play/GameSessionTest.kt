@@ -54,4 +54,23 @@ class GameSessionTest {
         s.changeLife(9, 1, 0)
         assertSame(before, s.history)
     }
+
+    @Test fun observersFanOutAfterThePrimaryListener() {
+        val s = GameSession.newGame(4)
+        val calls = ArrayList<String>()
+        s.listener = GameSession.Listener { _, _ -> calls += "view" }
+        val save = GameSession.Listener { _, _ -> calls += "save" }
+        s.addListener(save)
+        s.addListener(save) // duplicate ignored
+        s.addListener { _, _ -> calls += "other" }
+        assertTrue(s.isPristine)
+        s.changeLife(0, 1, 1_000)
+        assertEquals(listOf("view", "save", "other"), calls)
+        assertTrue(!s.isPristine)
+        s.listener = null // the view detaching doesn't affect observers
+        s.removeListener(save)
+        s.changeLife(0, 1, 9_000)
+        assertEquals(listOf("view", "save", "other", "other"), calls)
+        assertEquals(42, s.game.state.players[0].life)
+    }
 }
