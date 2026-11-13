@@ -1,4 +1,4 @@
-package au.com.josephmark.dithertracker.play
+package au.com.josephmark.dithertracker.commander
 
 /**
  * A reusable `prefix + name`, upper-cased and truncated to a maximum length, without allocating

@@ -1,9 +1,11 @@
-package au.com.josephmark.dithertracker.play
+package au.com.josephmark.dithertracker.commander
 
 import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.CommanderSlot
 import au.com.josephmark.dithertracker.core.Player
 import au.com.josephmark.dithertracker.dither.IRect
+import au.com.josephmark.dithertracker.drawer.DrawerLayout
+import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.type.Fonts
 import au.com.josephmark.dithertracker.type.TextLayout

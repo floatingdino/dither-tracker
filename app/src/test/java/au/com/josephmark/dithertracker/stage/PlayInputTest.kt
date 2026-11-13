@@ -1,9 +1,11 @@
-package au.com.josephmark.dithertracker.play
+package au.com.josephmark.dithertracker.stage
 
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.drawer.DrawerLayout
 import au.com.josephmark.dithertracker.drawer.DrawerState
 import au.com.josephmark.dithertracker.drawer.DrawerZones
+import au.com.josephmark.dithertracker.play.FakeScheduler
+import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.PlayLayout.Companion.MINUS
 import au.com.josephmark.dithertracker.play.PlayLayout.Companion.PLUS
 import au.com.josephmark.dithertracker.play.PlayLayout.Companion.zone

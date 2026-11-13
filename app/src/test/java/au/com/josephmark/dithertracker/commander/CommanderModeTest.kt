@@ -1,10 +1,15 @@
-package au.com.josephmark.dithertracker.play
+package au.com.josephmark.dithertracker.commander
 
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.flavour.Flavour
 import au.com.josephmark.dithertracker.core.flavour.QuipKind
+import au.com.josephmark.dithertracker.drawer.DrawerZones
+import au.com.josephmark.dithertracker.play.FakeScheduler
+import au.com.josephmark.dithertracker.play.GameSession
+import au.com.josephmark.dithertracker.play.PlayLayout
+import au.com.josephmark.dithertracker.stage.PlayInput
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals

@@ -1,5 +1,6 @@
-package au.com.josephmark.dithertracker.play
+package au.com.josephmark.dithertracker.readout
 
+import au.com.josephmark.dithertracker.play.FakeScheduler
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

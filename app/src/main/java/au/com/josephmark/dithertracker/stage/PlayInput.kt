@@ -1,4 +1,8 @@
-package au.com.josephmark.dithertracker.play
+package au.com.josephmark.dithertracker.stage
+
+import au.com.josephmark.dithertracker.drawer.DrawerZones
+import au.com.josephmark.dithertracker.play.PlayLayout
+import au.com.josephmark.dithertracker.play.Scheduler
 
 /**
  * Multi-touch bookkeeping and hold-to-repeat for the Play screen. Pure Kotlin (no MotionEvent, no

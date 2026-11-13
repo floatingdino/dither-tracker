@@ -1,4 +1,6 @@
-package au.com.josephmark.dithertracker.play
+package au.com.josephmark.dithertracker.readout
+
+import au.com.josephmark.dithertracker.play.Scheduler
 
 /**
  * The pending-delta readout state, per seat. Pure Kotlin, allocation-free.

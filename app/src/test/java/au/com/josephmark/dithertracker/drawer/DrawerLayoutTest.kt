@@ -1,5 +1,6 @@
 package au.com.josephmark.dithertracker.drawer
 
+import au.com.josephmark.dithertracker.commander.CommanderZones
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.play.PlayLayout
@@ -171,7 +172,7 @@ class DrawerLayoutTest {
         // The bar's left segment is the commander button (T30), on every seat, whichever way up.
         for (s in 0 until 4) {
             val b = mid(d.cmdVis[s])
-            assertEquals(au.com.josephmark.dithertracker.play.CommanderZones.zone(s, au.com.josephmark.dithertracker.play.CommanderZones.BUTTON), d.hitTest(b[0], b[1], st))
+            assertEquals(au.com.josephmark.dithertracker.commander.CommanderZones.zone(s, au.com.josephmark.dithertracker.commander.CommanderZones.BUTTON), d.hitTest(b[0], b[1], st))
         }
         // page 0 of 2: the right segment pages on
         val n = mid(d.barSeg[3 * 3 + 2])

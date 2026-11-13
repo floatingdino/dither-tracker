@@ -1,5 +1,6 @@
 package au.com.josephmark.dithertracker.drawer
 
+import au.com.josephmark.dithertracker.commander.CommanderMode
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.Counter

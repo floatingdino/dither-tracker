@@ -1,7 +1,8 @@
 package au.com.josephmark.dithertracker.drawer
 
+import au.com.josephmark.dithertracker.commander.CommanderMode
+import au.com.josephmark.dithertracker.commander.CommanderZones
 import au.com.josephmark.dithertracker.dither.IRect
-import au.com.josephmark.dithertracker.play.CommanderZones
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.type.Fonts

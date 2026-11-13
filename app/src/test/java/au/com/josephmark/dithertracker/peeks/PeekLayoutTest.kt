@@ -1,7 +1,8 @@
-package au.com.josephmark.dithertracker.play
+package au.com.josephmark.dithertracker.peeks
 
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.IRect
+import au.com.josephmark.dithertracker.play.PlayLayout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -1,8 +1,10 @@
-package au.com.josephmark.dithertracker.play
+package au.com.josephmark.dithertracker.commander
 
 import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.CommanderSlot
 import au.com.josephmark.dithertracker.drawer.DrawerZones
+import au.com.josephmark.dithertracker.play.PlayLayout
+import au.com.josephmark.dithertracker.stage.PlayInput
 
 /**
  * Touch-zone ids of commander-damage mode (T30), appended after the drawer block

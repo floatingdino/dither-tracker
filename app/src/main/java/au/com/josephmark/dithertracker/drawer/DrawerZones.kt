@@ -1,6 +1,8 @@
 package au.com.josephmark.dithertracker.drawer
 
+import au.com.josephmark.dithertracker.commander.CommanderZones
 import au.com.josephmark.dithertracker.play.PlayLayout
+import au.com.josephmark.dithertracker.stage.PlayInput
 
 /**
  * The Play screen's touch-zone id space (T08), shared by [PlayLayout] life zones and the drawers.
@@ -11,7 +13,7 @@ import au.com.josephmark.dithertracker.play.PlayLayout
  *   bar's close area), [PREV] (back to the first page) / [NEXT] (the bar's page chevron), then two
  *   ids per cell on the current page:
  *   `CELL0 + slot * 2 + half` (half 0 = the player's left = `−`, 1 = right = `+`).
- * - `COUNT until` [CommanderZones][au.com.josephmark.dithertracker.play.CommanderZones]`.END`: the
+ * - `COUNT until` [CommanderZones][au.com.josephmark.dithertracker.commander.CommanderZones]`.END`: the
  *   commander-damage button and mode zones (T30).
  *
  * A cell id names a *position on the current page*, not an item: the item is looked up when the tap
