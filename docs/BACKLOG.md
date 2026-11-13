@@ -18,7 +18,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   commit building and passing tests, message `T07: <what changed>`, ending with the Co-Authored-By
   line. Stage explicit paths only — never `git add -A`, `git add .` or a whole shared directory; never
   stage another agent's files. If `index.lock` is held by another agent, wait a moment and retry.
-  Never push, never commit to `main`, never rewrite history. The coordinator still verifies each task
+  Agents never push, never commit to `main`, never rewrite history. **The coordinator pushes `build` to
+  `origin` (github.com/floatingdino/dither-tracker, public) regularly** — after each verified task or
+  backlog update (Sam, 2026-11-13). Keep device serials, third-party screenshots and personal details
+  out of commits. The coordinator still verifies each task
   after the agent reports and commits follow-up fixes and backlog updates separately.
 - **The Nomad is a single shared resource.** At most one running task may use the device
   (install/launch/tap/screencap); other concurrent tasks must be JVM-test-only and the coordinator
@@ -53,7 +56,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T32 | done | T30 | Counter peeks (Sam, 2026-11-13): with the drawer closed, show each non-zero counter as a small icon + value chip on the tile, display-only, overflow as "+N". Same agent as T27/T30. | `play/`, `drawer/` |
 | T34 | wip | T27 T30 T32 | **Component refactor** (Sam approved, 2026-11-13: play-screen edits were blocking compartmentalised features). No behaviour change. A `Component` contract (layout on the grid, draw, claim touch zones, tap/hold, invalidation on state change); a host view that owns no feature logic and loops over an ordered component list; zone ids allocated by the host; a per-seat tile layer (life, readout, drawer, peeks, commander mode, effects slot, KO slot) and a screen layer for overlays (menu, settings, history, tools). Existing tests pass; before/after device captures pixel-identical. Write `docs/architecture.md`. | `app/` |
 | T35 | done | T05 | Shared 1-bit widgets (JVM-only, new package): button, icon button, list row, toggle, stepper, segmented choice, confirm prompt, paged list — pure layout + painter + hit-testing over `DitherRenderer`/`TextRenderer`, press inversion, fingertip-size rule. | `app/**/widgets/` |
-| T36 | done | — | Centre menu design options (Sam, 2026-11-13: likes that the Lotus radial menu isn't pointed at any one player — `design/reference/lotus-menu.webp` — but no angled buttons; achieve it in our pixel-perfect language). 3–4 concepts as true-pixel mocks, incl. how second-level panels (settings, history, players) orient. Design-only. | `design/menu/` |
+| T36 | done | — | Centre menu design options (Sam, 2026-11-13: likes that the Lotus radial menu isn't pointed at any one player (reference screenshot kept out of the repo) but no angled buttons; achieve it in our pixel-perfect language). 3–4 concepts as true-pixel mocks, incl. how second-level panels (settings, history, players) orient. Design-only. | `design/menu/` |
 | T09 | todo | T34 T35 | **Centre menu = the gem** (Sam's pick, `design/menu/concept-1-gem-*`, README): the diamond grows into a stepped diamond of 3x3 facets; items NEW, UNDO, REDO, DICE, FIRST, LOG, SETUP, CLEAN; centre becomes a close X; labelled facets face their nearest seated edge (upside-down labels on the far half are fine). **Fix:** the icon-only doubled undo/redo tips on the divider are inscrutable — give undo and redo labelled facets like the rest, and put rotation-symmetric items (e.g. DICE, CLEAN) on the two divider tips, or otherwise make undo/redo unmistakable. Second level per the mocks: two-faced restart confirm and dice result, settings card with a rotate control. Built as a screen-layer component with `widgets/`. | `app/**/menu/` |
 | T10a | done | T03 | Core serialisation: versioned, dependency-free encode/decode of `Game` (state + log) and app settings; round-trip + corrupt-input tests. | `core/src/**/serial/` |
 | T10b | done | T10a T06 | App persistence: async single-file write, restore on launch, survives process death; verified on device. | `app/src/main/**/data/` |
@@ -115,7 +118,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 
 - Typeface: true bitmap font on the dither grid (T05) — confirmed by Sam 2026-11-13.
 - Device: a physical Supernote Nomad is connected over USB (`~/Library/Android/sdk/platform-tools/adb`,
-  serial `<device-serial>`; Android 11 / API 30, 1404x1872 @ 300dpi, arm64-v8a). Screen tasks must be
+  Android 11 / API 30, 1404x1872 @ 300dpi, arm64-v8a). Screen tasks must be
   checked on it: `adb install -r` the debug APK, launch, `adb exec-out screencap -p` and run the
   pixel-purity check on the capture. Only install/launch/screencap this app — touch nothing else on the device.
 
@@ -311,3 +314,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-13 — Sam on mini numerals: too big — about half that size; the `half` treatment (faithful
   sticker redraw) is the preference. Also plan to move counter peeks into a corner (T38). Dispatched
   T37 round two (design-only): a ~8x14 sticker-treatment face and corner-peek mocks.
+- 2026-11-13 — Sam: push commits to GitHub regularly. The repo is public; at Sam's choice the tip was
+  scrubbed (device serial removed from this file, Lotus reference screenshot deleted) and `build`
+  pushed as is — both remain in earlier commits' history.
