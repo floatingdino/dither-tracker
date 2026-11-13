@@ -34,8 +34,8 @@ object SettingsTable {
     val COUNTER_LABELS = arrayOf("Poison", "Energy", "Experience", "Rad", "Storm", "Tickets", "Generic")
     val COUNTER_ICONS = arrayOf(Icon.POISON, Icon.ENERGY, Icon.EXPERIENCE, Icon.RADS, Icon.STORM, Icon.TICKETS, Icon.GENERIC_COUNTER)
 
-    /** Shown under starting life once it differs from when the card was opened. */
-    const val LIFE_HINT = "Kicks in next game"
+    /** The footnote once starting life differs from when the card was opened (+ the value). */
+    const val LIFE_HINT = "Next game starts at "
 
     const val TITLE = "SETTINGS"
     const val COUNTERS_TITLE = "COUNTERS"
@@ -49,13 +49,13 @@ object SettingsTable {
         TITLE,
         arrayOf(
             startingLife(),
-            lifeHint(),
             scale(),
             ToggleRow("Invert", { it.app.inverted }, { s, v -> s.updateApp(s.app.copy(inverted = v)) }),
             ChoiceRow("Hold step", labels(HOLD_STEPS), HOLD_STEPS, { it.app.holdRepeatStep }, { s, v -> s.updateApp(s.app.copy(holdRepeatStep = v)) }),
             ToggleRow("Keep awake", { it.app.keepScreenAwake }, { s, v -> s.updateApp(s.app.copy(keepScreenAwake = v)) }),
             ChoiceRow("Screen clean", arrayOf("OFF", "20", "50", "100"), CLEAN_EVERY, { it.app.fullRefreshEvery }, { s, v -> s.updateApp(s.app.copy(fullRefreshEvery = v)) }),
             LinkRow("Counters", counters()),
+            lifeHint(), // last: appearing never moves a row under a finger
         ),
     )
 
@@ -65,7 +65,14 @@ object SettingsTable {
         { s, v -> s.updateGame(s.game.copy(startingLife = v)) },
     )
 
-    fun lifeHint(): HintRow = HintRow(LIFE_HINT) { s, opened -> opened != null && s.game.startingLife != opened.startingLife }
+    /** "Next game starts at 30", once starting life differs from when the card was opened. */
+    fun lifeHint(): HintRow = HintRow(
+        { s, out ->
+            for (i in LIFE_HINT.indices) out.append(LIFE_HINT[i])
+            out.append(s.game.startingLife)
+        },
+        { s, opened -> opened != null && s.game.startingLife != opened.startingLife },
+    )
 
     fun scale(): ScaleRow = ScaleRow({ it.app.scale }, { s, v -> s.updateApp(s.app.copy(scale = v)) })
 

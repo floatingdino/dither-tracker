@@ -4,6 +4,7 @@ import au.com.josephmark.dithertracker.core.GameSettings
 import au.com.josephmark.dithertracker.core.serial.AppSettings
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.Icon
+import au.com.josephmark.dithertracker.widgets.CharBuf
 import au.com.josephmark.dithertracker.widgets.ListRow
 import au.com.josephmark.dithertracker.widgets.Segmented
 import au.com.josephmark.dithertracker.widgets.Toggle
@@ -178,26 +179,40 @@ class BackRow(val label: String) : SettingsRow() {
 }
 
 /**
- * A quiet, untappable line of text (no id), listed only while [shown]; the card draws it without the
- * dotted divider above it, so it reads as a footnote to the row before.
+ * A quiet, untappable line of text (no id), right-aligned, listed only while [shown]. The card draws
+ * it without the dotted divider above it, so it reads as a footnote. Its [text] is rewritten on every
+ * bind (into one reused buffer). Put hints **last** on their page: one that appears mid-list would
+ * shift the rows under a finger that is about to tap again.
  */
-class HintRow(val text: String, private val shown: Shown) : SettingsRow() {
+class HintRow(private val text: Text, private val shown: Shown) : SettingsRow() {
     fun interface Shown {
         fun shown(s: SettingsAccess, opened: GameSettings?): Boolean
     }
 
+    fun interface Text {
+        fun write(s: SettingsAccess, out: CharBuf)
+    }
+
     private var opened: GameSettings? = null
+    val buf = CharBuf(MAX_CHARS)
 
     override val maxIds: Int get() = 0
 
-    override fun build(id: Int): Widget = ListRow(Widget.NO_ID, "", value = text)
+    override fun build(id: Int): Widget = ListRow(Widget.NO_ID, "", value = buf)
     override fun onOpen(s: SettingsAccess) {
         opened = s.game
     }
 
     override fun visible(s: SettingsAccess): Boolean = shown.shown(s, opened)
-    override fun bind(s: SettingsAccess) {}
+    override fun bind(s: SettingsAccess) {
+        text.write(s, buf.clear())
+    }
+
     override fun tap(part: Int, s: SettingsAccess): Int = Tap.NONE
+
+    companion object {
+        const val MAX_CHARS = 48
+    }
 }
 
 /**

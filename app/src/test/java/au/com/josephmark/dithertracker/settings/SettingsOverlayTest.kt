@@ -255,14 +255,18 @@ class SettingsOverlayTest {
         assertArrayEquals(arrayOf("40", "30", "20"), seg.options)
         assertTrue(seg.numerals)
         assertEquals(0, seg.selected)
+        val before = r.overlay.main.rows.filter { it !is HintRow }.map { IRect().also { o -> assertTrue(r.card.rowRect(it, o)) } }
         r.choose("Starting life", 1)
+        val after = r.overlay.main.rows.filter { it !is HintRow }.map { IRect().also { o -> assertTrue(r.card.rowRect(it, o)) } }
+        assertEquals("the hint never moves a row", before, after)
         assertEquals(30, r.rig.session.state.settings.startingLife)
         assertEquals(1, seg.selected)
-        // Applies on the next game: the current lives are untouched; the quiet hint appears under the row.
+        // Applies on the next game: the current lives are untouched; the quiet hint appears at the foot of the page.
         assertTrue(r.rig.session.state.players.all { it.life == 40 })
         assertEquals(8, r.card.shownCount)
-        assertTrue(r.card.shown[1] is HintRow)
-        assertEquals(SettingsTable.LIFE_HINT, (r.card.shown[1]!!.widget as ListRow).value)
+        // Last on the page, so no row moves under a finger.
+        assertTrue(r.card.shown[7] is HintRow)
+        assertEquals("Next game starts at 30", (r.card.shown[7]!!.widget as ListRow).value.toString())
         // Back to 40: no hint.
         r.choose("Starting life", 0)
         assertEquals(40, r.rig.session.state.settings.startingLife)

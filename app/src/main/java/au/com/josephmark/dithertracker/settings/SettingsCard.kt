@@ -67,6 +67,9 @@ class SettingsCard {
     /** Ink rule under the title bar. */
     val titleRule = IRect()
     val titleRect = IRect()
+
+    /** Paper behind the title (a [WidgetMetrics.gap] all round its cap band). */
+    val titleBack = IRect()
     var title: CharSequence = ""
         private set
     var titleChars = 0
@@ -142,7 +145,10 @@ class SettingsCard {
         val tl = rotateRule.right + m.gap
         val tr = close.bounds.left - m.gap
         titleRect.set(tl, bar.top, maxOf(tl, tr), bar.bottom)
-        titleChars = TextFit.fit(title, m.ui, m.k, titleRect.width)
+        titleChars = TextFit.fit(title, m.ui, m.k, maxOf(0, titleRect.width - 2 * m.gap))
+        val tw = m.textW(titleChars) + 2 * m.gap
+        val th = m.ui.capHeight * m.k + 2 * m.gap
+        titleBack.setXywh(titleRect.left + (titleRect.width - tw) / 2, bar.top + (barH - th) / 2, tw, th)
         val c = panel.content
         titleRule.setXywh(c.left, c.top, c.width, m.stroke)
         val top = titleRule.bottom + m.padY

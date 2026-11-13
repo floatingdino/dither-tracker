@@ -30,7 +30,8 @@ class SettingsPainter(val canvas: WidgetCanvas) {
         p.draw(f, card.panel)
         p.draw(f, card.rotate)
         p.ink(f, card.rotateRule)
-        p.text(f, m, m.ui, card.title, 0, card.titleChars, card.titleRect, TextLayout.CENTRE, invert = false, opaque = true)
+        if (card.titleChars > 0) p.paper(f, card.titleBack)
+        p.text(f, m, m.ui, card.title, 0, card.titleChars, card.titleBack, TextLayout.CENTRE, invert = false, opaque = false)
         p.ink(f, card.titleRule)
         val list = card.list
         p.draw(f, list)
