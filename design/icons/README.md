@@ -64,7 +64,7 @@ On the contact sheet, each icon is drawn at 8× nearest-neighbour inside a grey 
 
 | Icon | Depicts | Used for |
 |------|---------|----------|
-| `poison` | Phyrexian symbol: an oval bisected by a vertical bar, 2 px strokes, joined (Sam's pick after trying gapped variants) (common poison shorthand; a Wizards of the Coast mark — revisit if the app is distributed) | Poison counter (drawer, peeks) |
+| `poison` | Phyrexian symbol: a heavy ring with a vertical beam through it, the beam separated from the ring by a 1 px white gap (option E in `candidates/poison-options.png`, Sam's pick; a Wizards of the Coast mark — revisit if the app is distributed) | Poison counter (drawer, peeks) |
 | `storm` | Lumpy cloud with a heavier base and a solid bolt beneath | Storm counter (drawer) |
 | `rads` | Compact solid trefoil with a square centre | Rad counter (drawer) |
 | `energy` | Chunky solid lightning bolt | Energy counter (drawer) |
