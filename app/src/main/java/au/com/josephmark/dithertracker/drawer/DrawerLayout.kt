@@ -51,6 +51,14 @@ import au.com.josephmark.dithertracker.type.Fonts
  *  └──────────────────────────┘
  *     [icon]                      zero: no card, no glyphs; just the icon on a paper halo (− is inert)
  * ```
+ * Toggle cell (T14), the same hit grid but one button (either half flips it):
+ * ```
+ *  ┌██████████████████████████┐   on: a solid ink card, the icon in paper, centred ([toggleIcon])
+ *  ███████████ [icon] ██████████
+ *  └██████████████████████████┘
+ *            [icon]               off: no card; the icon on a paper halo on the drawer texture, centred
+ *      [sun]  [moon]              day/night unset: both icons on their halos ([pairLeft] / [pairRight])
+ * ```
  * The − sits in the player's left half and the + in the right, whichever way up the seat is. Tray
  * icons leave their outer columns empty ([ICON_MARGIN]), so the icon's footprint may run 1 px into
  * the gaps either side of its ink ([iconInk]).
@@ -182,6 +190,14 @@ class DrawerLayout(val play: PlayLayout) {
     val trayPlus: Array<IRect> = Array(P * MS) { IRect() }
     val trayIcon: Array<IRect> = Array(P * MS) { IRect() }
     val trayValue: Array<IRect> = Array(P * MS) { IRect() }
+
+    /** Toggle cell (T14): the centred icon footprint, and the unset day/night pair's two footprints. */
+    val toggleIcon: Array<IRect> = Array(P * MS) { IRect() }
+    val pairLeft: Array<IRect> = Array(P * MS) { IRect() }
+    val pairRight: Array<IRect> = Array(P * MS) { IRect() }
+
+    /** Paper between the unset day/night pair's icons' footprints. */
+    val pairGap: Int = PlayLayout.Chrome.size(PAIR_GAP, scale)
 
     /** Tray cell interior, wide layout (no glyphs): icon footprint and value rect. */
     val trayIconWide: Array<IRect> = Array(P * MS) { IRect() }
@@ -317,7 +333,7 @@ class DrawerLayout(val play: PlayLayout) {
                 val g = slot
                 if (slot >= perPage) {
                     // Unused at this size: empty rects (never hit, never drawn).
-                    for (r in arrayOf(cellVis[i], cellHit[i], trayMinus[i], trayPlus[i], trayIcon[i], trayValue[i], trayIconWide[i], trayValueWide[i])) {
+                    for (r in arrayOf(cellVis[i], cellHit[i], trayMinus[i], trayPlus[i], trayIcon[i], trayValue[i], trayIconWide[i], trayValueWide[i], toggleIcon[i], pairLeft[i], pairRight[i])) {
                         r.set(0, 0, 0, 0)
                     }
                     for (h in 0..1) { halfVis[i * 2 + h].set(0, 0, 0, 0); halfHit[i * 2 + h].set(0, 0, 0, 0) }
@@ -349,6 +365,13 @@ class DrawerLayout(val play: PlayLayout) {
                 pl.mapRect(s, ink - iconMargin, iconY, iconSize, iconSize, trayIcon[i])
                 val valX = ink + iconInkW + valueGap
                 pl.mapRect(s, valX, vy, inR - pm - plusGap - valX, vh, trayValue[i])
+                // Toggle: one icon centred; the unset day/night pair centred as a group.
+                val tcx = vx + (vw - iconSize) / 2
+                pl.mapRect(s, tcx, iconY, iconSize, iconSize, toggleIcon[i])
+                val pairW = 2 * iconSize + pairGap
+                val px0 = vx + (vw - pairW) / 2
+                pl.mapRect(s, px0, iconY, iconSize, iconSize, pairLeft[i])
+                pl.mapRect(s, px0 + iconSize + pairGap, iconY, iconSize, iconSize, pairRight[i])
                 // Wide: icon against the frame, the value takes the rest.
                 pl.mapRect(s, inL - iconMargin, iconY, iconSize, iconSize, trayIconWide[i])
                 val wideX = inL + iconInkW + valueGap
@@ -412,6 +435,9 @@ class DrawerLayout(val play: PlayLayout) {
         const val PM_GAP = 1
         const val VALUE_GAP = 1
         const val PLUS_GAP = 2
+
+        /** Between the unset day/night cell's sun and moon footprints (T14). */
+        const val PAIR_GAP = 2
 
         /** The cells' − / + glyphs (font px, × [tk]): 6 square, 2-px strokes (even, so they turn exactly). */
         const val PM = 6

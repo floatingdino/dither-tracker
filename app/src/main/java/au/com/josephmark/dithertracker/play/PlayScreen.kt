@@ -18,6 +18,8 @@ import au.com.josephmark.dithertracker.peeks.PeeksComponent
 import au.com.josephmark.dithertracker.readout.ReadoutComponent
 import au.com.josephmark.dithertracker.settings.SettingsOverlay
 import au.com.josephmark.dithertracker.stage.Stage
+import au.com.josephmark.dithertracker.toggles.BadgesComponent
+import au.com.josephmark.dithertracker.toggles.DayNightMark
 import au.com.josephmark.dithertracker.tools.DiceOverlay
 import au.com.josephmark.dithertracker.tools.FirstPlayer
 import kotlin.random.Random
@@ -39,6 +41,7 @@ object PlayScreen {
         val commander = stage.add(CommanderTile(random)) // commander-damage mode content (Kind.MODE)
         stage.add(ReadoutComponent())             // pending delta; the Readouts service (Kind.READOUT)
         stage.add(PeeksComponent())               // counter chips under the number (Kind.CONTENT)
+        stage.add(BadgesComponent())              // toggle badges in the under-number row (T14; Kind.CONTENT)
         val drawer = stage.add(DrawerComponent()) // open drawer; the TileSlots lower occupant (Kind.CONTENT)
         stage.add(KoWinner(random))               // last player standing: the line replaces the number (Kind.CONTENT); before fx so the flourish plays over it
         stage.add(FxComponent())                  // hit/heal/KO/winner effects, after the number (Kind.EFFECT)
@@ -49,6 +52,7 @@ object PlayScreen {
 
         // ---- SCREEN --------------------------------------------------------------------------------
         stage.add(MenuDiamond())                  // centre diamond + menu bars; opens the menu (Kind.CHROME)
+        stage.add(DayNightMark())                 // day/night on the diamond, over its bars (T14; Kind.CHROME)
         stage.add(CommanderClose(commander))      // the mode's close X on the diamond (Kind.MODE)
 
         // ---- OVERLAY -------------------------------------------------------------------------------

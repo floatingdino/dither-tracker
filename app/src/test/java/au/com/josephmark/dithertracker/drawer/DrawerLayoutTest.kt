@@ -270,4 +270,23 @@ class DrawerLayoutTest {
         // The commander button is outside the range a page turn / open / close cancels.
         assertTrue(DrawerZones.BUTTON >= DrawerZones.CELL_END)
     }
+
+    /** T14 toggle cells: the centred icon and the day/night pair (with their halos) sit in the card, apart. */
+    @Test fun toggleCellIconsFitTheirCards() {
+        for (d in layouts()) {
+            if (!d.comfortable) continue
+            for (s in 0 until d.play.playerCount) for (slot in 0 until d.perPage) {
+                val i = s * DrawerZones.MAX_SLOTS + slot
+                val ca = d.cellVis[i]
+                fun grown(r: IRect) = IRect(r.left - d.halo, r.top - d.halo, r.right + d.halo, r.bottom + d.halo)
+                for (r in listOf(d.toggleIcon[i], d.pairLeft[i], d.pairRight[i])) assertTrue("$d toggle $r in $ca", inside(grown(r), ca))
+                assertFalse("$d pair", overlaps(grown(d.pairLeft[i]), d.pairRight[i]))
+                assertEquals(d.iconSize, d.toggleIcon[i].width)
+                // centred along the reading direction to within a px
+                val cx = (ca.left + ca.right) - (d.toggleIcon[i].left + d.toggleIcon[i].right)
+                val cy = (ca.top + ca.bottom) - (d.toggleIcon[i].top + d.toggleIcon[i].bottom)
+                assertTrue("$d centred $cx $cy", Math.abs(cx) <= 1 && Math.abs(cy) <= 1)
+            }
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package au.com.josephmark.dithertracker.drawer
 
+import au.com.josephmark.dithertracker.core.DayNight
 import au.com.josephmark.dithertracker.core.Player
 import au.com.josephmark.dithertracker.dither.DitherRenderer
 import au.com.josephmark.dithertracker.dither.IRect
@@ -26,11 +27,15 @@ import au.com.josephmark.dithertracker.type.TextRenderer
  *   1-px paper cut-out on the drawer texture (the right half still adds one), so active counters
  *   stand out.
  *   Poison at 8+ is a solid ink card with paper content (nearly lethal).
+ * - toggle cell (T14): on is a solid ink card with the icon in paper, centred (like the commander
+ *   button: "this is active"); off has no card, just the icon on its paper cut-out, centred — the
+ *   zero counter's quiet look. Day/night unset shows the sun and the moon side by side, off; day
+ *   and night are an on card with the sun / the moon.
  */
 class DrawerPainter(private val r: DitherRenderer, private val text: TextRenderer, private val icons: IconPainter) {
 
     /** Draws everything in [seat]'s open drawer that intersects [clip]. */
-    fun draw(l: DrawerLayout, c: DrawerController, seat: Int, players: List<Player>, clip: IRect) {
+    fun draw(l: DrawerLayout, c: DrawerController, seat: Int, players: List<Player>, clip: IRect, dayNight: DayNight) {
         if (!hit(l.drawer[seat], clip)) return
         val rot = l.play.rotation[seat]
         val st = c.state
@@ -55,6 +60,10 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
             if (!hit(vis, clip)) continue
             val item = c.itemAt(seat, slot)
             if (item < 0) continue
+            if (DrawerItems.isToggle(item)) {
+                toggleCell(l, i, item, DrawerItems.value(item, player, dayNight), rot)
+                continue
+            }
             val v = DrawerItems.value(item, player)
             val warn = DrawerItems.isWarning(item, v)
             val ir = l.iconRect(i, v)
@@ -77,6 +86,19 @@ class DrawerPainter(private val r: DitherRenderer, private val text: TextRendere
                 val tr = l.valueTracking(v, vr.width)
                 text.drawIntIn(l.numFont, v, vr.left, vr.top, vr.width, vr.height, l.tk, rot, invert = warn, tracking = tr)
             }
+        }
+    }
+
+    /** Toggle cell [i] showing [item] at [v] (on: ink card, paper icon; off: icon on its halo). */
+    private fun toggleCell(l: DrawerLayout, i: Int, item: Int, v: Int, rot: Int) {
+        if (v != 0) {
+            r.rect(l.cellVis[i], ink = true)
+            icon(l.tk, DrawerItems.iconFor(item, v), l.toggleIcon[i], rot, invert = true)
+        } else if (DrawerItems.kind(item) == DrawerItems.DAY_NIGHT) {
+            icon(l.tk, Icon.DAY, l.pairLeft[i], rot, invert = false, halo = true)
+            icon(l.tk, Icon.NIGHT, l.pairRight[i], rot, invert = false, halo = true)
+        } else {
+            icon(l.tk, DrawerItems.iconFor(item), l.toggleIcon[i], rot, invert = false, halo = true)
         }
     }
 

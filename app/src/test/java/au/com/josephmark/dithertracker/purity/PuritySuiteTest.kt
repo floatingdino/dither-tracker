@@ -3,8 +3,10 @@ package au.com.josephmark.dithertracker.purity
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.Counter
+import au.com.josephmark.dithertracker.core.DayNight
 import au.com.josephmark.dithertracker.core.Toggle
 import au.com.josephmark.dithertracker.commander.CommanderZones
+import au.com.josephmark.dithertracker.drawer.DrawerItems
 import au.com.josephmark.dithertracker.drawer.DrawerZones
 import au.com.josephmark.dithertracker.fx.Fx
 import au.com.josephmark.dithertracker.ko.KoComponent
@@ -26,7 +28,7 @@ import java.io.File
 
 /**
  * Full pixel-purity regression suite, JVM half (T22): every Play-screen state a script can reach —
- * play, presses, drawers, peeks, commander mode, KO and winner, the gem, settings, history, dice and
+ * play, presses, drawers, peeks, toggles (T14), commander mode, KO and winner, the gem, settings, history, dice and
  * coin, first player, every effect keyframe — drawn by the real components onto a [RasterRenderer]
  * at S = 2..6 on a landscape and a portrait screen, each in both colour modes, and checked with
  * [PurityChecks]. The device half is `tools/check_purity.sh` (see `docs/architecture.md`, "Verification harness").
@@ -173,6 +175,41 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         rig.dispatch(Action.ChangeCommanderTax(rig.id(0), Commander.PRIMARY, 3))
         rig.advance(10_000)
         shot("15_peeks")
+    }
+
+    // ---- T14: state toggles (badges, toggle cells, day/night on the diamond) ------------------------------
+
+    @Test fun toggles() = script { rig ->
+        rig.dispatch(Action.SetToggle(rig.id(0), Toggle.MONARCH, true))
+        rig.dispatch(Action.SetToggle(rig.id(0), Toggle.RING_BEARER, true))
+        rig.dispatch(Action.SetToggle(rig.id(1), Toggle.INITIATIVE, true))
+        for (seat in 0 until 4) rig.dispatch(Action.SetToggle(rig.id(seat), Toggle.CITYS_BLESSING, seat % 2 == 1))
+        rig.dispatch(Action.ChangeCounter(rig.id(1), Counter.POISON, 9)) // warning peek beside the badges
+        rig.dispatch(Action.ChangeCommanderTax(rig.id(3), Commander.PRIMARY, 2))
+        rig.advance(10_000)
+        shot("16_badges")
+        rig.dispatch(Action.SetDayNight(DayNight.DAY))
+        shot("17_day")
+        rig.pressAt(rig.l.diamondCx, rig.l.diamondCy)
+        shot("18_day_pressed")
+        rig.cancel()
+        rig.dispatch(Action.SetDayNight(DayNight.NIGHT))
+        shot("19_night")
+        // The toggle page of two drawers (the cells follow the counters), one off-and-on mix each.
+        for (seat in intArrayOf(0, 3)) {
+            rig.tap(rig.tab, seat, 0)
+            var guard = 0
+            while (rig.pointOf(rig.drawer, seat, DrawerZones.NEXT) != null &&
+                (0 until rig.drawer.state.itemsOnPage(seat)).none { DrawerItems.isToggle(rig.drawer.controller.itemAt(seat, it)) } && guard++ < 10
+            ) rig.tap(rig.drawer, seat, DrawerZones.NEXT)
+        }
+        shot("1a_toggle_cells")
+        val slot = (0 until rig.drawer.state.itemsOnPage(3)).first { DrawerItems.isToggle(rig.drawer.controller.itemAt(3, it)) }
+        rig.press(rig.drawer, 3, DrawerZones.cell(slot, DrawerZones.MINUS))
+        shot("1b_press_toggle_cell")
+        rig.cancel()
+        rig.dispatch(Action.SetDayNight(DayNight.UNSET))
+        shot("1c_toggle_cells_unset")
     }
 
     // ---- commander-damage mode -------------------------------------------------------------------------

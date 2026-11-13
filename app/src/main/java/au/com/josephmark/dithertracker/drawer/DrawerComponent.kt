@@ -85,7 +85,7 @@ class DrawerComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = Drawe
     override fun draw(f: Frame, seat: Int) {
         val d = dl ?: return
         if (!state.isOpen(seat)) return
-        painter(f).draw(d, controller, seat, f.players, f.clip)
+        painter(f).draw(d, controller, seat, f.players, f.clip, controller.dayNight)
     }
 
     override fun zones(seat: Int, z: ZoneSink) {
@@ -121,7 +121,10 @@ class DrawerComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = Drawe
             else -> {
                 val slot = DrawerZones.slotOf(local)
                 if (slot >= d.perPage || !controller.isLive(seat, local)) return false // − at 0: inert, no press
-                d.halfVis[(seat * DrawerZones.MAX_SLOTS + slot) * 2 + DrawerZones.halfOf(local)]
+                val item = controller.itemAt(seat, slot)
+                // A toggle cell is one button (either half flips it): the whole card inverts.
+                if (item >= 0 && DrawerItems.isToggle(item)) d.cellVis[seat * DrawerZones.MAX_SLOTS + slot]
+                else d.halfVis[(seat * DrawerZones.MAX_SLOTS + slot) * 2 + DrawerZones.halfOf(local)]
             }
         }
         out.set(r.left, r.top, r.right, r.bottom)

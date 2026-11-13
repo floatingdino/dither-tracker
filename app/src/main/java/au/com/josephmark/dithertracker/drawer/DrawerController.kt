@@ -2,6 +2,7 @@ package au.com.josephmark.dithertracker.drawer
 
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Counter
+import au.com.josephmark.dithertracker.core.DayNight
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.Player
 import au.com.josephmark.dithertracker.core.coalesceKey
@@ -22,6 +23,11 @@ import au.com.josephmark.dithertracker.dither.IRect
  * counter repeats +[DrawerItems.HOLD_STEP]; holding − (on a counter or a tax cell) resets it to 0 once
  * at the hold delay — one action dispatched without a coalesce key, so it is its own undo step and
  * undoing it restores the value — after which the hold stops repeating (the value is 0).
+ *
+ * Toggle cells (T14, [DrawerItems.isToggle]): a tap on either half flips the toggle (or steps
+ * day/night) as one undo step of its own; no hold repeat, except a held day/night cell resets it to
+ * unset once. A toggle change invalidates only the cells it changed — an exclusive toggle moving
+ * between seats redraws the old holder's open cell too, and day/night every open drawer's cell.
  */
 class DrawerController(val state: DrawerState, private val host: Host) {
 
@@ -73,7 +79,7 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         if (seat !in g.players.indices) { counts[seat] = 0; state.setPaging(seat, 0, l.perPage); return }
         val off = seat * DrawerItems.MAX_ITEMS
         counts[seat] = when (state.mode(seat)) {
-            DrawerState.TRAY -> DrawerItems.tray(g.players[seat], host.drawerCounters, items, off)
+            DrawerState.TRAY -> DrawerItems.tray(g.players[seat], host.drawerCounters, items, off, withToggles = true)
             else -> 0
         }
         state.setPaging(seat, counts[seat], l.perPage)
@@ -116,20 +122,25 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         if (!DrawerZones.isCell(local)) return false
         val item = itemAt(seat, DrawerZones.slotOf(local))
         if (item < 0) return false
+        if (DrawerItems.isToggle(item)) return DrawerItems.toggleRepeats(item, dayNight)
         return if (DrawerZones.halfOf(local) == DrawerZones.MINUS) valueAt(seat, item) > 0 else DrawerItems.repeats(item)
     }
+
+    /** The table's day/night (the shared cell's value). */
+    val dayNight: DayNight get() = host.game.dayNight
 
     /** Whether [seat]'s cell half [local] does anything now (− is inert at 0): no press feedback otherwise. */
     fun isLive(seat: Int, local: Int): Boolean {
         if (!DrawerZones.isCell(local)) return true
         val item = itemAt(seat, DrawerZones.slotOf(local))
         if (item < 0) return false
-        return DrawerZones.halfOf(local) == DrawerZones.PLUS || valueAt(seat, item) > 0
+        return DrawerItems.isToggle(item) || DrawerZones.halfOf(local) == DrawerZones.PLUS || valueAt(seat, item) > 0
     }
 
-    private fun valueAt(seat: Int, item: Int): Int {
+    /** [item]'s current value in [seat]'s drawer (day/night: the table's, see [DrawerItems.value]). */
+    fun valueAt(seat: Int, item: Int): Int {
         val g = host.game
-        return if (seat in g.players.indices) DrawerItems.value(item, g.players[seat]) else 0
+        return if (seat in g.players.indices) DrawerItems.value(item, g.players[seat], g.dayNight) else 0
     }
 
     /** A tap (release) on [seat]'s drawer [local] ([DrawerZones]; not [DrawerZones.BUTTON]). Returns true if anything happened. */
@@ -152,6 +163,13 @@ class DrawerController(val state: DrawerState, private val host: Host) {
             DrawerZones.isCell(local) -> {
                 if (!isLive(s, local)) return false
                 val item = itemAt(s, DrawerZones.slotOf(local))
+                if (DrawerItems.isToggle(item)) {
+                    val g = host.game
+                    if (s !in g.players.indices) return false
+                    val a = DrawerItems.toggleAction(item, g.players[s], g.dayNight) ?: return false
+                    host.dispatch(s, a, null)
+                    return true
+                }
                 return apply(s, item, DrawerItems.tapDelta(item, DrawerZones.halfOf(local)))
             }
             else -> return false
@@ -163,6 +181,11 @@ class DrawerController(val state: DrawerState, private val host: Host) {
     fun onRepeat(seat: Int, local: Int): Boolean {
         if (!repeats(seat, local)) return false
         val item = itemAt(seat, DrawerZones.slotOf(local))
+        if (DrawerItems.isToggle(item)) {
+            // Only a set day/night repeats: the hold takes it back to unset, once.
+            host.dispatch(seat, Action.SetDayNight(DayNight.UNSET), null)
+            return true
+        }
         if (DrawerZones.halfOf(local) == DrawerZones.MINUS) {
             val a = DrawerItems.resetAction(item, host.game.players[seat]) ?: return false
             host.dispatch(seat, a, null)
@@ -195,6 +218,7 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         val op = old.players
         val np = new.players
         val structural = op.size != np.size || anyShapeChange(op, np)
+        val dayNightChanged = old.dayNight != new.dayNight
         for (s in 0 until minOf(S, np.size)) {
             if (structural) {
                 if (state.isOpen(s)) {
@@ -204,13 +228,13 @@ class DrawerController(val state: DrawerState, private val host: Host) {
                 } else refresh(s)
                 continue
             }
-            if (!state.isOpen(s) || s >= op.size || op[s] === np[s]) continue
+            if (!state.isOpen(s) || s >= op.size || (op[s] === np[s] && !dayNightChanged)) continue
             val n = state.itemsOnPage(s)
             for (slot in 0 until n) {
                 val item = itemAt(s, slot)
                 if (item < 0) continue
-                val a = DrawerItems.value(item, op[s])
-                val b = DrawerItems.value(item, np[s])
+                val a = DrawerItems.value(item, op[s], old.dayNight)
+                val b = DrawerItems.value(item, np[s], new.dayNight)
                 if (a != b) host.invalidate(l.cellVis[s * DrawerZones.MAX_SLOTS + slot])
             }
         }

@@ -3,7 +3,9 @@ package au.com.josephmark.dithertracker.drawer
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.Counter
+import au.com.josephmark.dithertracker.core.DayNight
 import au.com.josephmark.dithertracker.core.GameState
+import au.com.josephmark.dithertracker.core.Toggle
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.play.GameSession
@@ -50,6 +52,9 @@ class DrawerControllerTest {
     private fun cell(slot: Int, half: Int) = DrawerZones.CELL0 + slot * 2 + half
     private fun items(seat: Int) = (0 until state.itemsOnPage(seat)).map { c.itemAt(seat, it) }
 
+    /** The T14 toggle cells at the end of every tray: monarch, initiative, blessing, ring, day/night. */
+    private val TOGGLE_ITEMS = Toggle.entries.map { DrawerItems.item(DrawerItems.TOGGLE, it.ordinal) } + DrawerItems.item(DrawerItems.DAY_NIGHT, 0)
+
     @Test fun tabTogglesAndRedrawsThePanel() {
         assertFalse(state.isOpen(3))
         assertTrue(tap(3, DrawerZones.TAB))
@@ -87,24 +92,25 @@ class DrawerControllerTest {
     }
 
     @Test fun trayItemsAndPaging() {
-        // The tray has the whole body since T30: 1 tax + 7 counters = 8 items fill one page of 8.
+        // The tray has the whole body since T30: 1 tax + 7 counters = 8 items fill one page of 8; the
+        // T14 toggles (4 + day/night) are page 2.
         tap(3, DrawerZones.TAB)
-        assertEquals(8, c.itemCount(3)); assertEquals(1, state.pageCount(3))
+        assertEquals(13, c.itemCount(3)); assertEquals(2, state.pageCount(3))
         assertEquals(DrawerItems.item(DrawerItems.TAX, Commander.PRIMARY), c.itemAt(3, 0))
         assertEquals(DrawerItems.item(DrawerItems.COUNTER, Counter.POISON.ordinal), c.itemAt(3, 1))
         tap(3, DrawerZones.TAB)
-        // With a partner (second tax cell) there are 9 → 2 pages.
+        // With a partner (second tax cell) there are 14 → still 2 pages.
         session.dispatch(Action.SetPartner(id(3), true), 0)
         tap(3, DrawerZones.TAB)
-        assertEquals(9, c.itemCount(3)); assertEquals(2, state.pageCount(3)); assertEquals(0, state.page(3))
+        assertEquals(14, c.itemCount(3)); assertEquals(2, state.pageCount(3)); assertEquals(0, state.page(3))
         assertEquals(8, state.itemsOnPage(3))
         assertFalse(tap(3, DrawerZones.PREV))
         invalidated.clear()
         assertTrue(tap(3, DrawerZones.NEXT))
-        assertEquals(1, state.page(3)); assertEquals(1, state.itemsOnPage(3))
+        assertEquals(1, state.page(3)); assertEquals(6, state.itemsOnPage(3))
         assertEquals(listOf(layout.drawer[3]), invalidated)
-        assertEquals(listOf(DrawerItems.item(DrawerItems.COUNTER, Counter.GENERIC.ordinal)), items(3))
-        assertEquals(-1, c.itemAt(3, 1))
+        assertEquals(listOf(DrawerItems.item(DrawerItems.COUNTER, Counter.GENERIC.ordinal)) + TOGGLE_ITEMS, items(3))
+        assertEquals(-1, c.itemAt(3, 6))
         assertFalse(tap(3, DrawerZones.NEXT))
         assertTrue(tap(3, DrawerZones.PREV))
         assertEquals(0, state.page(3))
@@ -114,20 +120,20 @@ class DrawerControllerTest {
         counters = listOf(Counter.STORM, Counter.POISON)
         tap(2, DrawerZones.TAB)
         assertEquals(
-            listOf(DrawerItems.item(DrawerItems.TAX, 0), DrawerItems.item(DrawerItems.COUNTER, Counter.STORM.ordinal), DrawerItems.item(DrawerItems.COUNTER, Counter.POISON.ordinal)),
+            listOf(DrawerItems.item(DrawerItems.TAX, 0), DrawerItems.item(DrawerItems.COUNTER, Counter.STORM.ordinal), DrawerItems.item(DrawerItems.COUNTER, Counter.POISON.ordinal)) + TOGGLE_ITEMS,
             items(2),
         )
         assertEquals(1, state.pageCount(2))
         counters = listOf(Counter.ENERGY)
         c.onCountersChanged()
-        assertEquals(listOf(DrawerItems.item(DrawerItems.TAX, 0), DrawerItems.item(DrawerItems.COUNTER, Counter.ENERGY.ordinal)), items(2))
+        assertEquals(listOf(DrawerItems.item(DrawerItems.TAX, 0), DrawerItems.item(DrawerItems.COUNTER, Counter.ENERGY.ordinal)) + TOGGLE_ITEMS, items(2))
     }
 
     @Test fun partnerAddsASecondTaxCell() {
         session.dispatch(Action.SetPartner(id(1), true), 0)
         tap(1, DrawerZones.TAB)
         assertEquals(DrawerItems.item(DrawerItems.TAX, Commander.PARTNER), c.itemAt(1, 1))
-        assertEquals(9, c.itemCount(1))
+        assertEquals(14, c.itemCount(1))
     }
 
     @Test fun counterTapsDispatchChangeCounter() {
@@ -167,7 +173,7 @@ class DrawerControllerTest {
         // the bar is always live; slots past the page's items never are
         assertTrue(c.isLive(2, DrawerZones.TAB))
         counters = listOf(Counter.POISON); c.onCountersChanged()
-        assertFalse(c.isLive(2, cell(2, DrawerZones.PLUS)))
+        assertFalse(c.isLive(2, cell(7, DrawerZones.PLUS))) // tax, poison, 4 toggles, day/night: 7 items
     }
 
     @Test fun holdingMinusResetsACounterInOneUndoStep() {
@@ -281,10 +287,10 @@ class DrawerControllerTest {
 
     @Test fun partnerChangeRebuildsAnOpenTray() {
         tap(3, DrawerZones.TAB)
-        assertEquals(8, c.itemCount(3))
+        assertEquals(13, c.itemCount(3))
         invalidated.clear(); cancelled.clear()
         session.dispatch(Action.SetPartner(id(3), true), 0)
-        assertEquals(9, c.itemCount(3))
+        assertEquals(14, c.itemCount(3))
         assertTrue(invalidated.contains(layout.drawer[3]))
         assertEquals(listOf(3 to (DrawerZones.PREV until DrawerZones.CELL_END)), cancelled)
     }
@@ -327,5 +333,80 @@ class DrawerControllerTest {
         assertEquals(2, DrawerItems.tapDelta(DrawerItems.item(DrawerItems.TAX, 0), DrawerZones.PLUS))
         assertEquals(-1, DrawerItems.tapDelta(DrawerItems.item(DrawerItems.COUNTER, 0), DrawerZones.MINUS))
         assertEquals(-5, DrawerItems.holdDelta(DrawerZones.MINUS))
+    }
+
+    // ---- T14: toggle cells ----------------------------------------------------------------------
+
+    /** Opens [seat]'s drawer on page 2 (the toggles at four players) and returns the slot of [item]. */
+    private fun openToggles(seat: Int, item: Int): Int {
+        if (!state.isOpen(seat)) tap(seat, DrawerZones.TAB)
+        if (state.page(seat) == 0) tap(seat, DrawerZones.NEXT)
+        val slot = items(seat).indexOf(item)
+        assertTrue("$item on page 2: ${items(seat)}", slot >= 0)
+        return slot
+    }
+
+    private val MONARCH = DrawerItems.item(DrawerItems.TOGGLE, Toggle.MONARCH.ordinal)
+    private val RING = DrawerItems.item(DrawerItems.TOGGLE, Toggle.RING_BEARER.ordinal)
+    private val DAY_NIGHT = DrawerItems.item(DrawerItems.DAY_NIGHT, 0)
+
+    @Test fun eitherHalfOfAToggleCellFlipsIt() {
+        val slot = openToggles(1, RING)
+        for (half in listOf(DrawerZones.MINUS, DrawerZones.PLUS)) {
+            assertTrue(c.isLive(1, cell(slot, half)))
+            assertFalse(c.repeats(1, cell(slot, half)))
+        }
+        assertTrue(tapCell(1, slot, DrawerZones.MINUS))
+        assertTrue(session.state.players[1].toggles.ringBearer)
+        assertTrue(tapCell(1, slot, DrawerZones.PLUS))
+        assertFalse(session.state.players[1].toggles.ringBearer)
+        assertEquals(listOf<String?>(null, null), keys) // each flip is its own undo step
+        assertEquals(Action.SetToggle(id(1), Toggle.RING_BEARER, true), dispatched[0].second)
+    }
+
+    @Test fun claimingMonarchRedrawsTheOldHoldersOpenCellToo() {
+        val s0 = openToggles(0, MONARCH)
+        val s2 = openToggles(2, MONARCH)
+        tapCell(0, s0, DrawerZones.PLUS)
+        invalidated.clear()
+        tapCell(2, s2, DrawerZones.PLUS)
+        assertFalse(session.state.players[0].toggles.monarch)
+        assertTrue(session.state.players[2].toggles.monarch)
+        assertEquals(setOf(layout.cellVis[0 * DrawerZones.MAX_SLOTS + s0], layout.cellVis[2 * DrawerZones.MAX_SLOTS + s2]), invalidated.toSet())
+        assertEquals(2, invalidated.size)
+    }
+
+    @Test fun dayNightStepsOnTapsAndAHoldResetsIt() {
+        val slot = openToggles(3, DAY_NIGHT)
+        val other = openToggles(1, DAY_NIGHT)
+        assertFalse(c.repeats(3, cell(slot, DrawerZones.PLUS)))
+        invalidated.clear()
+        tapCell(3, slot, DrawerZones.PLUS)
+        assertEquals(DayNight.DAY, session.state.dayNight)
+        assertEquals("every open drawer's day/night cell", setOf(layout.cellVis[3 * DrawerZones.MAX_SLOTS + slot], layout.cellVis[1 * DrawerZones.MAX_SLOTS + other]), invalidated.toSet())
+        tapCell(3, slot, DrawerZones.MINUS)
+        assertEquals(DayNight.NIGHT, session.state.dayNight)
+        tapCell(1, other, DrawerZones.PLUS)
+        assertEquals("night → day, never back to unset on a tap", DayNight.DAY, session.state.dayNight)
+        assertTrue(c.repeats(3, cell(slot, DrawerZones.MINUS)))
+        assertTrue(c.onRepeat(3, cell(slot, DrawerZones.MINUS)))
+        assertEquals(DayNight.UNSET, session.state.dayNight)
+        assertFalse("the hold stops once reset", c.repeats(3, cell(slot, DrawerZones.MINUS)))
+        assertEquals(DayNight.UNSET.ordinal, c.valueAt(3, DAY_NIGHT))
+    }
+
+    @Test fun toggleItemsHelpers() {
+        val p = session.state.players[0]
+        assertEquals(0, DrawerItems.value(MONARCH, p))
+        assertNull(DrawerItems.resetAction(MONARCH, p))
+        assertEquals(Action.SetDayNight(DayNight.DAY), DrawerItems.toggleAction(DAY_NIGHT, p, DayNight.UNSET))
+        assertEquals(Action.SetDayNight(DayNight.NIGHT), DrawerItems.toggleAction(DAY_NIGHT, p, DayNight.DAY))
+        assertEquals(Action.SetDayNight(DayNight.DAY), DrawerItems.toggleAction(DAY_NIGHT, p, DayNight.NIGHT))
+        assertEquals(2, DrawerItems.value(DAY_NIGHT, p, DayNight.NIGHT))
+        assertTrue(DrawerItems.isToggle(DAY_NIGHT) && DrawerItems.isToggle(RING))
+        assertFalse(DrawerItems.isToggle(DrawerItems.item(DrawerItems.COUNTER, 0)))
+        val buf = IntArray(DrawerItems.MAX_ITEMS)
+        val n = DrawerItems.tray(p, Counter.entries, buf, withToggles = false)
+        assertTrue("peeks never see toggles", (0 until n).none { DrawerItems.isToggle(buf[it]) })
     }
 }
