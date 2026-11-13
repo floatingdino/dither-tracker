@@ -83,7 +83,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T13 | dropped | — | ~~Player names (in-app keyboard)~~ — Sam, 2026-11-14: player names are dropped; seats are identified by the seat glyph (T44). What remains of player customisation is the per-player background pattern, moved to T45. | — |
 | T45 | dropped | — | ~~Per-player background pattern picker~~ — Sam, 2026-11-14: player colours/patterns are dropped too. | — |
 | T46 | done | T16 | **Dice results use the small numeral face** (Sam, 2026-11-14), not the hero numerals: re-compose the dice/coin panel around the bold small face (`num-m`), shrink the panel accordingly so it no longer clips 3-glyph life totals, fix the awkward caption wraps. Emulator 5566. | `tools` Kotlin package |
-| T14 | wip | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
+| T14 | review | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | done | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
 | T42 | done | T15 | **KO / winner tile: the quip replaces the life total** (Sam, 2026-11-14) — on a dead tile and on the winner's tile the quip takes the hero position at a large size instead of the (ringed, hollow) number; cause/final life becomes the small detail. Plus a copy exploration: death and victory lines in a classic 8/16-bit game-text voice (**verbatim** famous one-liners, per Sam — exact wording only, short lines). Dead tiles use a **light ordered dither, not crosshatch** (Sam: crosshatch is not part of the dither language) — change `Role.DEAD`. Also fix: the centre diamond and dividers must keep their outline against dead tiles' crosshatch. Emulator 5564. | `ko/`, `core/**/flavour/`, `design/copy/quips.md` |
 | T47 | review | T42 | **Death/winner copy tweaks** (Sam, 2026-11-14): draw every quip at the one smaller size (the size the long lines use today) instead of scaling short lines up; and make the paper ground behind the text continuous across each line — it should run through the spaces between words, not be a separate box per word. Emulator 5564. | `ko/` |
@@ -584,3 +584,15 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   pointer ids. Coordinator re-running `tools/check_purity.sh` on HEAD (after T11's settings row).
   Dispatched T20 (performance + battery; emulator 5562 and sole use of the Nomad) and T14 (state
   toggles; emulator 5564). Running: T20, T14.
+- 2026-11-14 — Tick 57: device purity on HEAD 98/98; coordinator fixed `capture_scenarios.sh` settings
+  taps after T11's Players row (`2e96bb0`). T14 reported (`2ce230f`, `53d88e2`, `54a9c8c`, `eecc3c6`,
+  `a1e7354`, `67ffb46`), verified in a clean worktree at HEAD incl. T20's commits so far (154 core +
+  1256 app; 9 captures pass `check_1bit`). Core toggles and persistence already existed (no codec
+  bump). Built: toggle cells after the counters in the drawer (off = icon on halo, on = ink card),
+  shared day/night cell (tap unset → day → night → day, hold resets), 16 px badges in the under-number
+  row, day/night drawn on the centre diamond; KO drops monarch/initiative to nobody; ring-bearer
+  on/off; ring icon redrawn heavier. In `review`.
+  **Needs Sam (design):** diamond loses its menu bars (and dither) once day/night is set; badge size
+  (16 px beside hero numerals); ring tempt level 0–4?; toggles add 3 drawer pages at 5–6 players;
+  first-player band covers the badges; icon options in `design/captures/t14-icons.png`.
+  Running: T20.
