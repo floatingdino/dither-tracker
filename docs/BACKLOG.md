@@ -82,7 +82,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T12 | review | T34 T09 T10b | Settings screen (SPEC list): 1-bit list/toggle/stepper widgets, scale S auto/2–6, invert mode, starting life as a segmented [40] [30] [20] choice (not a stepper), counters shown, keep-awake, full-refresh cadence. | `app/src/main/**/settings/`, `**/widgets/` |
 | T13 | dropped | — | ~~Player names (in-app keyboard)~~ — Sam, 2026-11-14: player names are dropped; seats are identified by the seat glyph (T44). What remains of player customisation is the per-player background pattern, moved to T45. | — |
 | T45 | dropped | — | ~~Per-player background pattern picker~~ — Sam, 2026-11-14: player colours/patterns are dropped too. | — |
-| T46 | wip | T16 | **Dice results use the small numeral face** (Sam, 2026-11-14), not the hero numerals: re-compose the dice/coin panel around the bold small face (`num-m`), shrink the panel accordingly so it no longer clips 3-glyph life totals, fix the awkward caption wraps. Emulator 5566. | `tools` Kotlin package |
+| T46 | review | T16 | **Dice results use the small numeral face** (Sam, 2026-11-14), not the hero numerals: re-compose the dice/coin panel around the bold small face (`num-m`), shrink the panel accordingly so it no longer clips 3-glyph life totals, fix the awkward caption wraps. Emulator 5566. | `tools` Kotlin package |
 | T14 | todo | T08 | State toggles: monarch, initiative, city's blessing, ring-bearer, global day/night — badges on panel using icons; monarch/initiative exclusive across players. | `play/`, `drawer/`, `core/` |
 | T15 | done | T34 T06 T03 | Auto-KO rendering ("dead" dither over panel, tap to revive). Always on — no toggle. | `play/` |
 | T42 | wip | T15 | **KO / winner tile: the quip replaces the life total** (Sam, 2026-11-14) — on a dead tile and on the winner's tile the quip takes the hero position at a large size instead of the (ringed, hollow) number; cause/final life becomes the small detail. Plus a copy exploration: death and victory lines in a classic 8/16-bit game-text voice (**verbatim** famous one-liners, per Sam — exact wording only, short lines). Dead tiles use a **light ordered dither, not crosshatch** (Sam: crosshatch is not part of the dither language) — change `Role.DEAD`. Also fix: the centre diamond and dividers must keep their outline against dead tiles' crosshatch. Emulator 5564. | `ko/`, `core/**/flavour/`, `design/copy/quips.md` |
@@ -468,3 +468,12 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   `seat/README.md` says how other components adopt it. In `review` until the clean build and Nomad
   check. Notes: rows now have a wide empty middle; T12's rotation labels (90 = E?) may be swapped —
   check on the device. Running: T42, T46.
+- 2026-11-14 — Sam prefers the inset fill on the seat glyph. Coordinator set `SeatGlyphs.INSET = 1`,
+  updated the glyph and history tests and README; clean-worktree run: 526 app tests pass; emulator
+  capture `design/captures/t44-history-seats-inset.png` passes the checker. Note: at 16 px the inset
+  fill is a 4x2 block and reads lighter than the flush version.
+- 2026-11-14 — Tick 45: T46 reported with 5 commits: dice results in the bold small numerals, panel
+  163x111 (was 163x153), balanced caption wrap, clears 3- and 4-glyph life totals; ships 2x with a
+  1x composition switchable by `DiceLayout.RESULT_K`. 1x and 2x mockups in
+  `design/captures/t46-*-1x.png` / `-2x.png` and `t46-dice-1x-vs-2x.png` for Sam's pick. The coin lost
+  its drop shadow (agent's call — confirm). In `review`. Running: T42.
