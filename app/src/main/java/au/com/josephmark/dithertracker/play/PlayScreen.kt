@@ -6,6 +6,8 @@ import au.com.josephmark.dithertracker.commander.CommanderClose
 import au.com.josephmark.dithertracker.commander.CommanderTile
 import au.com.josephmark.dithertracker.drawer.DrawerComponent
 import au.com.josephmark.dithertracker.drawer.DrawerTab
+import au.com.josephmark.dithertracker.ko.KoComponent
+import au.com.josephmark.dithertracker.ko.KoWinner
 import au.com.josephmark.dithertracker.life.LifeComponent
 import au.com.josephmark.dithertracker.peeks.PeeksComponent
 import au.com.josephmark.dithertracker.readout.ReadoutComponent
@@ -32,8 +34,8 @@ object PlayScreen {
         val drawer = stage.add(DrawerComponent()) // open drawer; the TileSlots lower occupant (Kind.CONTENT)
         // slot: effects (T28c) — an `fx` component, Layer.TILE, Kind.EFFECT, drawn here: after the number,
         //       readout and drawer, before the layer's press inversion (see fx/README.md, "Draw").
-        // slot: KO overlay (T15) — a `ko` component, Layer.TILE, Kind.CONTENT (dead dither over the panel,
-        //       tap to revive: a whole-panel zone, so it must come after life here to win its touches).
+        stage.add(KoComponent(random))            // KO: dead tile, quip, tap-tap revive; covers the seat (Kind.STATUS)
+        stage.add(KoWinner(random))               // last player standing caption in the under row (Kind.CONTENT)
 
         // ---- TILE_CHROME (per seat, over the tile layer's press inversion) ----------------------------
         stage.add(DrawerTab(drawer))              // closed tab (Kind.CHROME)
