@@ -13,6 +13,7 @@ import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import au.com.josephmark.dithertracker.data.SettingsHolder
+import au.com.josephmark.dithertracker.dither.CanvasDitherRenderer
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.DitherRenderer
 import au.com.josephmark.dithertracker.dither.IRect
@@ -43,7 +44,7 @@ class PlayView(
     random: Random = Random(System.nanoTime()),
 ) : View(context) {
 
-    private val r = DitherRenderer()
+    private val r = CanvasDitherRenderer()
     private val text = TextRenderer(r)
     private val icons = IconPainter(r)
     private val mainHandler = Handler(Looper.getMainLooper())

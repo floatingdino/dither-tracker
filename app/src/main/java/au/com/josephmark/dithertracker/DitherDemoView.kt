@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.view.MotionEvent
 import android.view.View
+import au.com.josephmark.dithertracker.dither.CanvasDitherRenderer
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.DitherRenderer
 import au.com.josephmark.dithertracker.dither.Icon
@@ -32,7 +33,7 @@ import au.com.josephmark.dithertracker.type.TextRenderer
  */
 class DitherDemoView(context: Context) : View(context) {
 
-    private val r = DitherRenderer()
+    private val r = CanvasDitherRenderer()
     private val t = TextRenderer(r)
     private var page = 0
 

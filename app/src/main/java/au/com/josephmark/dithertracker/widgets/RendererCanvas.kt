@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.widgets
 
 import android.graphics.Canvas
+import au.com.josephmark.dithertracker.dither.CanvasDitherRenderer
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.DitherRenderer
 import au.com.josephmark.dithertracker.dither.IRect
@@ -23,7 +24,7 @@ class RendererCanvas(val renderer: DitherRenderer, val textRenderer: TextRendere
 
     fun begin(canvas: Canvas) {
         this.canvas = canvas
-        renderer.begin(canvas)
+        (renderer as? CanvasDitherRenderer)?.begin(canvas)
     }
 
     override val canInvertInPlace: Boolean get() = DitherRenderer.canInvertInPlace
