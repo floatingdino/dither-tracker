@@ -10,6 +10,7 @@ import au.com.josephmark.dithertracker.fx.FxComponent
 import au.com.josephmark.dithertracker.ko.KoComponent
 import au.com.josephmark.dithertracker.ko.KoWinner
 import au.com.josephmark.dithertracker.life.LifeComponent
+import au.com.josephmark.dithertracker.menu.MenuOverlay
 import au.com.josephmark.dithertracker.peeks.PeeksComponent
 import au.com.josephmark.dithertracker.readout.ReadoutComponent
 import au.com.josephmark.dithertracker.stage.Stage
@@ -41,13 +42,14 @@ object PlayScreen {
         stage.add(DrawerTab(drawer))              // closed tab (Kind.CHROME)
 
         // ---- SCREEN --------------------------------------------------------------------------------
-        stage.add(MenuDiamond())                  // centre diamond + menu bars; a block until T09 (Kind.CHROME)
+        stage.add(MenuDiamond())                  // centre diamond + menu bars; opens the menu (Kind.CHROME)
         stage.add(CommanderClose(commander))      // the mode's close X on the diamond (Kind.MODE)
 
         // ---- OVERLAY -------------------------------------------------------------------------------
-        // slot: table menu (T09), settings (T12), history (T18), tools (T16/T17), player setup (T13):
-        //       Layer.OVERLAY, Kind.OVERLAY, each with its own Cover (Kind.ALL_BELOW_OVERLAY, or just
-        //       the seats it sits on).
+        val menu = stage.add(MenuOverlay(random)) // table menu, the gem (T09; Kind.OVERLAY)
+        // slot: settings (T12), history (T18), tools (T16/T17), player setup (T13): Layer.OVERLAY,
+        //       Kind.OVERLAY, each with its own Cover if it hides anything. Menu items reach them with
+        //       `menu.destinations.register(MenuItem.SETUP, stage.add(SettingsOverlay(...)))`.
 
         stage.seal()
         return stage
