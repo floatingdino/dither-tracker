@@ -96,6 +96,32 @@ object HaloMask {
 }
 
 /**
+ * A glyph drawn as solid rects (the diamond's menu bars, the tab's dots) turned into a mask with its
+ * halo, at a fixed screen position: built once per layout ([of]), drawn with [draw] — the same
+ * [DitherRenderer.blitHaloed] path as icons and text.
+ */
+class HaloGlyph private constructor(val ink: BitMask, val halo: BitMask, val at: IRect) {
+
+    /** The glyph on its cut-out (paper halo, ink glyph; swapped with [invert]). */
+    fun draw(r: DitherRenderer, invert: Boolean = false) = r.blitHaloed(ink, halo, at.left, at.top, 0, invert)
+
+    /** Builds both masks' bitmaps now (renderer begun on a scratch canvas). */
+    fun prewarm(r: DitherRenderer) {
+        r.blit(ink, 0, 0)
+        r.blit(halo, 0, 0)
+    }
+
+    companion object {
+        /** `rects[from until from + count]` (screen dither px) as one glyph with a [radius]-px halo. */
+        fun of(rects: Array<IRect>, from: Int, count: Int, radius: Int): HaloGlyph {
+            val at = IRect()
+            val ink = HaloMask.rects(rects, from, count, at)
+            return HaloGlyph(ink, HaloMask.of(ink, radius), at)
+        }
+    }
+}
+
+/**
  * An immutable 1-bit image of any size, with **value** equality: two masks with the same pixels are
  * equal, so a mask rebuilt by a relayout hits the renderer's bitmap cache instead of adding an entry.
  */

@@ -1,5 +1,6 @@
 package au.com.josephmark.dithertracker.chrome
 
+import au.com.josephmark.dithertracker.dither.HaloGlyph
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.play.Diamond
 import au.com.josephmark.dithertracker.play.PlayLayout
@@ -13,7 +14,7 @@ import au.com.josephmark.dithertracker.stage.Stage
 import au.com.josephmark.dithertracker.stage.ZoneSink
 
 /**
- * The centre diamond with the menu glyph (three bars on a paper backing): the table menu's button.
+ * The centre diamond with the menu glyph (three bars on their paper cut-out, T41): the table menu's button.
  * One zone ([OPEN], the diamond's shape grown by its hit pad); a tap sends [Events.MENU_OPEN] and the
  * menu (`menu.MenuOverlay`, an overlay drawn over this spot) opens. Press feedback inverts the diamond.
  *
@@ -23,18 +24,25 @@ class MenuDiamond : Component(Layer.SCREEN, Kind.CHROME, zonesPerSeat = 1) {
 
     private var l: PlayLayout? = null
     private val hit = IRect()
+    private var bars: HaloGlyph? = null
 
     override fun onLayout(play: PlayLayout, tiles: TileSlots) {
         l = play
         Diamond.hitBounds(play, hit)
+        // The bars sit [PlayLayout.halo] px inside their cut-out; the 3-px gaps between them would leave
+        // 1-px dither slivers, so the cut-out closes into a tight plate around the three bars.
+        bars = HaloGlyph.of(play.menuBars, 0, 3, play.halo)
+    }
+
+    override fun prewarm(f: Frame) {
+        bars?.prewarm(f.r)
     }
 
     override fun draw(f: Frame, seat: Int) {
         val l = l ?: return
         if (!f.hit(l.diamond)) return
         Diamond.fill(f.r, l)
-        f.r.rect(l.menuBarsBacking, ink = false)
-        for (b in l.menuBars) f.r.rect(b, ink = true)
+        bars?.draw(f.r)
     }
 
     override fun bounds(out: IRect): Boolean {
