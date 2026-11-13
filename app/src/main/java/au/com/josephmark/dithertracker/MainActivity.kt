@@ -11,6 +11,7 @@ import android.view.WindowInsetsController
 import au.com.josephmark.dithertracker.data.Persistence
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.data.SettingsHolder
+import au.com.josephmark.dithertracker.fx.FxDebug
 import au.com.josephmark.dithertracker.play.GameSession
 import au.com.josephmark.dithertracker.play.PlayView
 import kotlin.random.Random
@@ -32,12 +33,17 @@ class MainActivity : Activity() {
         //                       QA until T13 adds a UI for it); an empty string clears every partner
         //   --el seed N         (debuggable builds only) seed the commander-mode quip picker, so
         //                       `tools/capture_scenarios.sh` captures are reproducible
+        //   --es fx <name|all>  (debuggable builds only) effects gallery (T28c): sets every life to
+        //                       --ei fxLife N (default 37) and plays that effect / cycles them all on
+        //                       all four seats, looping until a touch; see fx/README.md
+        //   --ef fxHold X       (debuggable builds only) scale every effect hold by X (FxPlayer.holdScale)
         val inverted = if (intent?.hasExtra("inverted") == true) {
             intent.getBooleanExtra("inverted", false)
         } else {
             SettingsHolder.shared.current.inverted
         }
         applyDebugPartners()
+        applyDebugFx()
         root = if (intent?.getBooleanExtra("demo", false) == true) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             DitherDemoView(this).apply { setInverted(inverted) }
@@ -56,6 +62,15 @@ class MainActivity : Activity() {
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return null
         if (intent?.hasExtra("seed") != true) return null
         return Random(intent.getLongExtra("seed", 0L))
+    }
+
+    /** Debug-only effects hooks (T28c): `--es fx <name|all>`, `--ei fxLife N`, `--ef fxHold X`. */
+    private fun applyDebugFx() {
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return
+        val i = intent ?: return
+        FxDebug.gallery = i.getStringExtra("fx")
+        FxDebug.life = i.getIntExtra("fxLife", 37)
+        FxDebug.holdScale = if (i.hasExtra("fxHold")) i.getFloatExtra("fxHold", 1f).coerceAtLeast(0f) else 1f
     }
 
     /** Debug-only QA hook: `--es partners 1,3` sets the partner flag on exactly those seats. */
