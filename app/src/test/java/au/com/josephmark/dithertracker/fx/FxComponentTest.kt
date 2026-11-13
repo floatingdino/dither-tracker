@@ -118,15 +118,40 @@ class FxComponentTest {
 
     @Test fun aLongHoldNeverTriggersUntilItsGroupCommits() {
         val (rig, fx) = rig()
-        val r = rig.l.zones[PlayLayout.zone(2, PlayLayout.MINUS)]
-        rig.stage.down(0, r.left + 8, (r.top + r.bottom) / 2, 0)
+        val r = rig.l.zones[PlayLayout.zone(2, PlayLayout.PLUS)]
+        rig.stage.down(0, r.right - 8, (r.top + r.bottom) / 2, 0)
         repeat(8) {
             rig.platform.clock.advance(1_000) // hold steps every second: the readout keeps re-arming
             assertNull("no effect while repeating (${it + 1} s)", fx.player.current(2))
         }
         rig.stage.up(0)
+        assertTrue(rig.session.state.players[2].life > 40)
+        assertNull(fx.player.current(2))
         rig.platform.clock.advance(window)
-        assertNotNull(fx.player.current(2))
+        assertEquals(FxRole.HEAL, fx.player.current(2)!!.role)
+    }
+
+    @Test fun aHoldThatCrossesZeroStopsAtTheKoAndPlaysKoShatterOnceWithTheDeadTileHeld() {
+        val (rig, fx) = rig()
+        val ko = rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.ko.KoComponent>().single()
+        val r = rig.l.zones[PlayLayout.zone(2, PlayLayout.MINUS)]
+        rig.stage.down(0, r.left + 8, (r.top + r.bottom) / 2, 0)
+        rig.platform.clock.advance(500 + 3 * 1_000) // 40 → 30 → 20 → 10 → 0: KO
+        assertEquals(0, rig.session.state.players[2].life)
+        assertTrue("dead tile held off at the KO (KO_HOLD)", (ko.held ushr 2) and 1 != 0)
+        rig.platform.clock.advance(2_000)
+        assertEquals("the repeat stopped at the KO", 0, rig.session.state.players[2].life)
+        assertNull(fx.player.current(2))
+        rig.stage.up(0)
+        rig.platform.clock.advance(window - 2_000)
+        assertEquals(Fx.byName("ko-shatter"), fx.player.current(2))
+        assertTrue("still held while it plays", (ko.held ushr 2) and 1 != 0)
+        rig.platform.clock.advance(2_000)
+        assertNull(fx.player.current(2))
+        assertEquals("released when it ends (KO_RELEASE)", 0, (ko.held ushr 2) and 1)
+        assertTrue((ko.shown ushr 2) and 1 != 0)
+        rig.platform.clock.advance(10_000)
+        assertNull("once", fx.player.current(2))
     }
 
     @Test fun touchDownOnTheSeatCancelsItsEffectAndRedrawsClean() {
