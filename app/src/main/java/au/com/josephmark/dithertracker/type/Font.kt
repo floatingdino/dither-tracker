@@ -13,6 +13,7 @@ class Glyph internal constructor(
     height: Int,
     rows: IntArray,
     shadowRows: IntArray? = null,
+    haloRows: IntArray? = null,
 ) : PackedImage(width, height, rows) {
 
     /** True for glyphs with no ink (space): drawing skips the blit. */
@@ -26,7 +27,16 @@ class Glyph internal constructor(
     val shadow: PackedImage? =
         if (shadowRows != null && shadowRows.any { it != 0 }) PackedImage(width, height, shadowRows) else null
 
+    /**
+     * The glyph's paper cut-out for text on a dither fill (T41): (width+2)×(height+2), one font px
+     * wider than the glyph box on every side, by the icons' halo rule (holes filled, dilated 1 px,
+     * enclosed dither and 1-px slivers filled). Null for faces built without halos, and for blank glyphs.
+     */
+    val halo: PackedImage? =
+        if (haloRows != null && haloRows.any { it != 0 }) PackedImage(width + 2, height + 2, haloRows) else null
+
     private val scaled = arrayOfNulls<MonoImage>(Font.MAX_K + 1)
+    private val haloScaled = arrayOfNulls<MonoImage>(Font.MAX_K + 1)
 
     // Shadow masks enlarged k× and turned by rotation/90, built once per (k, rotation) on first use.
     private val shadowTurned = arrayOfNulls<MonoImage>(4 * (Font.MAX_K + 1))
@@ -59,9 +69,24 @@ class Glyph internal constructor(
         return Scaled(this, k).also { scaled[k] = it }
     }
 
+    /** [halo] enlarged k× as a stable instance (draw it at the glyph's position − k); null without one. */
+    fun haloScaled(k: Int): MonoImage? {
+        val h = halo ?: return null
+        if (k == 1) return h
+        require(k in 1..Font.MAX_K) { "glyph scale $k out of 1..${Font.MAX_K}" }
+        haloScaled[k]?.let { return it }
+        return Zoom(h, k).also { haloScaled[k] = it }
+    }
+
     override fun toString(): String = if (char == '\u0000') "Glyph(notdef)" else "Glyph('$char')"
 
     private class Scaled(private val src: Glyph, private val k: Int) : MonoImage {
+        override val width: Int = src.width * k
+        override val height: Int = src.height * k
+        override fun isInk(x: Int, y: Int): Boolean = src.isInk(x / k, y / k)
+    }
+
+    private class Zoom(private val src: MonoImage, private val k: Int) : MonoImage {
         override val width: Int = src.width * k
         override val height: Int = src.height * k
         override fun isInk(x: Int, y: Int): Boolean = src.isInk(x / k, y / k)
@@ -108,6 +133,8 @@ class Font(
     rows: IntArray,
     /** Optional drop-shadow mask rows, parallel to [rows] (see [Glyph.shadow]). */
     shadowRows: IntArray? = null,
+    /** Optional halo rows, (glyphHeight+2) per glyph (notdef last), (glyphWidth+2) bits each (see [Glyph.halo]). */
+    haloRows: IntArray? = null,
 ) {
     /** Glyphs in source order (excluding [notdef]). */
     val glyphs: List<Glyph>
@@ -127,6 +154,9 @@ class Font(
     /** True when any glyph carries a drop-shadow mask ([Glyph.shadow]). */
     val hasShadow: Boolean
 
+    /** True when the face was built with halo rows ([Glyph.halo]; text can be drawn with `halo = true`). */
+    val hasHalo: Boolean = haloRows != null
+
     private val ascii = arrayOfNulls<Glyph>(128)
     private val extraChars: CharArray
     private val extraGlyphs: Array<Glyph>
@@ -136,12 +166,15 @@ class Font(
             "$name: ${rows.size} rows for ${chars.length} glyphs + notdef of height $glyphHeight"
         }
         require(shadowRows == null || shadowRows.size == rows.size) { "$name: shadow rows must parallel glyph rows" }
+        val hh = glyphHeight + 2
+        require(haloRows == null || haloRows.size == (chars.length + 1) * hh) { "$name: halo rows must be ${hh} per glyph" }
         val list = ArrayList<Glyph>(chars.length)
         val extras = ArrayList<Glyph>()
         for (i in chars.indices) {
             val g = Glyph(
                 chars[i], glyphWidth, glyphHeight, rows.copyOfRange(i * glyphHeight, (i + 1) * glyphHeight),
                 shadowRows?.copyOfRange(i * glyphHeight, (i + 1) * glyphHeight),
+                haloRows?.copyOfRange(i * hh, (i + 1) * hh),
             )
             list += g
             if (g.char.code < 128) ascii[g.char.code] = g else extras += g
@@ -150,6 +183,7 @@ class Font(
         notdef = Glyph(
             '\u0000', glyphWidth, glyphHeight, rows.copyOfRange(chars.length * glyphHeight, rows.size),
             shadowRows?.copyOfRange(chars.length * glyphHeight, rows.size),
+            haloRows?.copyOfRange(chars.length * hh, haloRows.size),
         )
         hasShadow = notdef.shadow != null || list.any { it.shadow != null }
         extraChars = CharArray(extras.size) { extras[it].char }
