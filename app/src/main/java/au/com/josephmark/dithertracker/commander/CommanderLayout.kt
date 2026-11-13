@@ -21,16 +21,19 @@ import au.com.josephmark.dithertracker.type.TextLayout
  *   commander, each a 2-digit number slot centred in its half with its own − / + quarter zones and
  *   half-size ± glyphs when they fit ([partnerPmVisible]); a small commander / partner icon under
  *   each number ([partnerIcon], in [PlayLayout.underRow]) tells the two apart. No other labels.
- * - **Target tile** (X): a composed block, centred between the readout and the tab band
- *   ([targetTop]..[targetBottom]): the quip in ALL CAPS in the `ui` face ([quipFootprint]: one
- *   size below the largest that fits, but not below [quipKMin]), [quipGap] of paper, then X's life
- *   on paper — the life icon and the number in [lifeFont] at [lifeK] ([lifeFootprint]) — so the life
- *   lost to linked damage stays visible.
+ * - **Target tile** (X): a composed block centred on the tile (kept inside
+ *   [targetTop]..[targetBottom]: below the readout, above the tab band). T37 re-composed it for the
+ *   1× small numerals, whose life is now as tall as the quip's capitals: the quip in ALL CAPS in the
+ *   `ui` face at [quipKMax] (the largest that fits, [quipFootprint]; 14-px caps at S = 4), [ruleGap]
+ *   of paper, a 1-px dotted rule as wide as the wider of quip and life ([ruleFootprint]), [ruleGap],
+ *   then X's life — the heart icon and the number in [lifeFont] at [lifeK] ([lifeFootprint]) — so the
+ *   life lost to linked damage stays visible. Two equal-height lines read as a caption over a value
+ *   because of the rule and the heart, not because of size.
  * - Lethal damage (≥ 21 from one commander) is drawn on a solid ink card ([lethalPad] round the
  *   number) with the number in paper.
  * - The centre diamond shows a close X ([closeIcon]) instead of the menu bars.
  *
- * [lifeFont] is a parameter so the target's life can switch to a mini sticker face (T37) in one line.
+ * [lifeFont] is a parameter (default `num-m`, the bold mini sticker since T37).
  *
  * Touch zones are declared by `CommanderTile` (whole target tile; halves or partner [quarter]s) and
  * `CommanderClose`; [feedbackRect] gives what a press inverts.
@@ -44,16 +47,13 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
     /** Gap between an icon and its text in the under row. */
     val iconGap: Int = PlayLayout.Chrome.size(ICON_GAP, play.grid.scale)
 
-    /** Paper between the quip's cap band and the life row on the target tile. */
-    val quipGap: Int = PlayLayout.Chrome.size(QUIP_GAP, play.grid.scale)
-
-    /** Smallest quip scale (a long line keeps this rather than dropping a size). */
-    val quipKMin: Int = maxOf(1, PlayLayout.Chrome.size(QUIP_K_MIN, play.grid.scale))
+    /** Paper either side of the dotted rule between the quip and the life row on the target tile. */
+    val ruleGap: Int = PlayLayout.Chrome.size(RULE_GAP, play.grid.scale)
 
     /** Ink margin round a lethal number's footprint. */
     val lethalPad: Int = PlayLayout.Chrome.size(LETHAL_PAD, play.grid.scale)
 
-    /** Largest `ui` glyph scale for the target quip (physical size ≈ S = 4's [QUIP_K_MAX]). */
+    /** `ui` glyph scale for the target quip (physical size ≈ S = 4's [QUIP_K_MAX]); smaller only when a quip does not fit. */
     val quipKMax: Int = maxOf(1, PlayLayout.Chrome.size(QUIP_K_MAX, play.grid.scale))
 
     private val P = PlayLayout.PLAYERS
@@ -81,7 +81,7 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
     val targetTop: Int
     val targetBottom: Int
 
-    /** Glyph scale of the target's life ([lifeFont]): the readout's scale, stepped down to fit. */
+    /** Glyph scale of the target's life ([lifeFont]): the readout's (1× beside the hero, T37), stepped down to fit. */
     val lifeK: Int
 
     /** Height of the target's life row (icon or numerals, whichever is taller). */
@@ -130,7 +130,7 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
         targetTop = play.readoutY + roH + PlayLayout.V_MIN
         targetBottom = H - play.chrome.tabH - play.chrome.tabHitPad - PlayLayout.V_MIN
         var lk = play.readoutK
-        while (lk > 1 && maxOf(iconSize, lifeFont.height(lk)) + quipGap + ui.capHeight > targetBottom - targetTop) lk--
+        while (lk > 1 && maxOf(iconSize, lifeFont.height(lk)) + 2 * ruleGap + RULE + ui.capHeight > targetBottom - targetTop) lk--
         lifeK = lk
         lifeRowH = maxOf(iconSize, lifeFont.height(lk))
         // The life row moves with the quip's height: cover every position it can take.
@@ -143,17 +143,10 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
     // ---- footprints (draw-time; write `out`, never allocate) -------------------------------------
 
     /**
-     * Glyph scale of a quip of [len] chars (drawn in caps): one size below the largest ≤ [quipKMax]
-     * that fits ([quipFits]), but never below [quipKMin] (nor above what fits). Designer: the
-     * largest size felt shouty; long lines are already at the floor.
+     * Glyph scale of a quip of [len] chars (drawn in caps): the largest ≤ [quipKMax] at which it and
+     * the rest of the block fit (every shipped quip fits at [quipKMax] on the Nomad).
      */
     fun quipK(len: Int): Int {
-        val fit = quipFitK(len)
-        return maxOf(fit - 1, minOf(fit, quipKMin))
-    }
-
-    /** Largest scale ≤ [quipKMax] at which the quip and the life row fit the target block region. */
-    fun quipFitK(len: Int): Int {
         var q = quipKMax
         while (q > 1 && !quipFits(len, q)) q--
         return q
@@ -162,11 +155,30 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
     private fun quipFits(len: Int, q: Int): Boolean =
         ui.widthOf(len, q) <= W - 2 * PlayLayout.EDGE_MIN && blockH(q) <= targetBottom - targetTop
 
-    /** Height of the target block: quip caps, gap, life row. */
-    private fun blockH(q: Int): Int = ui.capHeight * q + quipGap + lifeRowH
+    /** Height of the target block: quip caps, gap, rule, gap, life row. */
+    fun blockH(q: Int): Int = ui.capHeight * q + 2 * ruleGap + RULE + lifeRowH
 
-    /** Player-frame top of the target block (the quip's cap top) for quip scale [q]. */
-    fun blockTop(q: Int): Int = targetTop + (targetBottom - targetTop - blockH(q)) / 2
+    /**
+     * Player-frame top of the target block (the quip's cap top) for quip scale [q]: centred on the
+     * tile, then kept inside [targetTop]..[targetBottom].
+     */
+    fun blockTop(q: Int): Int {
+        val h = blockH(q)
+        return ((H - h) / 2).coerceAtMost(targetBottom - h).coerceAtLeast(targetTop)
+    }
+
+    /** Width of the life unit (heart, gap, number) for [life]. */
+    private fun lifeUnitW(life: Int): Int = iconSize + iconGap + lifeFont.measureInt(life, lifeK)
+
+    /**
+     * The dotted rule between a quip of [quipLen] chars and [life]: 1 px tall, as wide as the wider
+     * of the two, centred, [ruleGap] under the quip's caps. Draw with `DitherRenderer.dottedH`.
+     */
+    fun ruleFootprint(seat: Int, quipLen: Int, life: Int, out: IRect) {
+        val q = quipK(quipLen)
+        val w = maxOf(ui.widthOf(quipLen, q), lifeUnitW(life))
+        play.mapRect(seat, (W - w) / 2, blockTop(q) + ui.capHeight * q + ruleGap, w, RULE, out)
+    }
 
     /** Footprint of a quip of [len] chars on [seat]'s tile, centred in the target block. Returns k. */
     fun quipFootprint(seat: Int, len: Int, out: IRect): Int {
@@ -177,12 +189,12 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
     }
 
     /**
-     * The target's life under a quip of [quipLen] chars: life icon then [life] in [lifeFont] at
-     * [lifeK], centred as one unit, [quipGap] below the quip's caps. Returns the glyph scale.
+     * The target's life under a quip of [quipLen] chars: heart icon then [life] in [lifeFont] at
+     * [lifeK], centred as one unit, below the rule. Returns the glyph scale.
      */
     fun lifeFootprint(seat: Int, quipLen: Int, life: Int, icon: IRect, number: IRect): Int {
         val q = quipK(quipLen)
-        val y = blockTop(q) + ui.capHeight * q + quipGap
+        val y = blockTop(q) + ui.capHeight * q + 2 * ruleGap + RULE
         val nw = lifeFont.measureInt(life, lifeK)
         val nh = lifeFont.height(lifeK)
         val unit = iconSize + iconGap + nw
@@ -237,7 +249,7 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
 
     override fun toString(): String =
         "CommanderLayout(S=${play.grid.scale} tk $tk, partner slots ${pW}w pm ${if (partnerPmVisible) "shown" else "hidden"}, " +
-            "target block $targetTop..$targetBottom, life ${lifeFont.name} k$lifeK, quip k $quipKMin..$quipKMax)"
+            "target block $targetTop..$targetBottom, life ${lifeFont.name} k$lifeK, quip k $quipKMax, rule gap $ruleGap)"
 
     companion object {
         /** Digits a partner number slot is sized for (commander damage past 99 is not a real game). */
@@ -246,9 +258,12 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
         /** Design values at S = 4 (converted per S). */
         const val ICON_GAP = 3
         const val LETHAL_PAD = 3
-        const val QUIP_GAP = 10
-        const val QUIP_K_MAX = 4
-        const val QUIP_K_MIN = 2
+        /** Quip caps at 2 × 7 = 14 px: the height of the 1× life beside the heart (T37). */
+        const val QUIP_K_MAX = 2
+        const val RULE_GAP = 6
+
+        /** The rule's thickness (dither px at every S, like the panel dividers). */
+        const val RULE = 1
 
         /** Minimum paper between a partner number and its ± glyphs (tighter than [PlayLayout.GAP_MIN]: two numbers share a tile). */
         const val PARTNER_GAP = 2

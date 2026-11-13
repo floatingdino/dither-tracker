@@ -58,19 +58,24 @@ class CommanderLayoutTest {
         // Target block: below the readout (39..53) + 4, above the tab band (154 − 8) − 4.
         assertEquals(57, c.targetTop); assertEquals(142, c.targetBottom)
         assertSame(Fonts.NUM_M, c.lifeFont); assertEquals(1, c.lifeK); assertEquals(16, c.lifeRowH)
-        assertEquals(10, c.quipGap)
-        // One size below the largest that fits (designer), never below 2.
-        assertEquals(4, c.quipFitK("Uh oh".length)); assertEquals(3, c.quipK("Uh oh".length))
-        assertEquals(2, c.quipFitK("Here it comes".length)); assertEquals(2, c.quipK("Here it comes".length))
-        assertEquals(2, c.quipK("Should've ducked".length))
-        // "UH OH" at k = 3: caps 76..97 centred, then 10 px, then the life row 107..123.
+        assertEquals(6, c.ruleGap)
+        // T37: every quip at k = 2 (14-px caps, the 1× life's height), the longest included.
+        assertEquals(2, c.quipKMax)
+        for (q in quips) assertEquals(q, 2, c.quipK(q.length))
+        // Block 14 + 6 + 1 + 6 + 16 = 43 tall, centred on the 175-px tile: caps 66..80, rule 86,
+        // life row 93..109.
+        assertEquals(43, c.blockH(2)); assertEquals(66, c.blockTop(2))
         val fp = IRect(); val icon = IRect(); val num = IRect()
-        assertEquals(3, c.quipFootprint(3, 5, fp))
-        assertEquals(IRect((233 - 87) / 2, 176 + 76, (233 - 87) / 2 + 87, 176 + 76 + 27), fp)
+        assertEquals(2, c.quipFootprint(3, 5, fp))
+        assertEquals(IRect((233 - 58) / 2, 176 + 66, (233 - 58) / 2 + 58, 176 + 66 + 18), fp)
+        c.ruleFootprint(3, 5, 40, fp)
+        assertEquals(IRect((233 - 58) / 2, 176 + 86, (233 - 58) / 2 + 58, 176 + 87), fp) // as wide as "UH OH"
+        c.ruleFootprint(3, 2, 40, fp)
+        assertEquals(IRect(96, 176 + 86, 137, 176 + 87), fp) // a 2-char quip: as wide as the life
         assertEquals(1, c.lifeFootprint(3, 5, 40, icon, num))
         // icon 16 + gap 3 + "40" (22) = 41 wide, centred at x 96
-        assertEquals(IRect(96, 176 + 107, 112, 176 + 123), icon)
-        assertEquals(IRect(115, 176 + 108, 137, 176 + 122), num)
+        assertEquals(IRect(96, 176 + 93, 112, 176 + 109), icon)
+        assertEquals(IRect(115, 176 + 94, 137, 176 + 108), num)
         // The close X sits centred on the diamond.
         assertEquals(IRect(225, 167, 241, 183), c.closeIcon)
     }
@@ -88,7 +93,7 @@ class CommanderLayoutTest {
             for (s in 0 until 4) for (q in quips) {
                 val k = c.quipFootprint(s, q.length, fp)
                 assertTrue("$c $q", k in 1..c.quipKMax)
-                assertTrue("$c $q", k <= c.quipFitK(q.length))
+                assertEquals("$c $q", c.quipK(q.length), k)
                 assertTrue("$c '$q' $fp", inside(fp, l.panels[s]))
                 assertTrue("$c '$q' $fp", inside(fp, c.lifeRow[s]))
                 c.lifeFootprint(s, q.length, -999, icon, num)
@@ -97,13 +102,22 @@ class CommanderLayoutTest {
                     assertFalse("$c '$q' quip vs life", overlaps(r, fp))
                 }
                 assertFalse(overlaps(icon, num))
-                // Deliberate spacing: exactly quipGap between the quip's caps and the life row.
+                val rule = IRect(); c.ruleFootprint(s, q.length, -999, rule)
+                assertEquals(1, rule.height)
+                assertTrue("$c '$q' $rule", inside(rule, c.lifeRow[s]))
+                // Deliberate spacing: ruleGap from the quip's caps to the rule and from the rule to the life row.
                 val capBottom = if (l.rotation[s] == 0) fp.top + c.ui.capHeight * k else fp.bottom - c.ui.capHeight * k
                 val lifeTop = if (l.rotation[s] == 0) minOf(icon.top, num.top) else maxOf(icon.bottom, num.bottom)
-                assertEquals("$c '$q'", c.quipGap, if (l.rotation[s] == 0) lifeTop - capBottom else capBottom - lifeTop)
+                if (l.rotation[s] == 0) {
+                    assertEquals("$c '$q'", c.ruleGap, rule.top - capBottom)
+                    assertEquals("$c '$q'", c.ruleGap, lifeTop - rule.bottom)
+                } else {
+                    assertEquals("$c '$q'", c.ruleGap, capBottom - rule.bottom)
+                    assertEquals("$c '$q'", c.ruleGap, rule.top - lifeTop)
+                }
                 // Clear of the readout, the tab band and the diamond.
                 for (o in listOf(l.readoutSlot[s], l.tabHit[s], l.diamond)) {
-                    for (r in listOf(fp, icon, num)) assertFalse("$c '$q' $r vs $o", overlaps(r, o))
+                    for (r in listOf(fp, icon, num, rule)) assertFalse("$c '$q' $r vs $o", overlaps(r, o))
                 }
                 // Centred across the tile (±1 for odd leftovers).
                 val p = l.panels[s]

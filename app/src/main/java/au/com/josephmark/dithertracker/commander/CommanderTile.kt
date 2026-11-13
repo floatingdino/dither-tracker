@@ -172,13 +172,15 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
         val rot = l.rotation[seat]
         if (tg !in players.indices) return
         if (seat == tg) {
-            // The target: one composed block — the quip in caps, then the life on paper.
+            // The target: one composed block — the quip in caps, a dotted rule, then the life.
             val q = mode.quip
             if (f.hit(c.lifeRow[seat])) {
                 label.set("", q, q.length)
                 val k = c.quipFootprint(seat, label.length, fp)
                 f.text.draw(c.ui, label, fp.left, fp.top, k, rot)
                 val life = players[seat].life
+                c.ruleFootprint(seat, label.length, life, fp)
+                f.r.dottedH(fp.left, fp.top, fp.width)
                 val lk = c.lifeFootprint(seat, label.length, life, fi, fp)
                 f.icons.icon(c.tk, Icon.LIFE, fi, rot, invert = false, opaque = false)
                 f.text.drawInt(c.lifeFont, life, fp.left, fp.top, lk, rot)
