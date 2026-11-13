@@ -314,6 +314,7 @@ def specimen(face):
     hero_w = HERO.width('108')
     col = hero_w + 14 + face.width('108') + 30
     width = max(pad * 2 + 2 * col, pad * 2 + face.width('0123456789+-', k2), pad * 2 + face.width('0123456789+- ', 1) + 40)
+    width = max(width, pad * 2 + UI.width('num-l sticker (hero, with shadow) beside the mini face, both at play size'))
     rows_h = face.h + 16 + face.h * k2 + 16 + 4 * (HERO.h + 12)
     height = pad + 14 + rows_h + 20 + pad
     c = Buf(width, height)
@@ -340,7 +341,7 @@ def comparison(faces):
     pad, gap, lab = 10, 10, 13
     cols = faces + [NUM_M]
     width = pad * 2 + len(cols) * PW + (len(cols) - 1) * gap
-    ro_h, pk_top = 120, 100
+    ro_h, pk_top = 120, 114
     pk_h = PH - pk_top + 6 + CELL_H + 4
     height = pad + lab + PH + 2 * gap + lab + ro_h + 2 * gap + lab + pk_h + pad + 12
     c = Buf(width, height)
