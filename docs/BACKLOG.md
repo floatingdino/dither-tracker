@@ -13,14 +13,17 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - Coordinator, per tick: (1) verify anything in `review` (build + tests + look at output), mark
   `done` or send back; (2) pick ready tasks whose **Files** don't overlap any `wip` task;
   (3) mark them `wip`, dispatch one Opus agent each; (4) log the tick below.
-- Commits: stage explicit paths only (never `git add docs` / `git add app` while agents are mid-edit —
-  tick 16 swept an agent's unverified doc edit into an unrelated commit). The coordinator (only) commits each verified task to the `build` branch, one commit
-  per task (`T07: …`), staging only that task's files. Never push; never commit to `main`.
-  (Approved by Sam 2026-11-13.)
+- **Commits are frequent and atomic** (Sam, 2026-11-13). Agents commit their own work to `build` as
+  they go: one logical change per commit (a layout rule + its tests; one icon; one renamed API), each
+  commit building and passing tests, message `T07: <what changed>`, ending with the Co-Authored-By
+  line. Stage explicit paths only — never `git add -A`, `git add .` or a whole shared directory; never
+  stage another agent's files. If `index.lock` is held by another agent, wait a moment and retry.
+  Never push, never commit to `main`, never rewrite history. The coordinator still verifies each task
+  after the agent reports and commits follow-up fixes and backlog updates separately.
 - **The Nomad is a single shared resource.** At most one running task may use the device
   (install/launch/tap/screencap); other concurrent tasks must be JVM-test-only and the coordinator
   does their device check afterwards. (Two agents tapping at once corrupted each other's runs in tick 11.)
-- Agents: work only inside the task's **Files**; don't edit this file; don't commit; finish by
+- Agents: work only inside the task's **Files**; don't edit this file; finish by
   reporting what was built, how it was verified, and anything left open.
 - "Verified" always means `./gradlew :core:test :app:assembleDebug` passes, plus the task's own check.
 - Screens are verified by rendering to PNG (Robolectric/Paparazzi-style JVM render or emulator
