@@ -15,14 +15,16 @@ A 1-bit life tracker for MTG Commander, built for E-ink. Primary target: **Super
    margin. **Fidelity always beats filling the view.** Never stretch, never fractional-scale.
 3. **Pattern phase is global.** Dither tiles are anchored to the screen origin, not to each view,
    so adjacent shaded regions tile seamlessly.
-4. **No motion, with one narrow exception.** No transitions, ripples, fades, animated scrolls or
-   tickers. State changes are a single redraw. The exception is **hit/heal effects** (direction from
-   Sam, 2026-11-13): small overlay flourishes for damage or healing — a swipe, crunch, fizzle — built
-   for e-ink: 2–4 hand-drawn 1-bit frames, each held long enough for the panel to settle
-   (≥ ~250 ms, tuned on device), confined to a small region near the life total (never the whole
-   panel), ending on a clean frame that leaves no residue, never delaying or blocking input, never
-   queued (a new tap cancels a running effect), and switchable off in settings. If an effect looks
-   smeary or trashy on the Nomad it is cut, not tuned forever.
+4. **Keyframes, not inbetweens.** (Sam, 2026-11-13: the rule is about making the best use of the
+   screen, not about banning animation.) No interpolation, easing, fades, smooth scrolling or
+   tickers — anything that needs many frames to read. Limited animation designed around the panel is
+   welcome: a few hand-drawn 1-bit keyframes (typically 2–4), each a complete still held long enough
+   for the panel to settle (≥ ~250 ms, tuned on device). Uses: hit/heal effects (swipe, crunch,
+   fizzle), a KO or winner flourish, dice/coin reveals, a drawer or menu arriving in one or two
+   beats. Constraints: keep the changed region small (never animate a whole panel when a corner will
+   do); end on a clean frame with no residue; never delay or block input (a tap cancels a running
+   sequence, sequences never queue); plain state changes stay a single redraw; effects can be
+   switched off in settings. If something looks smeary or trashy on the Nomad it is cut.
 5. **Cheap.** No Compose, no heavy deps. Custom `View`s drawing on `Canvas`. No allocations in
    `onDraw`. Cache tile bitmaps/shaders. Cold start should be near-instant; APK should be tiny.
 7. **Single window.** No Dialog, PopupWindow, Toast or system IME; overlays are drawn in-app. System

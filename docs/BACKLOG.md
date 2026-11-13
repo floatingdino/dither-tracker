@@ -177,3 +177,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   Design: `data/SaveStore` (atomic write + backup, 1 s debounce, 10 s cap), `Persistence` (worker
   thread, `onPause`/`onStop` flush, restore once per process), `SettingsHolder.shared`.
   Cold restore ~30 ms sync in `onCreate`. Known: a force-stop/crash within 1 s of a tap can lose it.
+- 2026-11-13 — Sam clarified the animation rule: "keyframes, not inbetweens" — limited animation that
+  respects the panel is welcome anywhere it earns its place, not just hit/heal. SPEC rule 4 rewritten.
+  Later UI tasks (T08 drawer, T09 menu, T15 KO, T16 dice/coin) may use 1–2 keyframe beats.
