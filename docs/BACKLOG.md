@@ -955,3 +955,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   `origin` at `build`'s tip and made the default branch; PR #1 retargeted to `main`; the draft
   release targets `main`; the local checkout is on `main`. `build` still exists on the remote,
   untouched from here on — delete it when Sam says. From now on all work lands on `main`.
+- 2026-11-14 — Tick 105: release dry run on Sam's go-ahead: the workflow run by hand on
+  `release/0.1.0` with publishing off passed every step with the real signing secrets (no fallback
+  warning). Downloaded artifact checked locally: `apksigner` verifies (v2 scheme), not the debug
+  certificate, package `com.floatingdino.dithertracker`, version code = run number, SHA-256 matches.
+  Still unexercised: the attach-to-drafted-release step (only runs on a real publish). GitHub warns
+  that `actions/setup-java@v4` is deprecated (v5) and Node 20 actions are being forced onto Node 24 —
+  works today; bump in a later change.
