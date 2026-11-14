@@ -100,10 +100,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T59 | review | T52 T58 | Sam's review of T52: a global fast/slow display flag, and a couple more in-between poses for die and coin on a fast display; the dice panel opens empty (no automatic d20); first player re-imagined as simultaneous d20 rolls on every live tile, results in the life-total digits, a sting and a "FIRST" flag on the winner, more informative quips ("On the play", "First out the gates"); PARTNER tab on the dither ground with halo/tape, new small-partner + / − icons instead of the big imp. | `tools`, `commander/`, `eink/`, `design/icons/` |
 | T60 | review | T53 | Sam's review of the layout picker ("a good start"): allow different-sized tiles within one game; thumbnails shrink so more options fit a page; each seat drawn as an inset dithered ground rather than outlined; no layout names; no drawer-tab mark in the thumbnails; add layouts with an empty seat (e.g. L shapes with any corner missing). Second reference in untracked `local/reference/`. | `layout/`, `settings/`, every N-seat component |
 | T61 | done (Sam picked the imp face / tail) | T59 | Sam: heads / tails coin icons. Today the coin result is shown by the coin sprite's face and the word; draw a distinct heads icon and tails icon in the icon family's style (2–3 options each), use them on the dice panel's coin result (and the coin sprite's two faces if they differ), keep them readable from both faces of the panel. | `design/icons/`, `tools` |
-| T62 | wip | T60 T58 | Screen size validation (Sam: "pay particular attention to any android based e-ink devices"): run the app at the real resolutions/densities of Android e-ink devices (Supernote, Boox by size incl. Palma, Bigme, Meebook, Hisense) and then phones and LCD tablets; AUTO scale vs physical size; cutouts, gesture edges, multi-window; `DisplaySpeed` on non-Supernote e-ink; `docs/compatibility.md`. Nomad must stay pixel-identical. | `play/PlayLayout`, `eink/`, docs |
+| T62 | review | T60 T58 | Screen size validation (Sam: "pay particular attention to any android based e-ink devices"): run the app at the real resolutions/densities of Android e-ink devices (Supernote, Boox by size incl. Palma, Bigme, Meebook, Hisense) and then phones and LCD tablets; AUTO scale vs physical size; cutouts, gesture edges, multi-window; `DisplaySpeed` on non-Supernote e-ink; `docs/compatibility.md`. Nomad must stay pixel-identical. | `play/PlayLayout`, `eink/`, docs |
 | T63 | done | T23 | GitHub release workflow: tag `v*` → tests, signed release APK, GitHub Release with the APK and its SHA-256; manual run builds an artifact only. Needs four signing secrets (README "Releases on GitHub"). | `.github/workflows/release.yml`, gradle, README |
 | T64 | todo | no agents in the source tree | Rename the code to match the application id: namespace, Kotlin packages and source directories `au.com.josephmark.dithertracker` → `com.floatingdino.dithertracker` (app and core), generated-source package names in `app/build.gradle.kts` and `design/*/author*.py`, docs; then scripts can use `$P/.MainActivity` again. Purely mechanical; every file moves, so run it alone. | whole tree |
-| T65 | wip (settle physics) | T59 T55 | Sam: animations feel "a bit linear/sauceless", especially the first roll and dice rolls — more time on the final pose to land, push/pull on frame timings for a slow-in/slow-out feel and readability, dice and the first-roll number sit a bit longer. Timing pass over dice, coin, first player and every effect's holds; FAST/SLOW hold sets; SPEC timing note. | `tools`, `fx/`, `design/fx/*/meta.txt` |
+| T65 | review | T59 T55 | Sam: animations feel "a bit linear/sauceless", especially the first roll and dice rolls — more time on the final pose to land, push/pull on frame timings for a slow-in/slow-out feel and readability, dice and the first-roll number sit a bit longer. Timing pass over dice, coin, first player and every effect's holds; FAST/SLOW hold sets; SPEC timing note. | `tools`, `fx/`, `design/fx/*/meta.txt` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -902,3 +902,18 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   reset. T65 had already committed the settle physics, the flag wave and re-taken captures; T62 had
   an uncommitted README edit and `docs/compatibility.md` in the tree. Neither verified yet.
   Running: T62, T65.
+- 2026-11-14 — Tick 97: T65 follow-ups and T62 reported. Coordinator clean build at the resume
+  commit (176 core + 8954 app; includes all code from both), on the Nomad. **T65:** every d20/d6
+  pose is the resting die turned back by what is left of one roll, one direction, bounces
+  decreasing, spacing shrinking; FAST gets a 140 ms wobble past the face; rest sits on a face (flat
+  16 px base, pinned by a test) 400/500 ms; "D20" label and the small die removed; the winner's flag
+  wave is drawn by the roll-off at the reveal (frames 0,1,0,1,2) and `Events.FIRST_PLAYER` is no
+  longer sent. **T62:** `docs/compatibility.md`. All 2–6 player arrangements comfortable on Supernote
+  Nomad/Manta, Boox 7"–13.3" and 6" (S2–S4); "cramped" (works, badges dropped) on Boox Poke 4 Lite
+  and phone-shaped e-ink (Palma, HiBreak, Hisense A9); phones and tablets secondary. Fixes: open gem
+  must fit the grid to count as comfortable; crash on very small windows; grid laid inside
+  display-cutout insets; `DisplaySpeed` treats Onyx/Boox/Bigme/Boyue/Meebook/Hisense A-series as
+  e-ink (SLOW). Nomad byte-identical per the agent (199/199 purity, 46 non-effect captures equal).
+  Untested: any real device but the Nomad; API 26–36. **Needs Sam:** density-aware chrome (tabs/icons
+  are sized for 300 dpi; ~84 call sites); a compact tier for phone-shaped e-ink; a display-speed
+  override for non-Supernote e-ink; Onyx `EpdController` if a Boox can be tested. No agents running.
