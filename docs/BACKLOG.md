@@ -940,3 +940,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   commander mode, overlays, roll-off, a winner, or paused. Saves v1–v5 load (old wall-clock turn
   stamps dropped). In `review`. **Needs Sam:** GAME total on every seat or only the winner; `ui`
   font on 6-player middle tabs; hourglass option A (shipped) vs B. No agents running.
+- 2026-11-14 — Tick 102: Sam: the game-end time report should use a mini egg timer, not the
+  stopwatch. Swapped by the coordinator to `hourglass-2`; 183 core + 9000 app; captures re-taken; on
+  the Nomad. The `timer` icon is now unused.
