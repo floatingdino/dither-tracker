@@ -113,12 +113,18 @@ class FirstRoll(
 
     private fun schedule(ms: Long) = timers.schedule(TIMER_STEP, ToolsDebug.hold(ms))
 
-    /** Highest value among [seats]; the tied set ([tied]); the winner when it is alone. */
+    /**
+     * Highest value among the seats that rolled this round ([rolling]: everyone in round one, then
+     * only the seats tied for the win); the tied set ([tied]); the winner when it is alone. Seats that
+     * lost an earlier round are out: a tie-break's low re-rolls are never compared with their old
+     * rolls, so a tie among low rolls never re-rolls and a loser can never win on a re-roll.
+     */
     private fun judge(): Boolean {
+        val who = rolling
         var best = 0
-        for (s in 0 until MAX_SEATS) if ((seats ushr s) and 1 == 1 && value[s] > best) best = value[s]
+        for (s in 0 until MAX_SEATS) if ((who ushr s) and 1 == 1 && value[s] > best) best = value[s]
         var top = 0
-        for (s in 0 until MAX_SEATS) if ((seats ushr s) and 1 == 1 && value[s] == best) top = top or (1 shl s)
+        for (s in 0 until MAX_SEATS) if ((who ushr s) and 1 == 1 && value[s] == best) top = top or (1 shl s)
         tied = top
         if (Integer.bitCount(top) == 1) {
             winner = Integer.numberOfTrailingZeros(top)

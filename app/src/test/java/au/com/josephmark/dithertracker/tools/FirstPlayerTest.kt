@@ -143,6 +143,49 @@ class FirstPlayerTest {
         assertFalse(r.roll.drawn)
     }
 
+    /** Sam: "tie resolution is only necessary for winning rolls - tied low rolls should not re-roll". */
+    @Test fun tiedLowRollsNeverRerollAndALoserCannotWinTheTieBreak() {
+        // Round one: seats 0 and 2 tie on 18; seats 1 and 3 tie on 4 and are out. The tie-break is
+        // 3 vs 2 — both lower than the 4s — and seat 0 still wins it.
+        val r = StateRig(Rolls(18, 4, 18, 4, 3, 2))
+        r.roll.start(0b1111)
+        playOut(r, FirstRoll.SLOW_POSES, FirstRoll.SLOW_POSE_MS)
+        rest(r, FirstRoll.SLOW_REST_MS)
+        r.timers.advance(FirstRoll.LANDED_MS)
+        assertEquals(FirstRoll.TIE, r.roll.phase)
+        assertEquals("only the winning tie is a tie", 0b0101, r.roll.tied)
+        r.timers.advance(FirstRoll.TIE_MS)
+        assertEquals(0b0101, r.roll.rolling)
+        playOut(r, FirstRoll.SLOW_POSES, FirstRoll.SLOW_POSE_MS)
+        rest(r, FirstRoll.SLOW_REST_MS)
+        assertEquals(FirstRoll.LANDED, r.roll.phase)
+        assertEquals("the tie-break is settled between the tied seats only", 0, r.roll.winner)
+        assertEquals(0, r.roll.tied)
+        assertEquals(2, r.roll.round)
+        r.timers.advance(FirstRoll.LANDED_MS)
+        assertEquals(FirstRoll.WINNER, r.roll.phase)
+    }
+
+    @Test fun aLowTieWithAClearWinnerIsNoTieAtAll() {
+        val r = StateRig(Rolls(7, 19, 7, 7))
+        r.roll.start(0b1111)
+        playOut(r, FirstRoll.SLOW_POSES, FirstRoll.SLOW_POSE_MS)
+        rest(r, FirstRoll.SLOW_REST_MS)
+        assertEquals(1, r.roll.winner)
+        assertEquals(0, r.roll.tied)
+        r.timers.advance(FirstRoll.LANDED_MS)
+        assertEquals(FirstRoll.WINNER, r.roll.phase)
+        assertEquals(1, r.roll.round)
+    }
+
+    @Test fun aSkippedTieBreakIsAlsoSettledBetweenTheTiedSeatsOnly() {
+        val r = StateRig(Rolls(18, 4, 18, 4, 3, 2))
+        r.roll.start(0b1111)
+        r.roll.skip()
+        assertEquals(FirstRoll.WINNER, r.roll.phase)
+        assertEquals(0, r.roll.winner)
+    }
+
     @Test fun endlessTiesStopAtTheCapWithARandomPick() {
         val r = StateRig(Rolls(*IntArray(40) { 20 }))
         r.roll.start(0b111)
