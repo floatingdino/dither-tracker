@@ -90,6 +90,7 @@ class FirstPlayerTest {
 
     @Test fun clearsAfterAWhileWithOneRedrawOfTheBand() {
         val r = Rig()
+        r.rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.fx.FxComponent>().single().player.enabled = false // T55's effect (fx tests) aside
         r.pickFromMenu()
         val seat = r.first.seat
         r.rig.platform.invalidated.clear()

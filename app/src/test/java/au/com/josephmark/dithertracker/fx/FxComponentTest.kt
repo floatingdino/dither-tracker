@@ -3,6 +3,8 @@ package au.com.josephmark.dithertracker.fx
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Commander
 import au.com.josephmark.dithertracker.core.Counter
+import au.com.josephmark.dithertracker.core.DayNight
+import au.com.josephmark.dithertracker.core.Toggle
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.dither.DitherGrid
@@ -100,10 +102,10 @@ class FxComponentTest {
         assertNull(fx.player.current(2))
         rig.platform.clock.advance(quiet)
         assertNull("same band, same group: no replay", fx.player.current(2))
-        // Escalate: a hold step of −10 takes the group's total to −13 → the big-hit band.
+        // Escalate: a hold step of −10 takes the group's total to −13 → the huge band.
         holdFor(rig, 2, PlayLayout.MINUS, steps = 1)
         rig.platform.clock.advance(quiet)
-        assertEquals("escalated into a bigger band", Fx.byName("focus"), fx.player.current(2))
+        assertEquals("escalated into a bigger band", FxRole.BIG_HIT, fx.player.current(2)!!.role)
         fx.player.cancelAll()
         tap(rig.stage, rig.l, 2, PlayLayout.PLUS) // −12: still big; back down never replays a smaller band
         rig.platform.clock.advance(quiet)
@@ -126,15 +128,15 @@ class FxComponentTest {
         tap(rig.stage, rig.l, 2, PlayLayout.PLUS, times = 2)
         rig.platform.clock.advance(quiet)
         assertNull(fx.player.current(2))
-        // A big hit (one hold step of 10): focus.
+        // A huge hit (one hold step of 10): focus or stomp.
         holdFor(rig, 2, PlayLayout.MINUS, steps = 1)
         assertNull("nothing during the hold", fx.player.current(2))
         rig.platform.clock.advance(quiet)
-        assertEquals(Fx.byName("focus"), fx.player.current(2))
+        assertTrue(fx.player.current(2) in listOf(Fx.byName("focus"), Fx.byName("stomp")))
         fx.player.cancelAll()
         holdFor(rig, 3, PlayLayout.PLUS, steps = 1)
         rig.platform.clock.advance(quiet)
-        assertTrue(fx.player.current(3) in listOf(Fx.byName("sunrise"), Fx.byName("vines")))
+        assertTrue(fx.player.current(3) in listOf(Fx.byName("sunrise"), Fx.byName("vines"), Fx.byName("heart-burst")))
     }
 
     /** Presses [seat]'s [side] and holds it through [steps] repeat steps, then releases. */
@@ -172,8 +174,8 @@ class FxComponentTest {
         val ko = rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.ko.KoComponent>().single()
         val r = rig.l.zones[PlayLayout.zone(2, PlayLayout.MINUS)]
         rig.stage.down(0, r.left + 8, (r.top + r.bottom) / 2, 0)
-        rig.platform.clock.advance(500 + quiet) // 40 → 30, quiet: the big hit plays mid-hold, once
-        assertEquals(Fx.byName("focus"), fx.player.current(2))
+        rig.platform.clock.advance(500 + quiet) // 40 → 30, quiet: the huge hit plays mid-hold, once
+        assertEquals(FxRole.BIG_HIT, fx.player.current(2)!!.role)
         rig.platform.clock.advance(3 * 1_000 - quiet) // → 20 → 10 → 0: KO (no replay for −20, −30)
         assertEquals(0, rig.session.state.players[2].life)
         assertTrue("dead tile held off at the KO (KO_HOLD)", (ko.held ushr 2) and 1 != 0)
@@ -235,14 +237,186 @@ class FxComponentTest {
         assertEquals(emptyList<Int>(), playing(fx))
     }
 
-    @Test fun poisonAndCountersPlayNothing() {
+    @Test fun countersPlayTheirEffectOnAGainOnceABurstGoesQuiet() {
         val (rig, fx) = rig()
-        rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), Counter.POISON, 3))
+        for ((c, want) in listOf(
+            Counter.POISON to listOf("ooze", "brand"), Counter.ENERGY to listOf("charge"),
+            Counter.EXPERIENCE to listOf("level-up"), Counter.RAD to listOf("rad-glow"), Counter.STORM to listOf("storm-copy"),
+        )) {
+            rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), c, 1))
+            rig.platform.clock.advance(quiet - 1)
+            assertNull(fx.player.current(2))
+            rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), c, 1)) // a burst: the quiet restarts
+            rig.platform.clock.advance(quiet)
+            assertTrue("$c → ${fx.player.current(2)}", fx.player.current(2)?.id in want)
+            fx.player.cancelAll()
+            rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), c, 1)) // same burst (< 3 s): no replay
+            rig.platform.clock.advance(quiet)
+            assertNull("$c once per burst", fx.player.current(2))
+            rig.platform.clock.advance(FxComponent.BURST_MS)
+        }
+        // Tickets and the generic counter play nothing; nor does a decrement, or a gain undone in its burst.
+        rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), Counter.TICKETS, 1))
+        rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), Counter.POISON, -1))
+        rig.platform.clock.advance(quiet)
+        assertNull(fx.player.current(2))
+        rig.stage.dispatch(1, Action.ChangeCounter(rig.id(1), Counter.ENERGY, 1))
+        rig.stage.dispatch(1, Action.ChangeCounter(rig.id(1), Counter.ENERGY, -1))
+        rig.platform.clock.advance(quiet)
+        assertNull("+1 −1 inside a burst nets nothing", fx.player.current(1))
+    }
+
+    @Test fun togglesPlayWhenTurnedOnNeverOff() {
+        val (rig, fx) = rig()
+        for ((t, want) in listOf(Toggle.MONARCH to "crown-drop", Toggle.INITIATIVE to "torch", Toggle.RING_BEARER to "ring-tempt")) {
+            rig.stage.dispatch(1, Action.SetToggle(rig.id(1), t, true))
+            rig.platform.clock.advance(quiet)
+            assertEquals(t.name, want, fx.player.current(1)?.id)
+            fx.player.cancelAll()
+            rig.stage.dispatch(1, Action.SetToggle(rig.id(1), t, false))
+            rig.platform.clock.advance(quiet + FxComponent.BURST_MS)
+            assertNull("$t off plays nothing", fx.player.current(1))
+        }
+        rig.stage.dispatch(1, Action.SetToggle(rig.id(1), Toggle.CITYS_BLESSING, true))
+        rig.platform.clock.advance(quiet)
+        assertNull("bunting is not approved", fx.player.current(1))
+        // Claiming the monarch from another seat: the new monarch plays, the old one doesn't.
+        rig.stage.dispatch(1, Action.SetToggle(rig.id(1), Toggle.MONARCH, true))
+        rig.platform.clock.advance(quiet + FxComponent.BURST_MS)
+        fx.player.cancelAll()
+        rig.stage.dispatch(3, Action.SetToggle(rig.id(3), Toggle.MONARCH, true))
+        rig.platform.clock.advance(quiet)
+        assertEquals(Fx.byName("crown-drop"), fx.player.current(3))
+        assertNull(fx.player.current(1))
+    }
+
+    @Test fun hiddenTrackersPlayNothing() {
+        val (rig, fx) = rig()
+        val st = rig.stage.settings
+        st.update(st.current.copy(drawerCounters = st.current.drawerCounters - Counter.POISON,
+            hiddenTrackers = setOf(au.com.josephmark.dithertracker.core.serial.Tracker.MONARCH, au.com.josephmark.dithertracker.core.serial.Tracker.DAY_NIGHT)))
+        rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), Counter.POISON, 1))
+        rig.stage.dispatch(1, Action.SetToggle(rig.id(1), Toggle.MONARCH, true))
+        rig.stage.dispatch(0, Action.SetDayNight(DayNight.NIGHT))
         rig.platform.clock.advance(quiet)
         assertEquals(emptyList<Int>(), playing(fx))
     }
 
-    @Test fun commanderDamageLifeLossIsDamageOnTheTargetWhenTheModeCloses() {
+    @Test fun nightAndDayPlayOnEveryLiveSeatAtOnceInOneFlush() {
+        val (rig, fx) = rig()
+        setLife(rig.session, 3, 0) // a KO'd seat plays nothing
+        rig.platform.clock.advance(10_000)
+        rig.stage.dispatch(0, Action.SetDayNight(DayNight.NIGHT))
+        rig.platform.clock.advance(quiet)
+        assertEquals(listOf(0, 1, 2), playing(fx))
+        for (s in 0..2) assertEquals(Fx.byName("dusk"), fx.player.current(s))
+        assertEquals("past the cap of two", 3, fx.player.active)
+        assertEquals(0b0111, fx.player.group)
+        // Each keyframe is one flush for every seat.
+        val before = rig.platform.invalidated.size
+        rig.platform.clock.advance(fx.player.hold(Fx.byName("dusk")!!, 0))
+        assertEquals("every seat's keyframe in one flush", before + 1, rig.platform.invalidated.size)
+        // A touch on one seat stops it there only.
+        val r = rig.l.zones[PlayLayout.zone(1, PlayLayout.PLUS)]
+        rig.stage.down(1, (r.left + r.right) / 2, (r.top + r.bottom) / 2, 0)
+        rig.stage.up(1)
+        assertEquals(listOf(0, 2), playing(fx))
+        rig.platform.clock.advance(5_000)
+        assertEquals(emptyList<Int>(), playing(fx))
+        rig.stage.dispatch(2, Action.SetDayNight(DayNight.DAY))
+        rig.platform.clock.advance(quiet)
+        assertEquals(listOf(0, 1, 2), playing(fx))
+        assertEquals(Fx.byName("dawn"), fx.player.current(1))
+        rig.platform.clock.advance(5_000)
+        rig.stage.dispatch(2, Action.SetDayNight(DayNight.UNSET))
+        rig.platform.clock.advance(quiet + FxComponent.BURST_MS)
+        assertEquals("unset plays nothing", emptyList<Int>(), playing(fx))
+    }
+
+    @Test fun theTurnPassingPlaysOnTheNewActiveSeat() {
+        val (rig, fx) = rig()
+        val turn = rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.turns.TurnTab>().single()
+        rig.stage.dispatch(-1, Action.SetStartingPlayer(rig.id(1)))
+        assertEquals(1, turn.shownSeat)
+        turn.onTap(1, au.com.josephmark.dithertracker.turns.TurnTab.PASS)
+        val now = fx.player.current(2)
+        assertTrue("${now?.id}", now?.id in listOf("your-turn", "spotlight"))
+        assertEquals(listOf(2), playing(fx))
+        // Undoing the pass plays nothing (external) and stops it.
+        rig.session.undo()
+        assertEquals(emptyList<Int>(), playing(fx))
+    }
+
+    @Test fun theFirstPlayerPickPlaysTheStartFlagOnTheirTile() {
+        val (rig, fx) = rig()
+        val first = rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.tools.FirstPlayer>().single()
+        first.pick()
+        var seat = -1
+        repeat(200) {
+            if (seat < 0) for (s in 0 until 4) if (fx.player.current(s) == Fx.byName("start-flag")) seat = s
+            if (seat < 0) rig.platform.clock.advance(25)
+        }
+        assertTrue("start-flag played", seat >= 0)
+        assertEquals(rig.session.state.turn.startingPlayer, rig.id(seat))
+    }
+
+    @Test fun aReviveFromTheKoTilePlaysRevive() {
+        val (rig, fx) = rig()
+        setLife(rig.session, 2, 0)
+        rig.platform.clock.advance(10_000)
+        rig.stage.dispatch(2, Action.Revive(rig.id(2)))
+        rig.platform.clock.advance(quiet)
+        assertEquals(Fx.byName("revive"), fx.player.current(2))
+    }
+
+    @Test fun nothingPlaysOnUndoRedoOrRestoreOfAGain() {
+        val (rig, fx) = rig()
+        rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), Counter.POISON, 2))
+        rig.stage.dispatch(1, Action.SetToggle(rig.id(1), Toggle.MONARCH, true))
+        rig.session.undo(); rig.session.undo()
+        rig.platform.clock.advance(quiet)
+        assertEquals("undo before the quiet: nothing", emptyList<Int>(), playing(fx))
+        rig.session.redo(); rig.session.redo()
+        rig.platform.clock.advance(quiet + FxComponent.BURST_MS)
+        assertEquals("redo is external: nothing", emptyList<Int>(), playing(fx))
+        // A restored game (state set from outside the screen) plays nothing either.
+        rig.session.dispatch(Action.ChangeCounter(rig.id(3), Counter.RAD, 5), 0L)
+        rig.session.dispatch(Action.SetDayNight(DayNight.NIGHT), 0L)
+        rig.platform.clock.advance(quiet)
+        assertEquals(emptyList<Int>(), playing(fx))
+    }
+
+    @Test fun effectsNeverPlayOnAKoTileOrUnderAnOverlay() {
+        val (rig, fx) = rig()
+        setLife(rig.session, 2, 0)
+        rig.platform.clock.advance(10_000)
+        rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), Counter.POISON, 1)) // (no drawer on a dead tile; forced)
+        rig.platform.clock.advance(quiet)
+        assertNull(fx.player.current(2))
+        rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.history.HistoryOverlay>().single()
+            .open(au.com.josephmark.dithertracker.menu.MenuItem.LOG, 0) // a full overlay
+        rig.stage.dispatch(1, Action.ChangeCounter(rig.id(1), Counter.ENERGY, 1))
+        rig.platform.clock.advance(quiet)
+        assertNull("under the menu", fx.player.current(1))
+    }
+
+    @Test fun aCompactSeatClipsItsEffectToTheAreaAboveTheDrawer() {
+        val (rig, fx) = rig()
+        val drawer = rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.drawer.DrawerComponent>().single()
+        drawer.controller.onTap(2, au.com.josephmark.dithertracker.drawer.DrawerZones.TAB)
+        val tiles = rig.stage.tiles!!
+        assertTrue(tiles.compact(2))
+        rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), Counter.POISON, 1))
+        rig.platform.clock.advance(quiet)
+        assertTrue(fx.player.current(2)?.id in listOf("ooze", "brand"))
+        val a = tiles.lifeFeedback(2, PlayLayout.MINUS)
+        val b = tiles.lifeFeedback(2, PlayLayout.PLUS)
+        val upper = IRect(minOf(a.left, b.left), minOf(a.top, b.top), maxOf(a.right, b.right), maxOf(a.bottom, b.bottom))
+        val got = fx.areaOf(2)
+        assertTrue("$got inside $upper", got.left >= upper.left && got.top >= upper.top && got.right <= upper.right && got.bottom <= upper.bottom)
+    }
+
+    @Test fun commanderDamageLifeLossPlaysTheImpOnTheTargetWhenTheModeCloses() {
         val (rig, fx) = rig()
         val target = 2
         rig.cmd.mode.press(target)
@@ -255,7 +429,7 @@ class FxComponentTest {
         assertEquals(emptyList<Int>(), playing(fx))
         rig.cmd.mode.exit()
         assertEquals(listOf(target), playing(fx))
-        assertEquals(FxRole.DAMAGE, fx.player.current(target)!!.role)
+        assertEquals(FxRole.COMMANDER, fx.player.current(target)!!.role)
     }
 
     // ---- KO and winner -------------------------------------------------------------------------------

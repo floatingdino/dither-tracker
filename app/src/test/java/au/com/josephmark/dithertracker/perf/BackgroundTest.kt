@@ -61,6 +61,25 @@ class BackgroundTest {
         assertEquals("timers armed after pause", "", armed(rig))
     }
 
+    @Test fun pauseWithACounterOrDayNightEffectPendingLeavesNothingArmed() {
+        val rig = ScreenRig(1872, 1404, 4)
+        rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), au.com.josephmark.dithertracker.core.Counter.POISON, 1))
+        rig.stage.dispatch(1, Action.SetDayNight(au.com.josephmark.dithertracker.core.DayNight.NIGHT))
+        rig.stage.send(Events.PAUSE, Stage.SCREEN)
+        assertEquals("timers armed after pause", "", armed(rig))
+        val before = rig.platform.count
+        rig.advance(60_000)
+        assertEquals(before, rig.platform.count)
+        // Mid all-seat effect: stopped, nothing armed.
+        rig.stage.send(Events.RESUME, Stage.SCREEN)
+        rig.stage.dispatch(1, Action.SetDayNight(au.com.josephmark.dithertracker.core.DayNight.DAY))
+        rig.advance(FxComponent.QUIET_MS)
+        assertTrue(rig.fx.player.group != 0)
+        rig.stage.send(Events.PAUSE, Stage.SCREEN)
+        assertEquals(0, rig.fx.player.active)
+        assertEquals("timers armed after pause", "", armed(rig))
+    }
+
     @Test fun pauseBeforeTheQuietTimerFiresLeavesNothingArmed() {
         val rig = ScreenRig(1872, 1404, 4)
         rig.tap(rig.life, 2, PlayLayout.MINUS)

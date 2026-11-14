@@ -12,7 +12,7 @@ class FxPlayerTest {
     private val pow = Fx.byName("pow")!!         // holds 350 300 0
     private val twinkle = Fx.byName("twinkle")!! // holds 300 300 250 0
 
-    private val sched = FakeScheduler(4)
+    private val sched = FakeScheduler(5) // 4 seats + the all-seat group's timer
     private val events = ArrayList<String>()
     private val player: FxPlayer = FxPlayer(4, sched, { seat -> events += "$seat:${player.current(seat)?.id ?: "clean"}:${player.frame(seat)}@${sched.now}" })
         .also { sched.target = it }
@@ -132,5 +132,55 @@ class FxPlayerTest {
     @Test fun staleTimerOnCleanSeatIsHarmless() {
         player.onTimer(2)
         assertTrue(events.isEmpty())
+    }
+
+    // ---- all seats at once (T55: dusk / dawn) ---------------------------------------------------------
+
+    @Test fun playAllStartsEverySeatPastTheCapAndStepsThemOnOneTimer() {
+        player.maxConcurrent = 2
+        assertTrue(player.playAll(0b1111, twinkle))
+        assertEquals(4, player.active)
+        assertEquals(0b1111, player.group)
+        for (s in 0 until 4) assertFalse("no per-seat timers", sched.isArmed(s))
+        assertTrue(sched.isArmed(player.groupTimer))
+        sched.advance(300)
+        // One timer: every seat's keyframe changes at the same instant (one entry point, one flush).
+        assertEquals(listOf("0:twinkle:1@300", "1:twinkle:1@300", "2:twinkle:1@300", "3:twinkle:1@300"), events.takeLast(4))
+        sched.advance(5000)
+        for (s in 0 until 4) assertNull(player.current(s))
+        assertEquals(0, player.active)
+        assertEquals(0, player.group)
+        assertFalse(sched.isArmed(player.groupTimer))
+    }
+
+    @Test fun aSeatLeavesTheGroupOnCancelOrAnotherEffectAndTheRestCarryOn() {
+        player.playAll(0b0111, twinkle)
+        player.cancel(1)
+        assertNull(player.current(1))
+        assertEquals(0b0101, player.group)
+        assertTrue(player.play(2, pow)) // replaces seat 2's group frame with its own timer
+        assertEquals(0b0001, player.group)
+        assertTrue(sched.isArmed(2))
+        sched.advance(300)
+        assertEquals(1, player.frame(0))
+        assertEquals(pow, player.current(2))
+        player.cancel(0)
+        assertEquals(0, player.group)
+        assertFalse("the group's timer goes with its last seat", sched.isArmed(player.groupTimer))
+    }
+
+    @Test fun playAllReplacesPlainEffectsAndAPreviousGroup() {
+        player.play(1, pow)
+        player.playAll(0b0011, twinkle)
+        assertEquals(twinkle, player.current(1))
+        assertFalse(sched.isArmed(1))
+        assertEquals(2, player.active)
+        player.playAll(0b1100, pow)
+        assertNull("the old group stopped", player.current(0))
+        assertEquals(0b1100, player.group)
+        assertEquals(2, player.active)
+        player.enabled = false
+        assertFalse(player.playAll(0b1111, pow))
+        assertEquals(0, player.active)
     }
 }

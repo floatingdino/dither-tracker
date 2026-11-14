@@ -85,7 +85,7 @@ class AllocationBudgetTest {
         rig.advance(60_000) // mode times out
         rig.openMenu()
         assertDrawFree(rig, "gem open")
-        rig.openMenu() // the centre X closes it
+        rig.closeMenu() // the centre X closes it
         rig.openFromMenu(MenuItem.SETUP)
         assertDrawFree(rig, "settings card")
         rig.settings.close()
@@ -199,6 +199,34 @@ class AllocationBudgetTest {
         }
         println("T20 allocation: tap + commit + effect round ${round} B (core alone ${core} B)")
         assertTrue("tap + commit + effect allocates $round B, core alone $core B", round - core <= APP_SLACK_BYTES)
+    }
+
+    /**
+     * T55: a counter gain, a toggle and day/night (all seats at once) — the state diff, the quiet
+     * timer, the effect's keyframes and its clean frame — add nothing to core's own state change.
+     */
+    @Test fun counterToggleAndDayNightEffectsAllocateNothingInTheApp() {
+        val rig = rig()
+        val id = rig.id(2)
+        var i = 0
+        fun step(a: au.com.josephmark.dithertracker.core.Action) {
+            rig.stage.dispatch(2, a)
+            rig.render(false)
+            repeat(16) { rig.advance(250); rig.render(false) } // quiet, keyframes, clean, the burst window
+        }
+        val actions = listOf(
+            au.com.josephmark.dithertracker.core.Action.ChangeCounter(id, au.com.josephmark.dithertracker.core.Counter.POISON, 1),
+            au.com.josephmark.dithertracker.core.Action.ChangeCounter(id, au.com.josephmark.dithertracker.core.Counter.POISON, -1),
+            au.com.josephmark.dithertracker.core.Action.SetToggle(id, au.com.josephmark.dithertracker.core.Toggle.MONARCH, true),
+            au.com.josephmark.dithertracker.core.Action.SetToggle(id, au.com.josephmark.dithertracker.core.Toggle.MONARCH, false),
+            au.com.josephmark.dithertracker.core.Action.SetDayNight(au.com.josephmark.dithertracker.core.DayNight.NIGHT),
+            au.com.josephmark.dithertracker.core.Action.SetDayNight(au.com.josephmark.dithertracker.core.DayNight.DAY),
+        )
+        val round = bytes(warm = 4) { for (a in actions) step(a) }
+        rig.stage.detach()
+        val core = bytes(warm = 4) { for (a in actions) rig.session.dispatch(a, rig.now, null) }
+        println("T55 allocation: counter/toggle/day-night round ${round} B (core alone ${core} B)")
+        assertTrue("effects for counters/toggles/day-night allocate $round B, core alone $core B", round - core <= APP_SLACK_BYTES)
     }
 
     companion object {

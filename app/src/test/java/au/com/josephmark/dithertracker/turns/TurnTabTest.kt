@@ -144,6 +144,7 @@ class TurnTabTest {
 
     @Test fun tapPassesClockwiseSkippingKnockedOutSeatsAndRedrawsOnlyTheTwoTabs() {
         val r = Rig()
+        r.c.stage.components.filterIsInstance<au.com.josephmark.dithertracker.fx.FxComponent>().single().player.enabled = false // T55's effect (fx tests) aside
         r.start(1)
         r.c.dispatch(Action.MarkDead(r.c.id(2)))
         r.c.advance(5_000)

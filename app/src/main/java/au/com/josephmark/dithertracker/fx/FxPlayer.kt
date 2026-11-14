@@ -18,6 +18,10 @@ import kotlin.math.roundToLong
  * - At most [maxConcurrent] seats animate at once; a [play] on another seat beyond that is dropped
  *   (returns false) and the caller just draws clean.
  * - [enabled] = false drops every [play] and cancels anything running.
+ * - **All seats at once** (T55, `dusk`/`dawn`): [playAll] starts one effect on a set of seats past
+ *   the cap, stepped together by ONE timer ([groupTimer] = `seats`), so each keyframe is one entry
+ *   point and one flush for every seat (one panel update, not one per seat). A seat leaves the group
+ *   when it is cancelled or given another effect; the others carry on.
  *
  * [Listener.onFrameChanged] fires exactly when what a seat shows changes — once per keyframe — and
  * is the only invalidation effects need. Main-thread only, like the scheduler.
@@ -58,6 +62,15 @@ class FxPlayer(
     private val effect = arrayOfNulls<Fx>(seats)
     private val frame = IntArray(seats)
 
+    /** The scheduler id of the all-seat group's timer (the seat ids are `0 until seats`). */
+    val groupTimer: Int = seats
+
+    /** Seats playing the all-seat group's effect (bit `1 shl seat`). */
+    var group: Int = 0
+        private set
+    private var groupFx: Fx? = null
+    private var groupFrame = 0
+
     /** Number of seats currently animating. */
     var active: Int = 0
         private set
@@ -79,6 +92,7 @@ class FxPlayer(
         if (!enabled || seat !in effect.indices) return false
         if (effect[seat] == null && active >= maxConcurrent) return false
         if (fx.frameCount < 2) return false // nothing drawn (generator guarantees ≥ 2)
+        leaveGroup(seat)
         if (effect[seat] == null) active++
         effect[seat] = fx
         frame[seat] = 0
@@ -87,11 +101,51 @@ class FxPlayer(
         return true
     }
 
+    /**
+     * Starts [fx] on every seat in [seats] (bit mask) at once, past [maxConcurrent], stepped by one
+     * timer. Replaces what those seats show (a previous group stops first). False when disabled or
+     * nothing to play.
+     */
+    fun playAll(seats: Int, fx: Fx): Boolean {
+        if (!enabled || fx.frameCount < 2) return false
+        var mask = 0
+        for (s in effect.indices) if (seats and (1 shl s) != 0) mask = mask or (1 shl s)
+        if (mask == 0) return false
+        cancelGroup()
+        for (s in effect.indices) {
+            if (mask and (1 shl s) == 0) continue
+            if (effect[s] == null) active++ else scheduler.cancel(s)
+            effect[s] = fx
+            frame[s] = 0
+        }
+        group = mask
+        groupFx = fx
+        groupFrame = 0
+        scheduler.schedule(groupTimer, hold(fx, 0))
+        for (s in effect.indices) if (mask and (1 shl s) != 0) listener.onFrameChanged(s)
+        return true
+    }
+
     /** Stops [seat]'s effect now; it redraws clean. No-op when it is not animating. */
     fun cancel(seat: Int) {
         if (current(seat) == null) return
         scheduler.cancel(seat)
+        leaveGroup(seat)
         clear(seat)
+    }
+
+    private fun leaveGroup(seat: Int) {
+        val bit = 1 shl seat
+        if (group and bit == 0) return
+        group = group and bit.inv()
+        if (group == 0) {
+            scheduler.cancel(groupTimer)
+            groupFx = null
+        }
+    }
+
+    private fun cancelGroup() {
+        for (s in effect.indices) if (group and (1 shl s) != 0) cancel(s)
     }
 
     /** Stops every running effect now. */
@@ -100,6 +154,7 @@ class FxPlayer(
     }
 
     override fun onTimer(id: Int) {
+        if (id == groupTimer) return stepGroup()
         val fx = current(id) ?: return
         val next = frame[id] + 1
         if (next >= fx.frameCount - 1) {
@@ -110,6 +165,24 @@ class FxPlayer(
         frame[id] = next
         scheduler.schedule(id, hold(fx, next))
         listener.onFrameChanged(id)
+    }
+
+    private fun stepGroup() {
+        val fx = groupFx ?: return
+        val next = groupFrame + 1
+        if (next >= fx.frameCount - 1) {
+            val g = group
+            group = 0
+            groupFx = null
+            for (s in effect.indices) if (g and (1 shl s) != 0) clear(s)
+            return
+        }
+        groupFrame = next
+        scheduler.schedule(groupTimer, hold(fx, next))
+        for (s in effect.indices) if (group and (1 shl s) != 0) {
+            frame[s] = next
+            listener.onFrameChanged(s)
+        }
     }
 
     /** Scaled hold of [frame] of [fx], in ms. */

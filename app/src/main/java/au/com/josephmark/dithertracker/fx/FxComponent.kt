@@ -1,7 +1,12 @@
 package au.com.josephmark.dithertracker.fx
 
 import au.com.josephmark.dithertracker.core.Action
+import au.com.josephmark.dithertracker.core.Counter
+import au.com.josephmark.dithertracker.core.DayNight
 import au.com.josephmark.dithertracker.core.GameState
+import au.com.josephmark.dithertracker.core.Player
+import au.com.josephmark.dithertracker.core.Toggle
+import au.com.josephmark.dithertracker.core.serial.Tracker
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.TileSlots
@@ -59,9 +64,35 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
     private var t: TileSlots? = null
     private var rotations = FxRenderer.DEFAULT_ROTATIONS
 
-    /** Per seat: the screen rect its current effect covers (clipped to the panel). */
+    /** Per seat: the screen rect its current effect covers (clipped to [clipR]). */
     private val area = Array(P) { IRect() }
+
+    /** Tests: [seat]'s stored footprint. */
+    internal fun areaOf(seat: Int): IRect = area[seat]
+
+    /** Per seat: what its current effect is clipped to — the panel, or on a compact seat the area above the drawer. */
+    private val clipR = Array(P) { IRect() }
     private val box = IRect()
+    private val half = IRect()
+
+    /** Per seat: the group had commander damage taken (an [Origin.ATTRIBUTED] loss with commander damage). */
+    private var cmdr = 0
+
+    /** Per seat: commander damage among the [deferred] commits. */
+    private var deferredCmdr = 0
+
+    /**
+     * Per seat: the non-life trigger waiting for its quiet (T55: a counter gained, a toggle on,
+     * day/night, a revive), or −1; [base] is the seat's player before the burst, so a gain undone
+     * inside the burst plays nothing.
+     */
+    private val pending = IntArray(P) { -1 }
+    private val base = arrayOfNulls<Player>(P)
+    private var baseDayNight = DayNight.UNSET
+
+    /** Per seat: non-life triggers played in the current burst (until [BURST_MS] without one), and when the last change came. */
+    private val burstFired = IntArray(P)
+    private val burstAt = LongArray(P)
 
     /** Per seat: net life change of the open readout group (mirrors the readout's). */
     private val net = IntArray(P)
@@ -136,7 +167,7 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
         if (!f.hit(area[seat])) return
         val panel = l.panels[seat]
         t.numberFootprint(seat, t.compact(seat), f.players[seat].life, box)
-        renderer(f).draw(fx.spec, player.frame(seat), box, panel, l.rotation[seat], panel)
+        renderer(f).draw(fx.spec, player.frame(seat), box, panel, l.rotation[seat], clipR[seat])
     }
 
     override fun onFrameChanged(seat: Int) {
@@ -156,10 +187,14 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
         if (event == Events.PAUSE) { // the app went to the background (T20): no keyframes nobody sees
             if (gallery != null) stopGallery()
             stopAll()
+            paused = true // later PAUSE listeners (a first-player pick landing) start nothing
             return
         }
+        if (event == Events.RESUME) { paused = false; return }
+        if (event == Events.TURN_PASSED) return onTurnPassed()
         if (seat !in 0 until P) return
         when (event) {
+            Events.FIRST_PLAYER -> fireNow(seat, FxPolicy.Trigger.FIRST_PLAYER)
             Events.TOUCH_DOWN -> {
                 if (gallery != null) stopGallery()
                 deferred[seat] = 0
@@ -170,7 +205,12 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
     }
 
     /** A life change on [seat]: (re)start its quiet timer; the effect starts when it fires. */
-    private fun armQuiet(seat: Int) = timers.schedule(QUIET_TIMER + seat, quietMs)
+    private fun armQuiet(seat: Int) {
+        if (!paused) timers.schedule(QUIET_TIMER + seat, quietMs)
+    }
+
+    /** Between [Events.PAUSE] and [Events.RESUME]: nothing starts, nothing is armed. */
+    private var paused = false
 
     /**
      * [seat]'s life has been quiet for [quietMs] (T55): play for the open group's running total now,
@@ -179,22 +219,93 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
      */
     private fun onQuiet(seat: Int) {
         val state = stage.session.state
+        val p = pending[seat]
+        val b = base[seat]
+        pending[seat] = -1
+        base[seat] = null
         if (state !== seen || seat >= state.players.size) return
-        val n = net[seat]
-        if (n == 0) return
         if (!visible(seat)) return // a full overlay: the commit drops it
         if (!stage.isVisible(content, seat)) return // the number is hidden: kept for the commit / the mode closing
-        fire(seat, n, state)
+        val n = net[seat]
+        if (n != 0 && fire(seat, n, state)) return
+        if (p >= 0) firePending(seat, TRIGGERS[p], b, state)
     }
 
+    /**
+     * A non-life trigger after its burst went quiet: only if it is still a gain against the player
+     * before the burst ([b]) — a +1 −1 burst plays nothing — once per trigger per burst.
+     */
+    private fun firePending(seat: Int, trigger: FxPolicy.Trigger, b: Player?, state: GameState) {
+        val now = state.players[seat]
+        val gained = when (trigger) {
+            FxPolicy.Trigger.POISON -> b == null || now.counters.poison > b.counters.poison
+            FxPolicy.Trigger.ENERGY -> b == null || now.counters.energy > b.counters.energy
+            FxPolicy.Trigger.EXPERIENCE -> b == null || now.counters.experience > b.counters.experience
+            FxPolicy.Trigger.RAD -> b == null || now.counters.rad > b.counters.rad
+            FxPolicy.Trigger.STORM -> b == null || now.counters.storm > b.counters.storm
+            FxPolicy.Trigger.MONARCH -> now.toggles.monarch && (b == null || !b.toggles.monarch)
+            FxPolicy.Trigger.INITIATIVE -> now.toggles.initiative && (b == null || !b.toggles.initiative)
+            FxPolicy.Trigger.RING -> now.toggles.ringBearer && (b == null || !b.toggles.ringBearer)
+            FxPolicy.Trigger.NIGHT -> state.dayNight == DayNight.NIGHT && baseDayNight != DayNight.NIGHT
+            FxPolicy.Trigger.DAY -> state.dayNight == DayNight.DAY && baseDayNight != DayNight.DAY
+            FxPolicy.Trigger.REVIVE -> !state.isKo(now)
+            else -> true
+        }
+        if (!gained) return
+        val bit = 1 shl trigger.ordinal
+        if (burstFired[seat] and bit != 0) return // already played in this burst (taps or a hold)
+        burstFired[seat] = burstFired[seat] or bit
+        if (trigger.allSeats) playAll(trigger, state) else fireNow(seat, trigger)
+    }
+
+    /** Plays [trigger] on [seat] now, if its number shows and it is alive. */
+    private fun fireNow(seat: Int, trigger: FxPolicy.Trigger) {
+        val state = stage.session.state
+        if (seat !in 0 until minOf(P, state.players.size)) return
+        if (!shows(seat, state)) return
+        val fx = policy.choose(seat, trigger, t?.compact(seat) == true, narrowTier()) ?: return
+        start(seat, fx, priority = false)
+    }
+
+    /** [seat] can show an effect now: alive, effects not covered, its number visible. */
+    private fun shows(seat: Int, state: GameState): Boolean =
+        !state.isKo(state.players[seat]) && visible(seat) && stage.isVisible(content, seat)
+
+    /** Day/night (T55): one effect on every seat that [shows] it, stepped together. */
+    private fun playAll(trigger: FxPolicy.Trigger, state: GameState) {
+        if (paused) return
+        val fx0 = policy.choose(-1, trigger, false, narrowTier()) ?: return // one effect for the table
+        var mask = 0
+        for (s in 0 until minOf(P, state.players.size)) {
+            if (!shows(s, state)) continue
+            // A KO or winner flourish keeps its seat; a compact seat plays it above its drawer (place).
+            if (player.current(s)?.let { it.role == FxRole.KO || it.role == FxRole.WIN } == true) continue
+            place(s, fx0)
+            mask = mask or (1 shl s)
+        }
+        if (mask != 0) player.playAll(mask, fx0)
+    }
+
+    /** The turn passed (T55, sent by the turn tab after its pass): `your-turn` on the new active seat. */
+    private fun onTurnPassed() {
+        val state = stage.session.state
+        val id = state.turn.activePlayer ?: return
+        val seat = state.indexOf(id)
+        if (seat >= 0) fireNow(seat, FxPolicy.Trigger.TURN)
+    }
+
+    private fun narrowTier(): Boolean = l?.tier == PlayLayout.TIER_NARROW
+
     private fun onCommit(seat: Int) {
-        timers.cancel(QUIET_TIMER + seat)
         val n = net[seat]
         val played = fired[seat] != 0
+        val bit = 1 shl seat
+        val wasCmdr = cmdr and bit != 0
+        if (pending[seat] < 0) timers.cancel(QUIET_TIMER + seat)
         net[seat] = 0
         fired[seat] = 0
+        cmdr = cmdr and bit.inv()
         val state = stage.session.state
-        val bit = 1 shl seat
         // Committed by a state change being dispatched right now (undo, a menu action…): no effect;
         // onStateChanged (EXTERNAL) is about to stop everything.
         if (state !== seen) return
@@ -211,41 +322,43 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
             // The number is hidden (commander mode): keep it for when it is back. A KO there has no
             // flourish — the dead treatment shows at once.
             if (koHeld and bit != 0) release(seat)
-            if (!state.isKo(state.players[seat])) deferred[seat] += n
+            if (!state.isKo(state.players[seat])) {
+                deferred[seat] += n
+                if (wasCmdr) deferredCmdr = deferredCmdr or bit
+            }
             return
         }
+        if (wasCmdr) cmdr = cmdr or bit
         fire(seat, n, state)
         fired[seat] = 0
+        cmdr = cmdr and bit.inv()
     }
 
     /** Plays the effect for [seat]'s net change [n] (running or committed), once per trigger per group. */
-    private fun fire(seat: Int, n: Int, state: GameState) {
+    private fun fire(seat: Int, n: Int, state: GameState, commander: Boolean = cmdr and (1 shl seat) != 0): Boolean {
         val bit = 1 shl seat
         val ko = koHeld and bit != 0
-        if (!ko && state.isKo(state.players[seat])) return // already dead before this group
-        val trigger = policy.trigger(n, ko) ?: return
-        if (!policy.escalates(trigger, fired[seat])) return // this band already played for the group
+        if (!ko && state.isKo(state.players[seat])) return false // already dead before this group
+        val trigger = policy.trigger(n, ko, commander) ?: return false
+        if (!policy.escalates(trigger, fired[seat])) return false // this band already played for the group
         fired[seat] = fired[seat] or (1 shl trigger.ordinal)
         val compact = t?.compact(seat) == true
-        val fx = policy.choose(seat, trigger, compact)
+        val fx = policy.choose(seat, trigger, compact, narrowTier())
         val started = fx != null && start(seat, fx, priority = ko)
         if (ko) {
             koHeld = koHeld and bit.inv()
             if (started) koPlaying = koPlaying or bit else stage.send(Events.KO_RELEASE, seat)
         }
         maybeWinner(state)
+        return true
     }
 
     /** Starts [fx] on [seat] (replacing what it shows); [priority] effects make room. */
     private fun start(seat: Int, fx: Fx, priority: Boolean): Boolean {
-        val l = l ?: return false
-        val t = t ?: return false
+        if (l == null || t == null || paused) return false
         if (seat >= stage.session.state.players.size) return false
         player.cancel(seat) // redraws the old footprint clean first
-        val panel = l.panels[seat]
-        t.numberFootprint(seat, t.compact(seat), stage.session.state.players[seat].life, box)
-        val a = FxLayout.place(fx, box, panel, l.rotation[seat], area[seat])
-        a.set(maxOf(a.left, panel.left), maxOf(a.top, panel.top), minOf(a.right, panel.right), minOf(a.bottom, panel.bottom))
+        place(seat, fx)
         if (player.play(seat, fx)) return true
         if (!priority) return false
         // Make room: stop a plain hit/heal elsewhere.
@@ -256,6 +369,30 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
             break
         }
         return player.play(seat, fx)
+    }
+
+    /**
+     * Stores [seat]'s footprint for [fx] ([area]) and its clip ([clipR]): the panel, or on a compact
+     * seat only the area above the drawer (the two life halves there), so an effect never draws over
+     * the drawer the player is using.
+     */
+    private fun place(seat: Int, fx: Fx) {
+        val l = l ?: return
+        val t = t ?: return
+        val panel = l.panels[seat]
+        val compact = t.compact(seat)
+        val c = clipR[seat]
+        if (compact) {
+            val a = t.lifeFeedback(seat, PlayLayout.MINUS)
+            val b = t.lifeFeedback(seat, PlayLayout.PLUS)
+            c.set(minOf(a.left, b.left), minOf(a.top, b.top), maxOf(a.right, b.right), maxOf(a.bottom, b.bottom))
+            c.set(maxOf(c.left, panel.left), maxOf(c.top, panel.top), minOf(c.right, panel.right), minOf(c.bottom, panel.bottom))
+        } else {
+            c.set(panel.left, panel.top, panel.right, panel.bottom)
+        }
+        t.numberFootprint(seat, compact, stage.session.state.players[seat].life, box)
+        val a = FxLayout.place(fx, box, panel, l.rotation[seat], area[seat])
+        a.set(maxOf(a.left, c.left), maxOf(a.top, c.top), minOf(a.right, c.right), minOf(a.bottom, c.bottom))
     }
 
     /** One player left: `winner` on the survivor, once (alongside the last KO's flourish). */
@@ -277,7 +414,7 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
         }
         winnerShown = true
         winPending = -1
-        val fx = policy.choose(survivor, FxPolicy.Trigger.WIN, t?.compact(survivor) == true) ?: return
+        val fx = policy.choose(survivor, FxPolicy.Trigger.WIN, t?.compact(survivor) == true, narrowTier()) ?: return
         start(survivor, fx, priority = true)
     }
 
@@ -299,8 +436,11 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
             val d = np[s].life - op[s].life
             if (d != 0 && (s == origin || origin == Origin.ATTRIBUTED)) {
                 net[s] += d
+                // Commander damage taken (T55): the target's group plays the imp instead of a hit.
+                if (origin == Origin.ATTRIBUTED && d < 0 && np[s].commanderDamage !== op[s].commanderDamage) cmdr = cmdr or (1 shl s)
                 armQuiet(s)
             }
+            if (s == origin) observe(s, op[s], np[s], old, new)
             val wasKo = old.isKo(op[s])
             val isKo = new.isKo(np[s])
             val bit = 1 shl s
@@ -314,7 +454,52 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
                 stage.send(Events.KO_HOLD, s) // still tapping (or holding) the dead seat: keep the hold armed
             }
         }
+        if (origin in 0 until n && new.dayNight != old.dayNight) {
+            // Day/night is the table's; the seat whose drawer set it carries the burst.
+            val t = when (new.dayNight) {
+                DayNight.NIGHT -> FxPolicy.Trigger.NIGHT
+                DayNight.DAY -> FxPolicy.Trigger.DAY
+                DayNight.UNSET -> null
+            }
+            if (pending[origin] < 0) baseDayNight = old.dayNight
+            if (t != null && stage.settings.current.shows(Tracker.DAY_NIGHT)) pend(origin, t, op[origin])
+        }
         maybeWinner(new)
+    }
+
+    /**
+     * A change [origin] made to its own player (T55): a counter gained, a toggle turned on, a revive.
+     * Effects play on the gain only (never a decrement, an undo or a restore: those are EXTERNAL),
+     * and only for trackers the settings show.
+     */
+    private fun observe(s: Int, o: Player, p: Player, old: GameState, new: GameState) {
+        if (p.counters !== o.counters) {
+            val shown = stage.settings.current.drawerCounters
+            for (i in COUNTERS.indices) {
+                val c = COUNTERS[i]
+                if (p.counters[c] <= o.counters[c] || !shown.contains(c)) continue
+                FxPolicy.counterTrigger(c)?.let { pend(s, it, o) }
+            }
+        }
+        if (p.toggles !== o.toggles) {
+            val st = stage.settings.current
+            for (i in TOGGLES.indices) {
+                val tg = TOGGLES[i]
+                if (!p.toggles[tg] || o.toggles[tg] || !st.shows(TRACKERS[i])) continue
+                FxPolicy.toggleTrigger(tg)?.let { pend(s, it, o) }
+            }
+        }
+        if (old.isKo(o) && !new.isKo(p) && p.life == o.life) pend(s, FxPolicy.Trigger.REVIVE, o) // the KO tile's tap-tap revive
+    }
+
+    /** Queues [trigger] for [seat]'s quiet ([onQuiet]); [before] is the player before the burst. */
+    private fun pend(seat: Int, trigger: FxPolicy.Trigger, before: Player) {
+        val now = stage.now()
+        if (now - burstAt[seat] > BURST_MS) burstFired[seat] = 0
+        burstAt[seat] = now
+        if (pending[seat] < 0) base[seat] = before
+        pending[seat] = trigger.ordinal
+        armQuiet(seat)
     }
 
     override fun onCoversChanged() {
@@ -323,13 +508,18 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
             val shown = visible(s) && stage.isVisible(content, s)
             if (!shown) {
                 player.cancel(s)
-                if (!visible(s)) deferred[s] = 0
+                if (!visible(s)) {
+                    deferred[s] = 0
+                    deferredCmdr = deferredCmdr and (1 shl s).inv()
+                }
                 continue
             }
             val d = deferred[s]
             if (d != 0 && s < state.players.size) {
                 deferred[s] = 0
-                fire(s, d, state)
+                val c = deferredCmdr and (1 shl s) != 0
+                deferredCmdr = deferredCmdr and (1 shl s).inv()
+                fire(s, d, state, commander = c)
                 if (net[s] == 0) fired[s] = 0
             }
         }
@@ -338,7 +528,7 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
 
     override fun onTimer(id: Int) {
         when {
-            id < P -> player.onTimer(id)
+            id <= P -> player.onTimer(id) // seats, and the all-seat group's timer (P)
             id >= QUIET_TIMER -> onQuiet(id - QUIET_TIMER)
             else -> galleryStep()
         }
@@ -351,6 +541,11 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
         net.fill(0)
         fired.fill(0)
         deferred.fill(0)
+        pending.fill(-1)
+        base.fill(null)
+        burstFired.fill(0)
+        cmdr = 0
+        deferredCmdr = 0
         for (s in 0 until P) if ((koHeld or koPlaying) and (1 shl s) != 0) stage.send(Events.KO_RELEASE, s)
         koHeld = 0
         koPlaying = 0
@@ -420,9 +615,10 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
 
     companion object {
         private const val P = PlayLayout.MAX_PLAYERS
-        private const val GALLERY_TIMER = P
+        // Timer ids: seats 0 until P (FxPlayer), P the all-seat group (FxPlayer.groupTimer), then the gallery.
+        private const val GALLERY_TIMER = P + 1
         /** Per-seat quiet timers ([onQuiet]): `QUIET_TIMER + seat`. */
-        private const val QUIET_TIMER = P + 1
+        private const val QUIET_TIMER = P + 2
         private const val TIMERS = QUIET_TIMER + P
 
         /**
@@ -431,6 +627,22 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
          * group; a hold repeats every second (its first step at 500 ms) and plays once per band.
          */
         const val QUIET_MS = 300L
+
+        /** A counter / toggle burst plays each trigger once until this long passes without a change (the readout's window). */
+        const val BURST_MS = 3_000L
+
+        private val TRIGGERS = FxPolicy.Trigger.values()
+        private val COUNTERS = Counter.values()
+        private val TOGGLES = Toggle.values()
+        /** Parallel to [TOGGLES]: the settings tracker that hides each (T53). */
+        private val TRACKERS = TOGGLES.map {
+            when (it) {
+                Toggle.MONARCH -> Tracker.MONARCH
+                Toggle.INITIATIVE -> Tracker.INITIATIVE
+                Toggle.CITYS_BLESSING -> Tracker.CITYS_BLESSING
+                Toggle.RING_BEARER -> Tracker.RING_BEARER
+            }
+        }.toTypedArray()
         const val GALLERY_START_MS = 1_500L
         const val GALLERY_GAP_MS = 2_000L
     }
