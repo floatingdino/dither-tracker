@@ -812,3 +812,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-14 — Tick 82: Sam: partner tab icons laid out like the combined `partner` icon — mini imp
   top-left at 1×, a big `+` (9×9) / `−` (9×3) where the big imp sits. Redrawn by the coordinator,
   176 core + 3826 app pass, on the Nomad.
+- 2026-11-14 — Tick 83: Sam: partner tab icons are a full-size `+` (14×14) / `−` (14×4) with the
+  mini imp overlaid top-left in a 1-px contour cut-out. Redrawn by the coordinator, 176 core + 3826
+  app pass, on the Nomad.
