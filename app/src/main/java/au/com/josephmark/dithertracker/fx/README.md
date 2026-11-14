@@ -83,8 +83,12 @@ before the KO tile. Timers: one per seat for `FxPlayer` (ids = seats) plus one f
   commander pool instead of a hit (a KO still plays the KO flourish); in commander mode it is kept
   and played when the number is back, like any commit there. **Turn passed** and **first player
   picked** dispatch as `EXTERNAL` (like an undo), so their components send `Events.TURN_PASSED`
-  (turn tab, seat = screen: the new active seat plays) and `Events.FIRST_PLAYER` (seat = the pick,
-  when it lands) — one line each. A held correction of the turn (`SetActivePlayer`) plays nothing.
+  (turn tab, seat = screen: the new active seat plays) — one line. **First player (T65):** the
+  sting is no longer an engine trigger: the d20 roll-off (`tools/FirstPlayer`) draws `start-flag`'s
+  own frames on the winner's taken-over tile in its WINNER beat — up, wave, back, wave, glint
+  (`FirstRoll.WAVE_FRAMES`, the second wave quicker) — under the roll's numerals and the FIRST
+  pennant, once per roll-off; `Events.FIRST_PLAYER` is no longer sent (the trigger stays in the
+  policy table for a future caller), so it never plays again when the tiles come back. A held correction of the turn (`SetActivePlayer`) plays nothing.
 - **All seats at once (T55)**: night and day play `dusk` / `dawn` on every seat that can show an
   effect (alive, not covered, number visible) through `FxPlayer.playAll`: past the 2-seat cap,
   replacing plain effects there (a KO or winner flourish keeps its seat), stepped by **one** timer
@@ -202,7 +206,7 @@ ms per drawn frame (total incl. the clean step's 0):
 | `fizzle` | 300 / 300 / 300 (900) | 250 / 400 / 250 (900) | 150 / 400 / 150 (700) | the dissolve |
 | `winner` | 350 / 400 / 250 (1000) | 300 / 500 / 250 (1050) | 180 / 500 / 150 (830) | the wreath closed |
 | `revive` | 300 / 350 / 300 (950) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | the heartbeat |
-| `start-flag` | 300 / 350 / 250 (900) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | the flag waving |
+| `start-flag` | 300 / 350 / 250 (900) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | the flag waving — as the first-player sting it is drawn by the roll-off instead: frames 0 1 0 1 2, slow 250 / 450 / 250 / 350 / 250, fast 150 / 450 / 150 / 300 / 150 (`FirstRoll.*_WAVE_MS`) |
 
 ## Debug gallery (debuggable builds only)
 

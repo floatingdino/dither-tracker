@@ -76,26 +76,50 @@ First-player roll-off (`FirstRoll`):
 |---|---|---|
 | tumble, fast | 150 × 5 | 200 / 130 / 120 / 130 / 200 |
 | tumble, slow | 250 × 3 | 300 / 250 / 300 |
-| **rest** (new keyframe) | — | **400 fast / 500 slow**: the d20 stopped |
 | the rolls landed | 1600 with the FIRST flag at once | **1000 alone**, then the flag appears |
 | the FIRST flag beside every roll | (in the 1600) | **1600** |
 | "TIE" before a re-roll | 700, at once | 1000 landed alone, then **1000** with the TIE flags |
 | the flag after the tiles return | 4000 | 4000 (unchanged) |
 | the sting (`start-flag`) | 300 / 350 / 250 | 250 / 450 / 250 slow, 150 / 450 / 150 fast |
 
-**The rest keyframe** (owner: "it still reads as rolling on the final frame"): between the last tumbling
-pose and the numbers the die comes to rest — `D20_REST` from `author.py`: a face turned full-on to the
-player, square, no tilt and no speed ticks, standing on a contact shadow with two settle ticks, centred
-on the tile's floor where the roll will land. Then the roll lands in the hero numerals and a small
-resting die (`D20_REST_S`) takes the place of "D20" for as long as the roll shows (landed, tie, winner),
-so the tile keeps saying "this is a die result" (composition (b): stronger than the rest die alone, as
-the stop reads first and the number never loses its die). No digits on the resting die. Tie rounds rest
-too. Strip: `design/captures/t65-first-roll-strip.png` (last pose → rest → number → flag); on the
-device: `t65-first-rest-4p.png`, `-6p.png`, `-3p.png` (`tools/capture_t65.sh`).
+**The settle (T65, after the owner's "the physics here don't make much sense").** The tumble is one
+die rolling across the floor: every pose (`author.py`) is the resting die — sitting on a face, seen a
+little from above — turned back clockwise by what is left of the roll, so it turns one way
+(counter-clockwise, travelling towards the player's left) all the way: −300°, −195°, −115°, −55°,
+−20° (slow: the first, middle and last). The path (`TileRollLayout`) goes right to left with
+bounces getting lower (the toss one die-height up with speed ticks, the floor with dust, a smaller
+hop, the floor) and the spacing shrinking (fast: 870 → 745 → 645 → 580 → 545 ‰ of the tile); the
+last pose stands on its trailing corner, about to tip onto the face it rests on. On a **fast**
+display one **wobble** follows: rocked 9° past that face onto its leading edge, with dust kicked
+up (`D20_WOBBLE`, 140 ms). Then the **rest** (`D20_REST`): flat on a face — a flat base on a
+contact shadow, a flat top edge, settle ticks — a little further along (528 → 518 ‰). The "D20"
+label and the small die that replaced it are gone: the double frame and the die say it, and the
+small die had no slot left to earn. A test pins the flat base (a run of ≥ 12 ink pixels above the
+shadow), that the wobble is not flat, and that the path only moves one way while slowing.
 
-The dice panel was checked for the same weakness and left as it is: its landing is a different
-picture, not another pose — the die is gone, the result is stamped in paper on an ink plate with
-impact ticks, and only then the label and quip — so the stop already reads there.
+| | fast | slow |
+|---|---|---|
+| tumble poses | 200 / 130 / 120 / 130 / 200 | 300 / 250 / 300 |
+| wobble | **140** | — |
+| rest | 400 | 500 |
+| rolls landed alone | 1000 | 1000 |
+| winner: start-flag up / wave / back / wave / glint | 150 / 450 / 150 / 300 / 150 | 250 / 450 / 250 / 350 / 250 |
+| winner: still beat | 450 | 350 |
+
+**The winner's sting (T65)**, owner: "start the flag waving animation on the earlier beat and loop
+it so the flag waves back and forth one more time". It is T55's `start-flag`, drawn by the
+roll-off itself on the winner's taken-over tile in the WINNER beat (the take-over hides effects, and
+drawing its frames here keeps one timer and one cover): frames 0 (up), 1 (waving), 0, 1 (quicker),
+2 (glint), under the roll's numerals and the pennant, so neither is hidden. Once per roll-off: the
+engine trigger (`Events.FIRST_PLAYER`) is no longer sent, so it never plays again when the tiles
+return. Strip: `design/captures/t65-first-roll-strip.png` — top row fast (five poses, wobble, rest,
+the roll, the wave frames, still, the tiles back), bottom row slow; the winning seat shown the way its
+player sees it. On the device: `t65-first-rest-4p.png`, `-6p.png`, `-3p.png` (`tools/capture_t65.sh`).
+
+The dice panel was checked for the same weakness: its landing is a different picture, not another
+pose — the die is gone, the result is stamped in paper on an ink plate with impact ticks — so the stop
+reads there and the stamp stays. Its tumble now shares the consistent roll above (the same d20 and d6
+pose series, turning one way), and its last pose skids in low on the floor instead of rising again.
 
 A tap during the tumble or the landed beat now goes straight to the winner's flag (held as usual); a
 second tap returns to the game.

@@ -116,7 +116,7 @@ same effect twice running when its pool has another.
 | monarch claimed / initiative taken / ring-bearer on | `crown-drop` / `torch` / `ring-tempt` | the same |
 | it becomes night / day (every live seat at once) | `dusk` / `dawn` | the same |
 | the turn passes to this seat | `your-turn` 3, `spotlight` 1 | the same |
-| picked to start | `start-flag` | the same |
+| picked to start | `start-flag` — since T65 drawn by the first-player roll-off itself in its winner beat, waving twice (see `app/.../fx/README.md`) | the same |
 | revived from KO | `revive` | the same |
 
 Why those weights: `chomp`'s bite is 3198 flips (3.4× a number change) and big hits are common, so
