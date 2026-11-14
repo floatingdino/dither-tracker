@@ -145,6 +145,10 @@ because both use the debug key, and the save is kept. Switching between a debug 
 signed with your release key needs `adb uninstall au.com.josephmark.dithertracker` first, which
 deletes the save.
 
+To try a build without touching the installed one, add `-PappIdSuffix=.test` (any suffix): the APK
+becomes `au.com.josephmark.dithertracker.test`, installs beside the real app with its own save, and
+`adb uninstall au.com.josephmark.dithertracker.test` removes only it.
+
 ## Sideloading onto a Supernote Nomad
 
 The Nomad runs Supernote's own system on Android 11 and has no Play Store. Apps go on by sideloading

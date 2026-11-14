@@ -20,8 +20,12 @@ Confidence labels used below:
    `getSystemService("eink")` → `screenRefresh(false, 1)`. This is the same call the Supernote
    launcher's "slide up to refresh" gesture uses. It is reflection into a hidden API, so treat it as
    an optional, guarded nicety and never rely on it.
-3. **Waveform selection (A2/DU fast modes) and true dirty-rect panel updates are not reachable from a
-   sideloaded app [community].** Don't design around them.
+3. **Waveform selection is reachable after all [device] (T58).** Ratta's framework gives every View
+   an e-ink mode (`View.setEinkUpdateMode`, DU/A2/GC/…), listed as public SDK in the device's
+   hidden-API flags, so a release build may call it too. Each `invalidate(l, t, r, b)` hands the
+   vendor's view root its rect *and* the invalidating view's mode, so updates are per-region as well.
+   We ask for DU (fast, 1-bit) on our one view by default ("Display" setting). The community reports
+   above were wrong for this firmware. See "Display modes (T58, as built)".
 4. **What we do control is how many pixels change per action, and how many frames we post.** With
    1-bit content, a pixel that didn't change costs nothing on the panel. So the app should be built
    to change as few pixels as possible, in one frame per user action. Add an app-drawn "flash"
@@ -40,7 +44,7 @@ Confidence labels used below:
 | `screenRefresh(false, 1)` + static `android.view.SFCommand.screenRefresh()` | This is what `SupernoteLauncher`'s `GestureService.GCRefresh()` calls. It was reported **working on a Nomad from an unsigned app** ([plateaukao/ADR](https://github.com/plateaukao/ADR/blob/HEAD/AssistiveTouch-supernote-gesture-remap.md)). [readr](https://github.com/hunterchen7/readr/blob/HEAD/apps/mobile/android/app/src/main/java/com/readr/app/EpdModeModule.kt) uses the same calls. | [community] |
 | `EinkManager.sendOneFullFrame()` (Rockchip stock; KOReader's RK35xx path) | It only bumps `sys.eink.one_full_mode_timeline`. That property is **unset on our Nomad** ([device]), so the Ratta HWC probably doesn't watch it. KOReader users report that automatic full refresh doesn't work on the Nomad ([r/Supernote](https://redlib.ssps.io/r/Supernote/comments/1b4y578/what_is_everyone_sideloading)). [inkread](https://github.com/j-raghavan/inkread/blob/HEAD/app/src/main/java/dev/jraghavan/inkread/eink/SupernoteEinkAdapter.kt) uses it anyway. Treat it as unreliable. | [device] + [community] |
 | `EinkManager.setMode(String)` (writes the global `sys.eink.mode`) | `sys.eink.mode` is unset on our device ([device]). It is reported as "a no-op for an untrusted window" ([inkread](https://github.com/j-raghavan/inkread/blob/HEAD/docs/EINK-LIMITS.md)). It would be global system state anyway. **Do not use.** | [community] |
-| `View.setEinkUpdateMode(int,int)`, 5-arg `View.invalidate(l,t,r,b,waveform)` | Reported to exist in the Ratta framework and used by Ratta's Notes app ([readr](https://github.com/hunterchen7/readr/blob/HEAD/apps/mobile/android/app/src/main/java/com/readr/app/EpdModeModule.kt)). Whether it has any effect for a third-party window is not verified. | [unknown] |
+| `View.setEinkUpdateMode(int)` / `(int,int)`, `resetEinkUpdateMode()`, `forceEinkFullUpdate()` | Present, public-SDK-flagged, and working from our debug **and release** builds (T58). We use it: see "Display modes (T58, as built)". (Also used by Ratta's Notes app per [readr](https://github.com/hunterchen7/readr/blob/HEAD/apps/mobile/android/app/src/main/java/com/readr/app/EpdModeModule.kt).) | [device] |
 | `/dev/ebc` ioctls, the `drawpath` service, `enableFullUiAuto`, `sendHwcCmd` | Privileged paths, SELinux-gated, global effect, or risky (inkread calls `/dev/ebc` "reboot-risky"). **Out of scope.** | [community] |
 
 The panel driver is Rockchip's EBC. Supernote publishes the kernel
@@ -126,8 +130,8 @@ default being what our windows get.
 - **Pure black/white and A2/DU.** Our content is already 1-bit, so a 16-level partial waveform
   (`PART_GC16`) and the HWC's RGBA→grey conversion leave it untouched, whatever `eink_darker_level`
   or dithering the HWC applies **[inferred]**. 1-bit content is also the only content where fast
-  binary waveforms (A2/DU) would be lossless. If Ratta ever exposes them, or the HWC picks them
-  automatically for B/W regions, we benefit for free. Black/white transitions are also the ones a
+  binary waveforms (A2/DU) would be lossless. (Ratta's framework does expose them per view: T58,
+  "Display modes", at the end.) Black/white transitions are also the ones a
   partial waveform drives most cleanly. Grey-to-grey is where ghosting comes from.
 - **Animations.** SPEC already forbids them. Note that every intermediate frame posted becomes a
   panel update, including something as small as a press highlight followed by a release redraw.
@@ -196,8 +200,8 @@ default being what our windows get.
    emulator it's a silent no-op that falls back to the app flash. `adb logcat | grep -i eink` shows
    no errors.
 
-Not recommended: A2/DU mode selection, `View.setEinkUpdateMode`, `/dev/ebc`, root, or anything that
-writes system properties. Revisit only if Ratta documents an API.
+Not recommended: `/dev/ebc`, root, `SFCommand`'s global switches, or anything that writes system
+properties. (Per-view A2/DU mode selection was on this list until T58 found it works; see the end.)
 
 ## 5. On-device experiments (once the play screen exists)
 
@@ -326,38 +330,137 @@ it is the ~450 ms the panel holds a region busy after the press inversion. Lever
    update, and a hold still inverts. Action stays on release. (Decision pending — it changes the
    "press = inversion" rule for quick taps.)
 2. A faster waveform for our window (vendor refresh mode, E4/E10) would shorten the busy time itself.
+   (T58 built this: "Display modes", below.)
 3. Press feedback that doesn't overlap the pixels the result changes would let both updates run at
    once — hard for life halves (the numeral is inside the half), plausible for the drawer tab and gem.
 
 Still to film: clean flash (E3/E4), effects gallery and lightest dithers after T55 lands, stills of
 ghost build-up, system Auto Refresh on/off (E7).
 
-## Faster display modes (experiment, 2026-11-14)
+## Display modes (T58, as built)
 
-The TL;DR above said waveform selection is not reachable from a sideloaded app. That was from
-community reports; the device says otherwise, at least for a debuggable build.
+Replaces the 2026-11-14 experiment (`--ei einkMode N` calling `View.setEinkUpdateMode` on the root by
+reflection). Sources: the Nomad's `framework.jar` and the ODM's `htfyview.jar`, read with `dexdump`
+(names, constants and hidden-API flags only; nothing of theirs is in this repo), plus logcat on the
+Nomad. Firmware `Chauvet.E103.2610191001`.
 
-- Pulled the Nomad's `/system/framework/framework.jar` and listed its classes (read-only). Ratta's
-  `android.view.View` carries a per-View e-ink mode: `setEinkUpdateMode(int)`,
-  `setEinkUpdateMode(int,int)`, `resetEinkUpdateMode()`, `getEinkFinalUpdateMode()`,
-  `setEinkA2Gate(int)`, `forceEinkFullUpdate()`, with constants `EINK_SHOW_MODE_DU = 1`, `GC = 2`,
-  `GL = 3`, `A2 = 4`, `DTH = 5`, `FA2/ATH = 6`, `AUTO = 7`, `CURSOR = 8`, `RST = 9`, `GCX = 10`,
-  `DUX = 11`, `FC/AUTODTH = 12`, `GLX = 13`, `UIFC = 14`, `DU4 = 17`, `GLR = 18`, `GLD = 19`, and
-  `EINK_DATA_MODE_A2 = 1 / A4 = 2 / DEFAULT = 3 / DTH = 5`. `android.view.SFCommand` holds the global
-  switches (`setUIFullAuto`, `setUIDither`, `screenRefresh(..)`, …) — global state, not for us.
-- `eink/EinkViewMode.kt` + the debug launch extra `--ei einkMode N` call
-  `View.setEinkUpdateMode(N)` on the root view by reflection. On the Nomad, from our unsigned debug
-  build: **the call succeeds** and the view reports `getEinkFinalUpdateMode() = 1`,
-  `getEinkDataMode() = 1` (A2 data), `isEinkModeSet() = true`. Logcat: "Accessing hidden method …
-  (blacklist, reflection, allowed)".
-- **Not yet known:** (1) whether the panel actually behaves differently — nothing in logcat or
-  `dumpsys SurfaceFlinger` (the `EinkHWC` dump) changes, so it needs eyes or slow-mo: is the
-  press→result wait shorter than the ~450 ms measured above, and how bad is ghosting; (2) whether a
-  **release** build may make the call — "blacklist … allowed" is the leniency debuggable apps get; a
-  non-debuggable app is normally refused blacklisted hidden APIs on Android 11.
-- DU and A2 are 1-bit waveforms, which is all our content needs; they trade speed for ghosting, so
-  if they work the clean cadence matters more (and GC/`forceEinkFullUpdate()` on the view becomes the
-  natural clean).
+### What the framework does [device]
 
-Try it: `adb shell am start -S -n au.com.josephmark.dithertracker/.MainActivity --ei einkMode 1`
-(1 DU, 4 A2, 11 DUX, 7 AUTO; no extra = stock behaviour).
+- **The mode lives on the View.** `android.view.View` carries four vendor fields: show mode, data
+  mode, an "A2 gate" (grey threshold, default 216) and a force-full flag. `getEinkFinalUpdateMode()`
+  returns the show mode and `getEinkDataMode()` the data mode.
+- **`setEinkUpdateMode(int mode)`** is `setEinkUpdateMode(0, mode)`. The two-argument form is
+  **(data mode, show mode)**. If the show mode is unchanged it returns at once: no log, no effect.
+  Otherwise it stores it, derives the data mode when the first argument is 0, logs
+  `View-HtFy: setEinkUpdateMode:disp=…,DataMode=…`, and tells the view root.
+- **Data mode** (`EINK_DATA_MODE_*`) is how the HWC turns our RGBA into panel levels before the
+  waveform: A2 = 1 (1-bit, thresholded at the A2 gate), A4 = 2, DEFAULT = 3 (16 grey levels),
+  DTH = 5 (dithered). DU, A2, DUX and UIFC (14) get data A2; DU4 (17) gets A4; DTH gets DTH; GC and
+  everything else get DEFAULT. So DU on our view means 1-bit data with a 1-bit waveform. That is
+  lossless for us because we only ever draw #000 and #FFF. That is why the experiment read back data
+  mode 1 for show mode DU.
+- **`resetEinkUpdateMode()`** does nothing when no mode is set. Otherwise it clears both modes and
+  tells the root. It logs `View-HtFy: resetEinkUpdateMode…` on every call.
+- **Where it takes effect.** Stock `ViewRootImpl`'s e-ink hooks are empty stubs. The ODM's subclass
+  (`ViewRootImplEink`) implements them. Every `View.invalidate(l, t, r, b)` passes its rect, plus **the
+  invalidating view's own mode**, into the vendor's per-frame dirty-rect list. The mode is not
+  inherited from parents or the root. Our UI is one custom view set straight as the content view
+  (`PlayView`, or the debug `DitherDemoView`), and every redraw is an `invalidate(rect)` of that view,
+  so the root's mode covers all our drawing. The decor around it has no mode, but it is not redrawn
+  after the first frame.
+- **Pending rects follow mode changes.** Changing a view's mode re-labels its rects still waiting
+  for the next draw. So a temporary mode (the GC clean) has to stay set until its frame has been
+  drawn. We restore after the 300 ms hold.
+- **Overlapping rects of different modes** in one frame are merged with a fixed priority: GC (and
+  GCX) beat AUTO/DTH, which beat GL, …, A2, then DU last. A GC rect therefore wins over a DU rect
+  that overlaps it.
+- **`forceEinkFullUpdate()`.** On an attached view this is the eink service's
+  `screenRefresh(false, 0)` followed by a full redraw of the window. On a detached view it sets a flag
+  so that the view's next invalidation goes out as GC. It is essentially our existing vendor full
+  refresh (that one passes mode 1). Not used.
+- **Nothing resets an app view's mode.** Only these change it: the view's constructor,
+  `resetEinkUpdateMode`, a vendor "bold text" helper (which itself sets DU with A2 data), and, on a
+  display rotation, a reset of the **IME's** input view only. So the mode holds across
+  pause/resume, sleep/wake and focus changes. Measured below.
+- **`SFCommand`** holds global system switches: UI dither, full-auto, gamma, screen freeze,
+  `screenRefresh`, and so on. That is global state, so we never touch it. **`GVWindow`** is the
+  pen-writing overlay's glue. It is only involved for views that support pen writing, which ours
+  does not.
+- **Hidden-API flags** (the dex's own lists). These are **SDK** (allowed for every app):
+  `setEinkUpdateMode` (both), `resetEinkUpdateMode`, `getEinkFinalUpdateMode`, `getEinkDataMode`,
+  `forceEinkFullUpdate` (both), `setEinkA2Gate`, the `EINK_SHOW_MODE_*` constants, and
+  `EinkManager.screenRefresh(boolean,int)`. These are **blocked**: the fields, `isEinkModeSet()`,
+  and internal helpers. The experiment's `Accessing hidden method … (blacklist, reflection, allowed)`
+  line was for `isEinkModeSet()` alone, which its debug readback called. The production code never
+  calls it.
+
+### Release builds [device]
+
+The release APK, built with R8 and non-debuggable (the package flags show no `DEBUGGABLE`), was
+debug-signed with `-PdebugSignRelease -PappIdSuffix=.t58`, installed beside the owner's app,
+launched with `--ez trace true`, and uninstalled afterwards. Logcat:
+`View-HtFy: setEinkUpdateMode:disp=1,DataMode=1@…` then `EinkViewMode: create: mode=1 set=true
+read=1`, with **no hidden-API warning of any kind**. The methods are on the SDK list, so a release
+build is allowed exactly as a debug one is. Nothing extra was needed: no indirection, no
+`hidden_api_policy` change, no debuggable variant. R8 keeps the lookups: they are string constants
+naming framework methods (`dexdump` of the release APK shows `"setEinkUpdateMode"`,
+`"resetEinkUpdateMode"`, `"getEinkFinalUpdateMode"`), and R8 never renames framework members. It
+does rename `PlayView`, which doesn't matter here.
+
+### As built
+
+| What | Where |
+|---|---|
+| Guard: Supernote only (`Build.MANUFACTURER`), the three methods resolved once, lazily, by reflection; any failure → logged once (tag `EinkViewMode`), disabled for the session; never throws | `eink/EinkViewMode.kt` (`EinkViewMode`, `ViewModeGuard`, JVM-tested with injected resolvers) |
+| Policy: the "Display" setting (FAST = DU, NORMAL = `resetEinkUpdateMode()`) or the debug override; the GC clean's switch | `eink/EinkDisplay.kt` (JVM-tested) |
+| Applied on create (right after `setContentView`; attach state doesn't matter, the field is read per invalidation), again on every resume and on every setting change. Debug builds (or `--ez trace true`) log the readback at create / resume / pause / focus | `MainActivity.startEinkDisplay` |
+| Setting: `Display [FAST][NORMAL]`, FAST by default. On a Supernote it sits on a SCREEN page behind a › on "Screen clean": its own row would push the main card onto two pages at S=4. Elsewhere Screen clean has no › and Display doesn't exist | `settings/SettingsTable.screenClean` / `display` |
+| Persisted as `AppSettings.fastDisplay`: a bit of the v1 settings flags set for NORMAL, so older saves load as FAST and the format version stays 5 | `core/serial/SaveCodec` |
+
+**Measured on the Nomad** (side-by-side `.t58` builds, removed afterwards):
+
+- FAST: `create: mode=1 read=1`. HOME and back, then sleep/wake: `pause` and `focus lost` read 1. The
+  re-apply on `resume` produced no `View-HtFy` line, so the mode was still 1 and the call was a no-op.
+  The mode sticks; the re-apply is belt and braces.
+- NORMAL chosen in settings: `resetEinkUpdateMode:disp=1,…` then `setting: mode=0 read=0`. It
+  survives a restart (`create: mode=0`).
+- `--ei einkMode 4`: `disp=4,DataMode=1` (A2).
+- Our overlays (menu, settings) are drawn inside the one view, so they share its mode. Opening and
+  closing settings changed nothing.
+- `adb shell dumpsys activity top` shows a view's `…/<show>,<data>` at the end of its line, e.g.
+  `PlayView{… 0,0-1872,1404/1,1}`. That is a read-only way to check any running build.
+- Emulator (not a Supernote): `set=false read=-1` throughout, no reflection, no warnings, nothing
+  crashes, Screen clean has no ›.
+
+### Cleans in a fast mode
+
+The automatic clean (cadence, scope and defaults unchanged) still uses the black ink frame by default.
+The alternative, behind the debug extra **`--ez gcClean true`**, is a **GC clean**
+(`ScreenCleaner.waveform`). It draws no ink frame. Instead the view is switched to GC, the seat (or
+the screen) is redrawn as it is, and after the 300 ms hold the view goes back to its mode. A GC
+update drives every pixel in its rect through black and white, which is what a clean is for: one
+panel update instead of the flash's two. A touch cancels it and restores the mode at once. When the
+switch is unavailable it falls back to the ink frame. Full cleans still prefer `--ez vendorRefresh
+true` when both are on. Code-wise it is the smallest option: one more branch in the existing state
+machine and one more timer use. `forceEinkFullUpdate()` was the other candidate, but it is full-screen
+only and just the vendor refresh again.
+
+On the Nomad (`--ez gcClean true --ei cleanEvery 1 --ez trace true`): a seat clean logged
+`setEinkUpdateMode:disp=2,DataMode=3`, then the vendor HAL's `eink: fixXGC(…)` line for that frame
+(no such line for ordinary DU taps), then DU restored 300 ms later and `eink clean end: seat 2 (gc)`.
+Closing settings ran a full GC clean the same way.
+
+**Needs the owner's eyes** (we cannot see the panel):
+1. **FAST vs NORMAL.** Is a quick tap's result faster than the ~450 ms press→result wait measured
+   above? Does ghosting (shadow digits) build up faster in FAST? Is the gem or drawer opening clean
+   in DU?
+2. **GC clean vs ink flash, in FAST.** Relaunch the debug build with `--ez gcClean true --ei
+   cleanEvery 5`, tap one seat five times, wait. Does the GC redraw visibly flash and clear the
+   shadows as well as the black flash does? If the panel skips unchanged pixels even under GC, the GC
+   clean would do nothing; then keep the flash. Compare with the default (no extra).
+3. Whether FAST wants a lower Screen clean threshold than 20.
+4. Other modes for comparison: `--ei einkMode 4` (A2), `11` (DUX), `7` (AUTO), `0` (none).
+
+Try it on a debug build: `adb shell am start -S -n au.com.josephmark.dithertracker/.MainActivity
+--ez trace true [--ei einkMode N] [--ez gcClean true]`, then `adb logcat -s EinkViewMode:D
+View-HtFy:D PlayView:D`.
