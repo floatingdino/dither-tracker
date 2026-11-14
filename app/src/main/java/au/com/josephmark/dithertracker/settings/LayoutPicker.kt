@@ -150,7 +150,7 @@ class LayoutGrid(id: Int) : Widget(id) {
 
     override fun naturalHeight(m: WidgetMetrics, width: Int): Int = width / 2
 
-    fun columns(): Int = if (count <= 4) 2 else 3
+    fun columns(): Int = when { count <= 4 -> 2; count <= 9 -> 3; else -> 4 }
 
     override fun onLayout(m: WidgetMetrics) {
         val b = bounds
@@ -195,7 +195,7 @@ class LayoutGrid(id: Int) : Widget(id) {
 
     companion object {
         /** Most arrangements a count has (the table has at most four; room for six). */
-        const val MAX = 6
+        const val MAX = 16
         const val LABEL_CHARS = 32
 
         /** Rows of cells (at least): two, so thumbnails keep one size across counts. */

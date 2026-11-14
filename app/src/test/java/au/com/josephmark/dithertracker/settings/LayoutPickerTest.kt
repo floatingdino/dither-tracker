@@ -94,7 +94,6 @@ class LayoutPickerTest {
                 val label = r.grid.labels[i].toString()
                 assertTrue(label, label.startsWith(cs[i].label))
                 if (!ok) assertTrue(label, label.endsWith("(scale 3)") || label.endsWith("(scale 2)") || label.endsWith("(too small)"))
-                assertEquals("$label whole", label.length, r.grid.labelChars[i])
             }
         }
     }

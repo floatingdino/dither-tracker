@@ -37,8 +37,29 @@ class ArrangementSurveyTest {
             "5-end" to ("148x170" to PlayLayout.TIER_NARROW),
             "6-three-three" to ("155x175" to PlayLayout.TIER_NARROW),
             "6-dinner" to ("116x116" to PlayLayout.TIER_NONE),
+            // T60 lattices: the content frame (the largest every seat holds) and its tier.
+            "2-diagonal" to ("233x175" to PlayLayout.TIER_FULL),
+            "2-diagonal-flip" to ("233x175" to PlayLayout.TIER_FULL),
+            "3-wide-far" to ("233x175" to PlayLayout.TIER_FULL),
+            "3-wide-near" to ("233x175" to PlayLayout.TIER_FULL),
+            "3-tall-left" to ("233x175" to PlayLayout.TIER_FULL),
+            "3-tall-right" to ("233x175" to PlayLayout.TIER_FULL),
+            "3-l-far-left" to ("233x175" to PlayLayout.TIER_FULL),
+            "3-l-far-right" to ("233x175" to PlayLayout.TIER_FULL),
+            "3-l-near-left" to ("233x175" to PlayLayout.TIER_FULL),
+            "3-l-near-right" to ("233x175" to PlayLayout.TIER_FULL),
+            "4-wide-far" to ("155x175" to PlayLayout.TIER_NARROW),
+            "4-wide-near" to ("155x175" to PlayLayout.TIER_NARROW),
+            "5-wide-near" to ("155x175" to PlayLayout.TIER_NARROW),
+            "5-wide-far" to ("155x175" to PlayLayout.TIER_NARROW),
+            "5-hole-far-left" to ("155x175" to PlayLayout.TIER_NARROW),
+            "5-hole-far-mid" to ("155x175" to PlayLayout.TIER_NARROW),
+            "5-hole-far-right" to ("155x175" to PlayLayout.TIER_NARROW),
+            "5-hole-near-left" to ("155x175" to PlayLayout.TIER_NARROW),
+            "5-hole-near-mid" to ("155x175" to PlayLayout.TIER_NARROW),
+            "5-hole-near-right" to ("155x175" to PlayLayout.TIER_NARROW),
         )
-        for (a in Arrangements.ALL) assertTrue("${a.id} is surveyed here", a.id in want)
+        assertEquals(want.keys, Arrangements.ALL.map { it.id }.toSet())
         for (a in Arrangements.ALL) {
             val l = nomad(a)
             assertEquals(a.id, want[a.id]!!.first, "${l.panelW}x${l.panelH}")

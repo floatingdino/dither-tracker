@@ -85,7 +85,59 @@ object Arrangements {
         Arrangement("5-end", 2, 2, false, true, Arrangement.DiamondAt.JUNCTION, "Two, two, end"),
         Arrangement("6-three-three", 3, 3, false, false, Arrangement.DiamondAt.CENTRE, "Three a side"),
         Arrangement("6-dinner", 2, 2, true, true, Arrangement.DiamondAt.CENTRE, "Dinner"),
-    )
+    ) + LATTICES
+
+    /**
+     * T60: lattice arrangements — seats of their own sizes and empty cells. Corner and cell variants
+     * are generated ([holes]), not copied by hand. Order within a count is the picker's.
+     */
+    private val LATTICES: List<Arrangement>
+        get() = listOf(
+            // 2: diagonal — two opposite corners of a 2×2, the other two empty.
+            grid("2-diagonal", "Diagonal", J, "ns", "a.", ".b"),
+            grid("2-diagonal-flip", "Diagonal", J, "ns", ".a", "b."),
+            // 3: a full-width seat over (or under) two halves; one tall end seat beside two; an L.
+            grid("3-wide-far", "Wide far seat", J, "nss", "aa", "bc"),
+            grid("3-wide-near", "Wide near seat", J, "nns", "ab", "cc"),
+            grid("3-tall-left", "Tall left seat", J, "wns", "ab", "ac"),
+            grid("3-tall-right", "Tall right seat", J, "nes", "ab", "cb"),
+        ) + holes(3, "3-l", "L", arrayOf("ab", "dc"), "nnss") + listOf(
+            // 4: three across one edge, one long seat on the other.
+            grid("4-wide-far", "Wide far seat", C, "nsss", "aaa", "bcd"),
+            grid("4-wide-near", "Wide near seat", C, "nnns", "abc", "ddd"),
+            // 5: the near (or far) pair filling the width; a 2×3 with one cell empty.
+            grid("5-wide-near", "Wide near pair", J, "nnnss", "aabbcc", "dddeee"),
+            grid("5-wide-far", "Wide far pair", J, "nnsss", "aaabbb", "ccddee"),
+        ) + holes(5, "5-hole", "Gap", arrayOf("abc", "fed"), "nnnsss")
+
+    private val J get() = Arrangement.DiamondAt.JUNCTION
+    private val C get() = Arrangement.DiamondAt.CENTRE
+
+    private fun grid(id: String, label: String, d: Arrangement.DiamondAt, facing: String, vararg rows: String) =
+        Arrangement(id, 0, 0, false, false, d, label, Lattice.of(*rows, facing = facing))
+
+    /**
+     * Every variant of the full lattice [rows] (one letter per single-cell seat, [facing] per letter)
+     * with one cell left empty: id `<prefix>-<far|near>-<left|mid|right>` naming the empty cell.
+     */
+    private fun holes(players: Int, prefix: String, label: String, rows: Array<String>, facing: String): List<Arrangement> {
+        val out = ArrayList<Arrangement>()
+        val cols = rows[0].length
+        for (r in rows.indices) for (c in 0 until cols) {
+            val gone = rows[r][c]
+            val rs = Array(rows.size) { i -> if (i == r) rows[i].replace(gone, '.') else rows[i] }
+            val fs = buildString { for ((i, f) in facing.withIndex()) if ('a' + i != gone) append(f) }
+            // Relabel letters in first-appearance order so facings line up.
+            val seen = ArrayList<Char>()
+            for (row in rs) for (ch in row) if (ch != '.' && ch !in seen) seen += ch
+            val fsOrdered = buildString { for (ch in seen) append(facing[ch - 'a']) }
+            check(fs.length == fsOrdered.length)
+            val where = (if (r == 0) "far" else "near") + "-" + when (c) { 0 -> "left"; cols - 1 -> "right"; else -> "mid" }
+            out += Arrangement("$prefix-$where", 0, 0, false, false, J, label, Lattice.of(*rs, facing = fsOrdered))
+        }
+        check(out.all { it.players == players })
+        return out
+    }
 
     /** The shipped pick per player count (reasons in `design/layouts/README.md`). */
     private val DEFAULTS = mapOf(
