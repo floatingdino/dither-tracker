@@ -10,13 +10,19 @@ import kotlin.random.Random
  * rolls a d20 at once on its own tile; the highest roll goes first.
  *
  * ```
- * IDLE ─start(live)─▶ ROLLING (beat 0 … n−1) ─▶ REST ─▶ LANDED ──▶ WINNER (the FIRST flag) ──▶ DONE
+ * IDLE ─start(live)─▶ ROLLING (beat 0 … n−1) ─▶ [WOBBLE, fast only] ─▶ REST ─▶ LANDED ──▶ WINNER ──▶ DONE
  *                        ▲                         │ the highest is tied
  *                        └──── ROLLING (the tied) ◀ TIE   (at most [MAX_ROUNDS]; then a random pick)
  *
- * T65: after the last tumbling pose the die comes to REST (a square, still pose on the tile's floor,
- * held [restMs]) — it reads as stopped — and only then do the numbers land and sit alone for [LANDED_MS]; only then, a beat later, does the winner's flag
- * (or the "TIE" flags) appear — the landing reads before the verdict.
+ * T65: the tumble is one die rolling across the floor; after its last pose (standing on its trailing
+ * corner) a fast display shows one WOBBLE (rocked a few degrees past the face, onto its leading edge)
+ * and then the die comes to REST sitting on a face (held [FAST_REST_MS] / [SLOW_REST_MS]) — it reads
+ * as stopped — and only then do the numbers land and sit alone for [LANDED_MS]; only then, a beat later, does the winner's flag
+ * (or the "TIE" flags) appear — the landing reads before the verdict. The WINNER phase plays the
+ * winner's sting, `start-flag`'s wave, twice over ([waveFrame], [WAVE_FRAMES]: up, wave, back, wave, glint —
+ * the second back-and-forth quicker, a flourish dying down) on the winner's tile beside the
+ * flag, then holds a still beat ([FAST_WINNER_SETTLE_MS] / [SLOW_WINNER_SETTLE_MS]) — all on the one
+ * step timer.
  * ```
  *
  * Every roll is fixed when its round starts (no result is readable until it lands: the tiles show the
@@ -85,6 +91,7 @@ class FirstRoll(
         drawn = false
         tied = 0
         value.fill(0)
+        wave = -1
         beats = if (speed.current() == DisplaySpeed.FAST) FAST_POSES else SLOW_POSES
         roll(live)
         return true
@@ -147,12 +154,15 @@ class FirstRoll(
                 beat++
                 schedule(poseMs())
                 listener.onChanged(false)
-            } else {
-                // Stopped: the die at rest, still, before the number replaces it.
-                phase = REST
-                schedule(restMs())
+            } else if (beats == FAST_POSES) {
+                // Fast: one wobble past the face before it settles.
+                phase = WOBBLE
+                schedule(FAST_WOBBLE_MS)
                 listener.onChanged(false)
+            } else {
+                toRest()
             }
+            WOBBLE -> toRest()
             REST -> {
                 // Landed together: the rolls show, alone, for a beat.
                 if (!judge() && round >= MAX_ROUNDS) pickAtRandom()
@@ -165,9 +175,35 @@ class FirstRoll(
                 listener.onChanged(false)
             }
             TIE -> roll(tied)
-            WINNER -> finish()
+            WINNER -> if (wave + 1 < WAVE_FRAMES.size) {
+                wave++
+                schedule(waveMs())
+                listener.onChanged(false)
+            } else if (wave == WAVE_FRAMES.size - 1) {
+                // The wave is over: the flag and the rolls, still, for a beat.
+                wave = WAVE_FRAMES.size
+                schedule(if (beats == FAST_POSES) FAST_WINNER_SETTLE_MS else SLOW_WINNER_SETTLE_MS)
+                listener.onChanged(false)
+            } else {
+                finish()
+            }
         }
     }
+
+    private fun toRest() {
+        phase = REST
+        schedule(restMs())
+        listener.onChanged(false)
+    }
+
+    /** The winner's wave keyframe while [WINNER] (index into [WAVE_FRAMES]); −1 before, its size after (still). */
+    var wave = -1
+        private set
+
+    /** The `start-flag` frame the wave shows now, or −1. */
+    val waveFrame: Int get() = if (phase == WINNER && wave in WAVE_FRAMES.indices) WAVE_FRAMES[wave] else -1
+
+    private fun waveMs(): Long = if (beats == FAST_POSES) FAST_WAVE_MS[wave] else SLOW_WAVE_MS[wave]
 
     private fun toLanded() {
         phase = LANDED
@@ -179,14 +215,15 @@ class FirstRoll(
     private fun toWinner() {
         phase = WINNER
         rolling = 0
-        schedule(WINNER_MS)
+        wave = 0
+        schedule(waveMs())
         listener.onChanged(false)
     }
 
     /** A tap: tumbling, landed or tied → every roll lands now with the winner's flag ([WINNER], held as usual); then → [finish]. */
     fun skip() {
         when (phase) {
-            ROLLING, REST, TIE, LANDED -> { resolve(); toWinner() }
+            ROLLING, WOBBLE, REST, TIE, LANDED -> { resolve(); toWinner() }
             WINNER -> finish()
         }
     }
@@ -246,6 +283,11 @@ class FirstRoll(
         /** Fast display (each ≥ 120 ms): a wind-up, three quick poses of the throw, a slower last one. */
         @JvmField val FAST_POSE_MS = longArrayOf(200L, 130L, 120L, 130L, 200L)
 
+        /** The die rocked just past its face before it settles (fast displays only). */
+        const val WOBBLE = 7
+
+        const val FAST_WOBBLE_MS = 140L
+
         /** The die at rest — the settle — on a fast and a slow display. */
         const val FAST_REST_MS = 400L
         const val SLOW_REST_MS = 500L
@@ -253,8 +295,20 @@ class FirstRoll(
         /** The numbers landed, alone: everyone reads their roll before the verdict. */
         const val LANDED_MS = 1_000L
 
-        /** The winner's FIRST flag up beside every roll, before the tiles go back to their life totals. */
-        const val WINNER_MS = 1_600L
+        /**
+         * The winner's sting: `start-flag`'s frames 0 (the flag up, straight) and 1 (waving, speed
+         * lines) — back and forth twice, the second time quicker — then 2 (its glint) to finish; then
+         * the pennant and the rolls held still.
+         */
+        @JvmField val WAVE_FRAMES = intArrayOf(0, 1, 0, 1, 2)
+        @JvmField val FAST_WAVE_MS = longArrayOf(150L, 450L, 150L, 300L, 150L)
+        @JvmField val SLOW_WAVE_MS = longArrayOf(250L, 450L, 250L, 350L, 250L)
+        const val FAST_WINNER_SETTLE_MS = 450L
+        const val SLOW_WINNER_SETTLE_MS = 350L
+
+        /** The whole WINNER phase (the wave and the still beat) on a fast / slow display. */
+        val FAST_WINNER_MS: Long get() = FAST_WAVE_MS.sum() + FAST_WINNER_SETTLE_MS
+        val SLOW_WINNER_MS: Long get() = SLOW_WAVE_MS.sum() + SLOW_WINNER_SETTLE_MS
 
         /** The "TIE" flags before the tied seats roll again (long enough to read across the table). */
         const val TIE_MS = 1_000L

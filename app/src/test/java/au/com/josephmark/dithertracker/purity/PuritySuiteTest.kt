@@ -452,10 +452,10 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
             val sp = DisplaySpeed.name(speed)
             rig.openFromMenu(MenuItem.FIRST)
             var i = 0
-            while (first.roll.active && i < 30) {
+            while (first.roll.active && i < 60) {
                 val ph = first.roll.phase
-                shot("76_first_${sp}_${i}_${if (ph == FirstRoll.ROLLING) "pose${first.roll.beat}" else if (ph == FirstRoll.TIE) "tie" else if (ph == FirstRoll.WINNER) "winner" else if (ph == FirstRoll.REST) "rest" else "landed"}")
-                rig.advance(if (ph == FirstRoll.ROLLING) 100 else 400)
+                shot("76_first_${sp}_${i}_${if (ph == FirstRoll.ROLLING) "pose${first.roll.beat}" else if (ph == FirstRoll.TIE) "tie" else if (ph == FirstRoll.WINNER) "winner" else if (ph == FirstRoll.REST) "rest" else if (ph == FirstRoll.WOBBLE) "wobble" else "landed"}${if (first.roll.waveFrame >= 0) "_wave${first.roll.wave}" else ""}")
+                rig.advance(if (ph == FirstRoll.TIE) 400 else 100)
                 i++
             }
             rig.advance(700) // past an overlay-close screen clean, if one runs

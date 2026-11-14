@@ -81,7 +81,14 @@ class FirstPlayerTest {
         assertEquals(FirstRoll.LANDED, r.roll.phase)
         r.timers.advance(1)
         assertEquals(FirstRoll.WINNER, r.roll.phase)
-        r.timers.advance(FirstRoll.WINNER_MS - 1)
+        // The sting: start-flag's wave twice over, each frame held as built, then a still beat.
+        for (i in FirstRoll.WAVE_FRAMES.indices) {
+            assertEquals("wave $i", FirstRoll.WAVE_FRAMES[i], r.roll.waveFrame)
+            r.timers.advance(FirstRoll.SLOW_WAVE_MS[i])
+        }
+        assertEquals("still beat", -1, r.roll.waveFrame)
+        assertEquals(FirstRoll.WINNER, r.roll.phase)
+        r.timers.advance(FirstRoll.SLOW_WINNER_SETTLE_MS - 1)
         assertEquals(FirstRoll.WINNER, r.roll.phase)
         r.timers.advance(1)
         assertEquals(FirstRoll.DONE, r.roll.phase)
@@ -94,6 +101,11 @@ class FirstPlayerTest {
         r.roll.start(0b11)
         assertEquals(FirstRoll.FAST_POSES, r.roll.beats)
         playOut(r, FirstRoll.FAST_POSES, FirstRoll.FAST_POSE_MS)
+        // T65: a fast display wobbles once past the face before the rest; a slow one does not.
+        assertEquals(FirstRoll.WOBBLE, r.roll.phase)
+        r.timers.advance(FirstRoll.FAST_WOBBLE_MS - 1)
+        assertEquals(FirstRoll.WOBBLE, r.roll.phase)
+        r.timers.advance(1)
         rest(r, FirstRoll.FAST_REST_MS)
         assertEquals(FirstRoll.LANDED, r.roll.phase)
         assertTrue(FirstRoll.FAST_POSE_MS.sum() <= FirstRoll.SLOW_POSE_MS.sum())
@@ -295,21 +307,17 @@ class FirstPlayerTest {
             for (seat in 0 until p.playerCount) {
                 val panel = p.panels[seat]
                 assertTrue("$tag seat $seat frame", t.frameOuter[seat].inside(panel) && t.frameInner[seat].inside(t.frameOuter[seat]))
-                assertTrue("$tag seat $seat label ${t.label[seat]}", t.label[seat].inside(t.frameInner[seat]))
                 for (fast in listOf(false, true)) for (b in 0 until if (fast) FirstRoll.FAST_POSES else FirstRoll.SLOW_POSES) {
                     assertTrue("$tag seat $seat die $b", t.dieRect(seat, fast, b).inside(t.frameInner[seat]))
-                    assertTrue("$tag seat $seat extra $b", t.extraRect(seat, fast, b).inside(t.frameInner[seat]))
-                    assertFalse("$tag seat $seat die clear of the label", t.dieRect(seat, fast, b).meets(t.label[seat]))
+                    if (t.hasExtra(seat, fast, b)) assertTrue("$tag seat $seat extra $b", t.extraRect(seat, fast, b).inside(t.frameInner[seat]))
                 }
                 val fp = IRect()
                 // T65: the resting die inside the frame; the small one in the label spot, clear of the roll.
-                assertTrue("$tag seat $seat rest ${t.rest[seat]}", t.rest[seat].inside(t.frameInner[seat]))
-                assertTrue("$tag seat $seat small rest ${t.restSmall[seat]}", t.restSmall[seat].inside(t.frameInner[seat]))
+                for (fast in listOf(false, true)) assertTrue("$tag seat $seat rest", t.restRect(seat, fast).inside(t.frameInner[seat]))
+                assertTrue("$tag seat $seat wobble ${t.wobble[seat]}", t.wobble[seat].inside(t.frameInner[seat]))
                 for (v in intArrayOf(1, 20)) {
                     p.numberFootprint(seat, v, fp)
                     assertTrue("$tag seat $seat roll $v", fp.inside(t.frameInner[seat]))
-                    assertFalse(fp.meets(t.label[seat]))
-                    assertFalse("$tag seat $seat small rest clear of the roll", fp.meets(t.restSmall[seat]))
                 }
                 if (f.enabled) {
                     val band = f.bandRect(seat, IRect())
@@ -346,6 +354,72 @@ class FirstPlayerTest {
             errs += c.check("first-$speed-flag")
             assertTrue(errs.joinToString("\n"), errs.isEmpty())
             assertEquals(c.id(first.seat), c.session.state.turn.startingPlayer)
+        }
+    }
+
+    /**
+     * T65 physics: one roll across the tile — every pose further along (right to left in the player's
+     * frame) than the one before, the wobble and the rest continuing it; the gaps shrinking as it slows.
+     */
+    @Test fun thePathIsOneRollThatSlows() {
+        for (a in Arrangements.ALL) for (s in 2..6) {
+            val p = PlayLayout.compute(DitherGrid(1872, 1404, s), a.players, a.id)
+            if (!p.comfortable) continue
+            val t = TileRollLayout(p)
+            for (fast in 0..1) {
+                val n = if (fast == 1) FirstRoll.FAST_POSES else FirstRoll.SLOW_POSES
+                val xs = ArrayList<Int>()
+                for (b in 0 until n) xs += t.pathX[fast][b]
+                if (fast == 1) xs += t.pathX[fast][TileRollLayout.MAX_BEATS]
+                xs += t.pathX[fast][TileRollLayout.MAX_BEATS + 1]
+                for (i in 1 until xs.size) assertTrue("${a.id} S=$s ${if (fast == 1) "fast" else "slow"} $xs", xs[i] <= xs[i - 1])
+                val gaps = (1 until n).map { xs[it - 1] - xs[it] }
+                for (i in 1 until gaps.size) assertTrue("${a.id} S=$s slowing $gaps", gaps[i] <= gaps[i - 1] + 1)
+            }
+        }
+    }
+
+    /** T65: the resting die sits on a FACE — its base is a flat run of ink, not a vertex — and its top too. */
+    @Test fun theRestPoseSitsOnAFace() {
+        val rows = DiceSprites.D20_REST
+        val base = rows[rows.size - 3] // above the two shadow rows
+        val run = Regex("#+").findAll(base).maxOf { it.value.length }
+        assertTrue("flat base: '$base'", run >= 12)
+        val top = rows.first { it.contains('#') }
+        assertTrue("flat top: '$top'", Regex("#+").findAll(top).maxOf { it.value.length } >= 12)
+        // The shadow it stands on is right under it, wider than the base.
+        assertTrue(rows[rows.size - 2].count { it == '2' } > run)
+        // The wobble is rocked: its lowest die row is no flat run.
+        val wob = DiceSprites.D20_WOBBLE
+        val low = wob[wob.size - 2].replace('1', '.')
+        assertTrue("wobble rocks on an edge: '$low'", Regex("#+").findAll(low).maxOf { it.value.length } < 8)
+    }
+
+    /** T65: the sting plays once per roll-off, in the WINNER beat — never again when the tiles return. */
+    @Test fun theStingPlaysOncePerRollOff() {
+        val r = Rig()
+        val fx = r.rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.fx.FxComponent>().single()
+        r.first.pick()
+        var waves = 0
+        var last = -1
+        var i = 0
+        while (r.first.roll.active && i++ < 400) {
+            val w = r.first.roll.waveFrame
+            if (w != last && w >= 0) waves++
+            last = w
+            assertTrue(r.first.roll.waveFrame < 0 || r.first.roll.phase == FirstRoll.WINNER)
+            r.rig.platform.clock.advance(10)
+        }
+        assertEquals("up, wave, back, wave, glint", FirstRoll.WAVE_FRAMES.size, waves)
+        // Back and forth twice: frames 0 and 1 each twice, the second wave quicker than the first.
+        assertEquals(2, FirstRoll.WAVE_FRAMES.count { it == 1 })
+        assertEquals(2, FirstRoll.WAVE_FRAMES.count { it == 0 })
+        for (h in listOf(FirstRoll.FAST_WAVE_MS, FirstRoll.SLOW_WAVE_MS)) assertTrue(h[3] < h[1])
+        for (ms in FirstRoll.SLOW_WAVE_MS) assertTrue(ms >= 250)
+        val w = r.first.seat
+        for (k in 0 until 100) {
+            assertFalse("no start-flag after the tiles return", fx.player.isPlaying(w))
+            r.rig.platform.clock.advance(20)
         }
     }
 }

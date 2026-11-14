@@ -349,17 +349,23 @@ class FxComponentTest {
         assertEquals(emptyList<Int>(), playing(fx))
     }
 
-    @Test fun theFirstPlayerPickPlaysTheStartFlagOnTheirTile() {
+    /**
+     * T65: the first player's sting (start-flag's wave, twice over) is drawn by the roll-off itself in its
+     * WINNER beat, on the winner's taken-over tile — the effect engine never plays it again once the
+     * tiles return.
+     */
+    @Test fun theFirstPlayerStingPlaysInTheRollOffNotAfterIt() {
         val (rig, fx) = rig()
         val first = rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.tools.FirstPlayer>().single()
         first.pick()
-        var seat = -1
-        repeat(200) {
-            if (seat < 0) for (s in 0 until 4) if (fx.player.current(s) == Fx.byName("start-flag")) seat = s
-            if (seat < 0) rig.platform.clock.advance(25)
+        var waved = false
+        repeat(400) {
+            if (first.roll.waveFrame >= 0) waved = true
+            for (s in 0 until 4) assertFalse("no engine start-flag", fx.player.current(s) == Fx.byName("start-flag"))
+            rig.platform.clock.advance(25)
         }
-        assertTrue("start-flag played", seat >= 0)
-        assertEquals(rig.session.state.turn.startingPlayer, rig.id(seat))
+        assertTrue("the sting waved in the WINNER beat", waved)
+        assertTrue("turn tracking started", rig.session.state.turn.startingPlayer != null)
     }
 
     @Test fun aReviveFromTheKoTilePlaysRevive() {

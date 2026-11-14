@@ -176,12 +176,52 @@ def line(grid, x0, y0, x1, y1):
             y0 += sy
 
 
-def render_solid(model, angles, height, rim_group=None):
+def resting(model, yaw, pitch=0.42):
+    """A transform that sets [model] down on a face: the face whose normal points most downward after
+    [yaw] turns flat on the ground (normal straight down), the solid yawed about the vertical, then
+    seen from slightly above ([pitch], radians). Returns roll(theta) -> transform: theta (radians,
+    CCW positive in the viewer's plane) tips the resting solid about the view axis — the in-plane
+    rotation of a die rolling across the floor."""
+    vs, fs, _ = model
+    # the face whose centroid is lowest (most -y) defines "down"
+    cent = [tuple(sum(vs[t][d] for t in f) / len(f) for d in range(3)) for f in fs]
+    n = norm(min(cent, key=lambda c: c[1]))
+    target = (0.0, -1.0, 0.0)
+    axis = cross(n, target)
+    s_ = math.sqrt(dot(axis, axis))
+    c_ = dot(n, target)
+
+    def align(v):
+        if s_ < 1e-9:
+            return v
+        k = tuple(a / s_ for a in axis)
+        ang = math.atan2(s_, c_)
+        cs, sn = math.cos(ang), math.sin(ang)
+        kv = cross(k, v)
+        kd = dot(k, v)
+        return tuple(v[i] * cs + kv[i] * sn + k[i] * kd * (1 - cs) for i in range(3))
+
+    def roll(theta):
+        def t(v):
+            v = align(v)
+            x, y, z = v
+            c, s2 = math.cos(yaw), math.sin(yaw)
+            x, z = x * c + z * s2, -x * s2 + z * c
+            c, s2 = math.cos(pitch), math.sin(pitch)
+            y, z = y * c - z * s2, y * s2 + z * c
+            c, s2 = math.cos(theta), math.sin(theta)
+            x, y = x * c - y * s2, x * s2 + y * c
+            return (x, y, z)
+        return t
+    return roll
+
+
+def render_solid(model, angles, height, rim_group=None, scale=None):
     """Turns [model] by [angles], scales it to [height] px tall and rasterises it to symbol rows:
     every visible facet filled with its shade, then every visible edge (not between two strips of
     one smooth surface, like a coin's rim) as a 1-px Bresenham line in ink."""
     vs, fs, groups = model
-    rv = [rot(v, *angles) for v in vs]
+    rv = [angles(v) for v in vs] if callable(angles) else [rot(v, *angles) for v in vs]
     vis = []
     for f, g in zip(fs, groups):
         a, b, c = rv[f[0]], rv[f[1]], rv[f[2]]
@@ -191,9 +231,10 @@ def render_solid(model, angles, height, rim_group=None):
     ys = [-v[1] for v in rv]
     xs = [v[0] for v in rv]
     span = max(ys) - min(ys)
-    sc = (height - 1) / span
+    # [scale] (px per model unit) keeps a pose series the same size whatever its turn; else fit [height].
+    sc = scale if scale is not None else (height - 1) / span
     w = int(math.floor((max(xs) - min(xs)) * sc + 0.5)) + 1
-    h = height
+    h = int(math.floor(span * sc + 0.5)) + 1 if scale is not None else height
     x0, y0 = min(xs), min(ys)
 
     def proj(v):
@@ -435,19 +476,40 @@ def read_bits(path):
     return rows
 
 
-def rest(die, small):
-    """[die] (rows) standing on a contact shadow; the big one with two settle ticks either side."""
+def scale_for(model, transform, height):
+    """px per model unit so that [model] under [transform] is [height] px tall."""
+    ys = [transform(v)[1] for v in model[0]]
+    return (height - 1) / (max(ys) - min(ys))
+
+
+def rest(die):
+    """[die] (rows; its bottom row is the flat base) standing on a contact shadow with two settle ticks."""
     w = len(die[0])
-    side = 0 if small else 6
+    side = 5
     W = w + 2 * side
     rows = ['.' * side + r + '.' * side for r in die]
-    if small:
-        rows.append('.' + '#' * (W - 2) + '.')
-        return rows
-    sh = w + 4
+    sh = w + 2
     pad = (W - sh) // 2
     rows.append('.' * pad + '2' * sh + '.' * (W - pad - sh))
-    rows.append('###.' + '.' * (pad - 4) + '.' + '2' * (sh - 2) + '.' + '.' * (W - pad - sh - 4) + '.###')
+    rows.append('##..' + '.' * (pad - 3) + '2' * (sh - 2) + '.' * (W - pad - sh + 1 - 4) + '..##')
+    return rows
+
+
+def wobble(die):
+    """[die] rocked onto its leading (left) edge: a little dust kicked up where that edge digs in."""
+    side = 5
+    rows = ['.' * side + r + '.' * side for r in die]
+    W = len(rows[0])
+    last = rows[-1]
+    L = last.index('#')  # the corner it is rocking on
+    row = list(last)
+    for x in range(max(0, L - 3), L):
+        row[x] = '1'
+    rows[-1] = ''.join(row)
+    puff = ['.'] * W
+    for x in range(max(0, L - 5), max(0, L - 1)):
+        puff[x] = '1'
+    rows.append(''.join(puff))
     return rows
 
 
@@ -457,18 +519,24 @@ def build():
     cn = coin()
     shipped = {}
     # d20: three poses of a real icosahedron, 24 px tall at k = 1 (the result is 28).
-    shipped['D20_A'] = render_solid(ico, (0.8, 1.1, 0.25), 24)
-    shipped['D20_B'] = render_solid(ico, (1.25, 1.55, 0.9), 23)
-    shipped['D20_C'] = render_solid(ico, (0.8, 1.1, -0.45), 24)
-    # T59: the fast display's in-between poses (A, AB, B, BC, C), halfway between the turns either side.
-    shipped['D20_AB'] = render_solid(ico, (1.02, 1.33, 0.58), 24)
-    shipped['D20_BC'] = render_solid(ico, (1.02, 1.33, 0.22), 23)
+    # T65 (physics): one die rolling across the floor. It travels towards the face's start (left on the
+    # lower face), so it turns counter-clockwise; every tumbling pose is the resting die (sitting on a
+    # face, seen a little from above) turned back clockwise by what is left of the roll, and the last
+    # one stands on its trailing corner, about to tip onto the face it rests on. One scale for the
+    # whole series (the die never changes size).
+    roll20 = resting(ico, 0.0)
+    sc20 = scale_for(ico, roll20(0), 24)
+    D20_TURNS = (-300, -195, -115, -55, -20)
+    poses20 = [render_solid(ico, roll20(math.radians(d)), 24, scale=sc20) for d in D20_TURNS]
+    shipped['D20_A'], shipped['D20_AB'], shipped['D20_B'], shipped['D20_BC'], shipped['D20_C'] = poses20
+    # The fast display's in-between poses are the AB and BC turns above (T59: A, AB, B, BC, C).
     # d6: a cube tumbling corner over edge.
-    shipped['D6_A'] = render_solid(cub, (0.55, 0.62, 0.20), 22)
-    shipped['D6_B'] = render_solid(cub, (0.20, 0.95, 0.70), 23)
-    shipped['D6_C'] = render_solid(cub, (-0.62, 0.40, -0.25), 22)
-    shipped['D6_AB'] = render_solid(cub, (0.38, 0.78, 0.45), 23)
-    shipped['D6_BC'] = render_solid(cub, (-0.21, 0.68, 0.22), 22)
+    # d6: the same roll, a cube sitting on a face.
+    roll6 = resting(cub, 0.5, 0.45)
+    sc6 = scale_for(cub, roll6(0), 22)
+    D6_TURNS = (-290, -190, -110, -55, -20)
+    poses6 = [render_solid(cub, roll6(math.radians(d)), 22, scale=sc6) for d in D6_TURNS]
+    shipped['D6_A'], shipped['D6_AB'], shipped['D6_B'], shipped['D6_BC'], shipped['D6_C'] = poses6
     # coin: flipped about the horizontal axis — tilted (face), edge-on, tilted (the other face).
     shipped['COIN_A'] = render_solid(cn, (-1.05, 0.0, 0.05), 16, rim_group=2)
     shipped['COIN_B'] = render_solid(cn, (-1.52, 0.0, 0.0), 6, rim_group=2)
@@ -478,8 +546,10 @@ def build():
     # T65: the d20 at REST — a face turned full-on to the player, square, no tilt, no speed ticks,
     # sitting on a contact shadow with two settle ticks: unmistakably stopped. And a small one for the
     # tile's corner label while the roll shows.
-    shipped['D20_REST'] = rest(render_solid(ico, (-3.14, 0.36, 0.52), 24), small=False)
-    shipped['D20_REST_S'] = rest(render_solid(ico, (-3.14, 0.36, 0.52), 11), small=True)
+    # T65: at REST the die sits on a face — a flat base on a contact shadow, a flat top edge — and on a
+    # fast display it first WOBBLES: rocked up on its leading edge a few degrees past the face, then back.
+    shipped['D20_REST'] = rest(render_solid(ico, roll20(0), 24, scale=sc20))
+    shipped['D20_WOBBLE'] = wobble(render_solid(ico, roll20(math.radians(9)), 24, scale=sc20))
     shipped['TRAIL'] = TRAIL
     shipped['DUST'] = DUST
     shipped['IMPACT'] = IMPACT

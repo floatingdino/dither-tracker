@@ -4,34 +4,36 @@ import au.com.josephmark.dithertracker.dither.DitherRenderer
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.PlayLayout.Chrome
-import au.com.josephmark.dithertracker.type.Fonts
 
 /**
  * Geometry of the first-player roll-off on the tiles (T59, pure; built at layout): per seat the
- * take-over's double frame, the "D20" label (where the readout sits) and, for every tumbling pose on a
- * slow (3) and a fast (5) display, where the die and its speed ticks / dust go — laid out in the
- * player's frame and mapped to the screen ([PlayLayout.mapRect]), so it works on every arrangement,
- * tier and rotation (sideways seats included: the sprites are built in all four turns).
+ * take-over's double frame and, for every keyframe of the die — the tumbling poses on a slow (3) and a
+ * fast (5) display, the fast display's wobble and the rest — where the die and its speed ticks / dust
+ * go, laid out in the player's frame and mapped to the screen ([PlayLayout.mapRect]), so it works on
+ * every arrangement, tier and rotation (sideways seats included: the sprites are built in all four
+ * turns).
  *
- * The die is the dice panel's d20 ([DiceSprites]) at [spriteK]: about two thirds of the hero numeral's
- * height. Its path runs across the number slot from the player's right towards the middle, where the
- * roll then lands in the hero numerals: high, low with dust (the bounce), and in between.
+ * **The path is one roll (T65).** The die travels across the number slot from the player's right
+ * towards the middle and turns counter-clockwise as it goes (`author.py` draws every pose as the
+ * resting die turned back by what is left of the roll). Its bounces get lower (a high toss, the floor,
+ * a smaller hop, the floor), the spacing between poses shrinks as it slows, and the rest continues the
+ * path a little past the last pose (where it stood on its trailing corner, about to tip onto the face it
+ * rests on); the wobble sits between the two, rocked onto its leading edge. Every floor pose stands
+ * with its lowest pixel on the slot's floor ([floorOf]). The die is the dice panel's d20 at [spriteK]:
+ * about two thirds of the hero numeral's height.
  */
 class TileRollLayout(val play: PlayLayout, reuse: Sprites? = null) {
 
-    /** The d20 poses A, AB, B, BC, C, then the speed ticks and the dust, at [k], all four turns. */
-    class Sprites internal constructor(val k: Int, val smallK: Int) {
+    /** The d20 poses A, AB, B, BC, C, the speed ticks, the dust, the rest and the wobble, at [k], all four turns. */
+    class Sprites internal constructor(val k: Int) {
         internal val all: Array<Sprite> = arrayOf(
             DiceSprites.D20_A, DiceSprites.D20_AB, DiceSprites.D20_B, DiceSprites.D20_BC, DiceSprites.D20_C,
-            DiceSprites.TRAIL, DiceSprites.DUST, DiceSprites.D20_REST,
+            DiceSprites.TRAIL, DiceSprites.DUST, DiceSprites.D20_REST, DiceSprites.D20_WOBBLE,
         ).map { Sprite(it, k, allTurns = true) }.toTypedArray()
-
-        /** T65: the die at rest, small, where "D20" sits while the roll shows (at the chrome scale). */
-        internal val small: Sprite = Sprite(DiceSprites.D20_REST_S, smallK, allTurns = true)
     }
 
     val k: Int = spriteK(play)
-    val sprites: Sprites = reuse?.takeIf { it.k == k && it.smallK == play.tk } ?: Sprites(k, play.tk)
+    val sprites: Sprites = reuse?.takeIf { it.k == k } ?: Sprites(k)
 
     private val P = play.playerCount
     private val W = play.panelW
@@ -41,15 +43,10 @@ class TileRollLayout(val play: PlayLayout, reuse: Sprites? = null) {
     val frameOuter: Array<IRect> = Array(P) { IRect() }
     val frameInner: Array<IRect> = Array(P) { IRect() }
 
-    /** "D20" text box (screen; top-left is the draw origin at the seat's rotation). */
-    val label: Array<IRect> = Array(P) { IRect() }
-
-    /**
-     * T65: the REST keyframe's die (screen): square to the player, sitting on the number slot's floor,
-     * centred where the roll will land; and the small resting die that replaces "D20" once the roll shows.
-     */
+    /** The REST keyframe's die on a fast and a slow display, and the fast display's WOBBLE (screen). */
     val rest: Array<IRect> = Array(P) { IRect() }
-    val restSmall: Array<IRect> = Array(P) { IRect() }
+    val restSlow: Array<IRect> = Array(P) { IRect() }
+    val wobble: Array<IRect> = Array(P) { IRect() }
 
     /** Per speed (0 slow, 1 fast), seat and beat: the die's rect, the extra's rect and which sprites. */
     private val die = Array(2) { Array(P * MAX_BEATS) { IRect() } }
@@ -57,113 +54,138 @@ class TileRollLayout(val play: PlayLayout, reuse: Sprites? = null) {
     private val pose = Array(2) { IntArray(P * MAX_BEATS) }
     private val extraSprite = Array(2) { IntArray(P * MAX_BEATS) }
 
+    /** Player-frame x of each pose's centre (`[speed][beat]`), the wobble's and the rest's: the path, for tests. */
+    val pathX: Array<IntArray> = Array(2) { IntArray(MAX_BEATS + 2) }
+
+    /** The slot's floor (player frame): where the die stands. */
+    val floor: Int = play.numberSlotY + play.font.height(play.kMax)
+
+    private val edge: Int
+
     init {
         val s = play.grid.scale
         val inset = Chrome.size(FRAME_INSET, s)
         val gap = Chrome.size(FRAME_GAP, s) + 1
+        edge = inset + gap + 2
         for (seat in 0 until P) {
             play.mapRect(seat, inset, inset, W - 2 * inset, H - 2 * inset, frameOuter[seat])
             play.mapRect(seat, inset + gap, inset + gap, W - 2 * (inset + gap), H - 2 * (inset + gap), frameInner[seat])
-            val ui = Fonts.UI
-            val tk = play.tk
-            val tw = ui.widthOf(LABEL_LEN, tk)
-            val ly = play.readoutY + (play.readoutFont.height(play.readoutK) - ui.height(tk)) / 2
-            val lTop = maxOf(inset + gap + 2, ly)
-            play.mapRect(seat, (W - tw) / 2, lTop, tw, ui.height(tk), label[seat])
-            val sm = sprites.small
-            val cy = lTop + ui.capTop * tk + ui.capHeight * tk / 2
-            play.mapRect(seat, (W - sm.width) / 2, maxOf(inset + gap + 1, cy - sm.height / 2), sm.width, sm.height, restSmall[seat])
         }
-        run {
-            val rs = sprites.all[REST]
-            val floor = play.numberSlotY + play.font.height(play.kMax)
-            val edge = inset + gap + 2
-            for (seat in 0 until P) {
-                val y = (floor - rs.height).coerceIn(edge, maxOf(edge, H - edge - rs.height))
-                play.mapRect(seat, (W - rs.width) / 2, y, rs.width, rs.height, rest[seat])
-            }
-        }
-        val dw = sprites.all[0].width
-        val dh = sprites.all[0].height
-        val slotY = play.numberSlotY
-        val slotH = play.font.height(play.kMax)
-        val edge = inset + gap + 2
         for (fast in 0..1) {
             val xs = if (fast == 1) FAST_X else SLOW_X
-            val ys = if (fast == 1) FAST_Y else SLOW_Y
+            val lift = if (fast == 1) FAST_LIFT else SLOW_LIFT
             val seq = if (fast == 1) FAST_SEQ else SLOW_SEQ
             val ex = if (fast == 1) FAST_EXTRA else SLOW_EXTRA
-            for (seat in 0 until P) for (b in xs.indices) {
-                val i = seat * MAX_BEATS + b
-                // Each seat starts its tumble on a different pose, so the table isn't in lockstep.
-                pose[fast][i] = seq[(b + seat) % seq.size]
-                val cx = W * xs[b] / 1000
-                val x = (cx - dw / 2).coerceIn(edge, maxOf(edge, W - edge - dw))
-                val y = (slotY + (slotH - dh) * ys[b] / 1000).coerceIn(edge, maxOf(edge, H - edge - dh))
-                play.mapRect(seat, x, y, dw, dh, die[fast][i])
-                val e = ex[b]
-                extraSprite[fast][i] = e
-                val sp = sprites.all[e]
-                val exX: Int
-                val exY: Int
-                if (e == TRAIL) { exX = x + dw + 2 * k; exY = y + (dh - sp.height) / 2 }
-                else { exX = x + (dw - sp.width) / 2; exY = y + dh - sp.height + k }
-                val cxX = exX.coerceIn(edge, maxOf(edge, W - edge - sp.width))
-                val cyY = exY.coerceIn(edge, maxOf(edge, H - edge - sp.height))
-                play.mapRect(seat, cxX, cyY, sp.width, sp.height, extra[fast][i])
+            // Where the toss (and its speed ticks) would cross the frame, the whole path moves left together,
+            // so the spacing between poses — the slowing — is kept on every tile.
+            val first = sprites.all[seq[0]]
+            val tossRight = W * xs[0] / 1000 + first.width / 2 + 2 * k + sprites.all[TRAIL].width
+            val shift = maxOf(0, tossRight - (W - edge))
+            for (b in xs.indices) {
+                val sp = sprites.all[seq[b]]
+                // Airborne poses rise above the floor by [lift] ‰ of a die's height.
+                val cx = W * xs[b] / 1000 - shift
+                val x = clampX(cx - sp.width / 2, sp.width)
+                // A full lift is one die's height, as far as the frame allows: the toss is clearly in the air.
+                val maxLift = minOf(sp.height, floor - edge - sp.height).coerceAtLeast(0)
+                val bottom = floor - maxLift * lift[b] / 1000
+                val y = clampY(bottom - sp.height, sp.height)
+                pathX[fast][b] = x + sp.width / 2
+                for (seat in 0 until P) {
+                    val i = seat * MAX_BEATS + b
+                    pose[fast][i] = seq[b]
+                    play.mapRect(seat, x, y, sp.width, sp.height, die[fast][i])
+                    val e = ex[b]
+                    extraSprite[fast][i] = e
+                    if (e < 0) { extra[fast][i].set(0, 0, 0, 0); continue }
+                    val es = sprites.all[e]
+                    // Speed ticks trail behind (the player's right: it travels left); dust at its feet.
+                    val exX = if (e == TRAIL) x + sp.width + 2 * k else x + (sp.width - es.width) / 2
+                    val exY = if (e == TRAIL) y + (sp.height - es.height) / 2 else y + sp.height - es.height + k
+                    play.mapRect(seat, clampX(exX, es.width), clampY(exY, es.height), es.width, es.height, extra[fast][i])
+                }
             }
+            pathX[fast][MAX_BEATS] = if (fast == 1) place(WOBBLE, WOBBLE_X, shift, WOBBLE_SHADOW_ROWS, wobble) else -1
+            pathX[fast][MAX_BEATS + 1] =
+                if (fast == 1) place(REST, FAST_REST_X, shift, REST_SHADOW_ROWS, rest) else place(REST, SLOW_REST_X, shift, REST_SHADOW_ROWS, restSlow)
         }
     }
 
-    /** Draws [seat]'s die at rest (the REST keyframe), turned with the seat. */
-    fun drawRest(r: DitherRenderer, seat: Int, rotation: Int) {
-        val d = rest[seat]
+    /** Places sprite [idx] centred at [xPerMille] with its die's base (above [shadowRows] of shadow) on the floor. */
+    private fun place(idx: Int, xPerMille: Int, shift: Int, shadowRows: Int, out: Array<IRect>): Int {
+        val sp = sprites.all[idx]
+        val x = clampX(W * xPerMille / 1000 - shift - sp.width / 2, sp.width)
+        val y = clampY(floor - sp.height + shadowRows * k, sp.height)
+        for (seat in 0 until P) play.mapRect(seat, x, y, sp.width, sp.height, out[seat])
+        return x + sp.width / 2
+    }
+
+    private fun clampX(x: Int, w: Int) = x.coerceIn(edge, maxOf(edge, W - edge - w))
+    private fun clampY(y: Int, h: Int) = y.coerceIn(edge, maxOf(edge, H - edge - h))
+
+    fun restRect(seat: Int, fast: Boolean): IRect = if (fast) rest[seat] else restSlow[seat]
+
+    /** Draws [seat]'s die at rest, turned with the seat. */
+    fun drawRest(r: DitherRenderer, seat: Int, fast: Boolean, rotation: Int) {
+        val d = restRect(seat, fast)
         sprites.all[REST].draw(r, d.left, d.top, rotation)
     }
 
-    /** Draws the small resting die in [seat]'s label spot (instead of "D20" once the roll shows). */
-    fun drawRestSmall(r: DitherRenderer, seat: Int, rotation: Int) {
-        val d = restSmall[seat]
-        sprites.small.draw(r, d.left, d.top, rotation)
+    /** Draws [seat]'s die wobbling past its face (fast displays). */
+    fun drawWobble(r: DitherRenderer, seat: Int, rotation: Int) {
+        val d = wobble[seat]
+        sprites.all[WOBBLE].draw(r, d.left, d.top, rotation)
     }
 
     /** Draws [seat]'s tumbling die at [beat] (fast or slow sequence), turned with the seat. */
     fun drawPose(r: DitherRenderer, seat: Int, fast: Boolean, beat: Int, rotation: Int) {
         val f = if (fast) 1 else 0
         val i = seat * MAX_BEATS + beat
-        val e = extra[f][i]
-        sprites.all[extraSprite[f][i]].draw(r, e.left, e.top, rotation)
+        val es = extraSprite[f][i]
+        if (es >= 0) {
+            val e = extra[f][i]
+            sprites.all[es].draw(r, e.left, e.top, rotation)
+        }
         val d = die[f][i]
         sprites.all[pose[f][i]].draw(r, d.left, d.top, rotation)
     }
 
     fun dieRect(seat: Int, fast: Boolean, beat: Int): IRect = die[if (fast) 1 else 0][seat * MAX_BEATS + beat]
     fun extraRect(seat: Int, fast: Boolean, beat: Int): IRect = extra[if (fast) 1 else 0][seat * MAX_BEATS + beat]
+    fun hasExtra(seat: Int, fast: Boolean, beat: Int): Boolean = extraSprite[if (fast) 1 else 0][seat * MAX_BEATS + beat] >= 0
 
     /** Builds every sprite mask in the layout's [rotations] (off the draw path). */
     fun prewarm(r: DitherRenderer, rotations: IntArray) {
         for (sp in sprites.all) for (rot in rotations) sp.draw(r, 0, 0, rot)
-        for (rot in rotations) sprites.small.draw(r, 0, 0, rot)
     }
 
     companion object {
         const val MAX_BEATS = 5
-        const val LABEL_LEN = 3
 
         /** Sprite indices in [Sprites.all]. */
         private const val TRAIL = 5
         private const val DUST = 6
         private const val REST = 7
+        private const val WOBBLE = 8
 
-        // Player frame, per mille of the tile's width (die centre) and of the number slot's free height.
-        private val SLOW_X = intArrayOf(800, 620, 440)
-        private val SLOW_Y = intArrayOf(0, 1000, 450)
-        private val SLOW_SEQ = intArrayOf(0, 2, 4)
-        private val SLOW_EXTRA = intArrayOf(TRAIL, DUST, TRAIL)
-        private val FAST_X = intArrayOf(840, 720, 600, 500, 410)
-        private val FAST_Y = intArrayOf(0, 300, 1000, 500, 250)
+        /** Shadow / dust rows under the die in the rest and wobble art (at k = 1). */
+        private const val REST_SHADOW_ROWS = 2
+        private const val WOBBLE_SHADOW_ROWS = 1
+
+        // ---- The path (T65), player frame: x of the die's centre in ‰ of the tile's width; lift ‰ of
+        // a die's height above the floor (0 = on the floor). Right to left, bounces lower, spacing shrinking.
+        private val FAST_X = intArrayOf(870, 745, 645, 580, 545)
+        private val FAST_LIFT = intArrayOf(1000, 0, 450, 0, 0)
         private val FAST_SEQ = intArrayOf(0, 1, 2, 3, 4)
-        private val FAST_EXTRA = intArrayOf(TRAIL, TRAIL, DUST, TRAIL, TRAIL)
+        private val FAST_EXTRA = intArrayOf(TRAIL, DUST, TRAIL, -1, -1)
+        private const val WOBBLE_X = 528
+        private const val FAST_REST_X = 518
+
+        private val SLOW_X = intArrayOf(860, 680, 560)
+        private val SLOW_LIFT = intArrayOf(1000, 0, 0)
+        private val SLOW_SEQ = intArrayOf(0, 2, 4)
+        private val SLOW_EXTRA = intArrayOf(TRAIL, DUST, -1)
+        private const val SLOW_REST_X = 530
 
         /** Design values at S = 4, converted per S. */
         const val FRAME_INSET = 2

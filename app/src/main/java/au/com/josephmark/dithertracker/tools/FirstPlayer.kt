@@ -6,6 +6,8 @@ import au.com.josephmark.dithertracker.core.flavour.QuipKind
 import au.com.josephmark.dithertracker.core.flavour.RecentPicks
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.eink.DisplaySpeed
+import au.com.josephmark.dithertracker.fx.Fx
+import au.com.josephmark.dithertracker.fx.FxRenderer
 import au.com.josephmark.dithertracker.menu.MenuDestination
 import au.com.josephmark.dithertracker.menu.MenuItem
 import au.com.josephmark.dithertracker.play.PlayLayout
@@ -29,22 +31,24 @@ import kotlin.random.Random
  * - **Take-over.** While the roll-off runs, a [Cover] hides the rolling seats' life totals, ±,
  *   peeks, badges, drawers, readouts, effects and turn tab, and the centre diamond; each rolling tile
  *   is drawn here instead, unmistakably not a life total: paper ground inside a **double ink frame**,
- *   "D20" where the readout sits, then the die tumbling across the tile (the dice panel's sprites,
- *   scaled to the tile and turned with the seat: 3 poses on a slow display, 5 on a fast one,
- *   `eink.DisplaySpeed`, [TileRollLayout]); then (T65) the die at **rest** — square to the player on
- *   the tile's floor, a contact shadow and settle ticks, no speed ticks — held [FirstRoll.FAST_REST_MS]
- *   / [FirstRoll.SLOW_REST_MS] so the stop reads; and finally **the roll in the hero numerals**, where
- *   the life total was — every tile landing together — with the small resting die in place of "D20"
- *   for as long as the roll shows.
+ *   then the die rolling across the tile (the dice panel's sprites, scaled to the tile and turned with
+ *   the seat: 3 poses on a slow display, 5 on a fast one, `eink.DisplaySpeed`, [TileRollLayout] — one
+ *   roll, counter-clockwise, bounces getting lower); on a fast display one **wobble** (rocked just past
+ *   its face, [FirstRoll.FAST_WOBBLE_MS]); then (T65) the die at **rest**, sitting on a face on the
+ *   tile's floor — flat base on a contact shadow, settle ticks, no speed ticks — held
+ *   [FirstRoll.FAST_REST_MS] / [FirstRoll.SLOW_REST_MS] so the stop reads; and finally **the roll in
+ *   the hero numerals**, where the life total was — every tile landing together. (T65 dropped the
+ *   "D20" label: the frame and the die say it.)
  * - **Landing.** The highest roll goes first: its tile gets the **FIRST flag** (an ink pennant in the
  *   under-number row with a `Flavour.startingPlayer` line, e.g. "ON THE PLAY") a beat after the rolls
- *   land (they sit alone for [FirstRoll.LANDED_MS], T65), then every roll stays up for
- *   [FirstRoll.WINNER_MS]. A tie at the top shows "TIE" flags for [FirstRoll.TIE_MS] and only the tied
+ *   land (they sit alone for [FirstRoll.LANDED_MS], T65) and **the sting plays with it**: T55's
+ *   `start-flag` wave on the winner's taken-over tile, its wave cycle twice ([FirstRoll.WAVE_FRAMES];
+ *   drawn here, under the roll's numerals and the pennant, from the effect's own frames), then a still
+ *   beat ([FirstRoll.FAST_WINNER_MS] / [FirstRoll.SLOW_WINNER_MS] in all). A tie at the top shows "TIE" flags for [FirstRoll.TIE_MS] and only the tied
  *   seats roll again (at most [FirstRoll.MAX_ROUNDS] rounds, then a random pick among them).
  * - **Back to the game.** The tiles return to their life totals in one redraw; turn tracking starts
- *   from the winner ([Action.SetStartingPlayer], one undo step — dispatched only now) and
- *   [Events.FIRST_PLAYER] plays T55's `start-flag` effect on the winner's tile as **the sting**; the
- *   FIRST flag stays [SHOW_MS] longer (a beat after the losers' numbers went), or until the next
+ *   from the winner ([Action.SetStartingPlayer], one undo step — dispatched only now); the sting has
+ *   already played, so nothing plays again here (no [Events.FIRST_PLAYER]); the FIRST flag stays [SHOW_MS] longer (a beat after the losers' numbers went), or until the next
  *   touch anywhere on the table.
  * - **Input.** During the roll-off a full-screen zone swallows touches: a tap lands every roll at once
  *   (the landing is then held as usual); a tap on the landing goes straight back to the game.
@@ -153,7 +157,7 @@ class FirstPlayer(
         val id = players[s].id
         results.onStartingPlayer(id)
         stage.dispatch(Origin.EXTERNAL, Action.SetStartingPlayer(id))
-        stage.send(Events.FIRST_PLAYER, s) // T55: `start-flag` on their tile — the winner's sting
+        // T65: the winner's sting (`start-flag`) already played in the WINNER beat: not again here.
         seat = s
         fit(l, s)
         invalidate(l.bandRect(s, band))
@@ -189,8 +193,8 @@ class FirstPlayer(
             for (line in flavour.lines(QuipKind.STARTING_PLAYER)) f.text.draw(l.ui, line.uppercase(), 0, 0, kk, rot, invert = true)
         }
         for (rot in l.play.rotations) for (kk in 1..l.askKMax) f.text.draw(l.ui, TIE, 0, 0, kk, rot, invert = true)
-        for (rot in l.play.rotations) f.text.draw(l.ui, D20, 0, 0, l.play.tk, rot)
         tiles?.prewarm(f.r, l.play.rotations)
+        sting?.let { fxRenderer(f).prewarm(listOf(it), l.play.rotations) }
     }
 
     // ---- drawing ---------------------------------------------------------------------------------
@@ -205,7 +209,12 @@ class FirstPlayer(
         if (s >= 0 && !roll.active) flag(f, l, s)
     }
 
-    /** One rolling seat's tile: ground and frame, "D20", then the tumbling die or the roll, and its flag. */
+    /** The winner's sting: T55's `start-flag` effect, its frames drawn by the roll-off itself. */
+    private val sting: Fx? = Fx.byName(STING)
+    private var fxR: FxRenderer? = null
+    private fun fxRenderer(f: Frame): FxRenderer = fxR ?: FxRenderer(f.r).also { fxR = it }
+
+    /** One rolling seat's tile: ground and frame, then the rolling die, its wobble, its rest, or the roll and its flag. */
     private fun takeOver(f: Frame, l: FirstPlayerLayout, t: TileRollLayout, s: Int) {
         val panel = l.play.panels[s]
         if (!f.hit(panel)) return
@@ -217,31 +226,26 @@ class FirstPlayer(
         val b = t.frameInner[s]
         r.frame(b, 1, ink = true)
         val mine = (roll.rolling ushr s) and 1 == 1
-        if (roll.phase == FirstRoll.ROLLING && mine) {
-            labelD20(f, l, t, s, rot)
-            t.drawPose(r, s, roll.beats == FirstRoll.FAST_POSES, roll.beat, rot)
-            return
+        val fast = roll.beats == FirstRoll.FAST_POSES
+        if (mine) when (roll.phase) {
+            FirstRoll.ROLLING -> { t.drawPose(r, s, fast, roll.beat, rot); return }
+            FirstRoll.WOBBLE -> { t.drawWobble(r, s, rot); return }
+            // T65: the die has stopped, sitting on a face, before the number replaces it.
+            FirstRoll.REST -> { t.drawRest(r, s, fast, rot); return }
         }
-        if (roll.phase == FirstRoll.REST && mine) {
-            // T65: the die has stopped — square, on the floor, no speed ticks — before the number.
-            labelD20(f, l, t, s, rot)
-            t.drawRest(r, s, rot)
-            return
-        }
-        // The roll shows: the small resting die where "D20" was says "this is a die result".
-        t.drawRestSmall(r, s, rot)
         val v = roll.value[s]
         if (v > 0) {
             val k = l.play.numberFootprint(s, v, tmp)
+            // The winner's sting under the roll (its numerals and the pennant stay readable over it).
+            val wf = roll.waveFrame
+            val st = sting
+            if (wf >= 0 && st != null && roll.winner == s) {
+                fxRenderer(f).draw(st.spec, wf, tmp, panel, rot, t.frameInner[s])
+            }
             f.text.drawInt(l.play.font, v, tmp.left, tmp.top, k, rot)
         }
         if (roll.phase == FirstRoll.TIE && (roll.tied ushr s) and 1 == 1) tieFlag(f, l, s)
         else if (roll.phase == FirstRoll.WINNER && roll.winner == s) flag(f, l, s)
-    }
-
-    private fun labelD20(f: Frame, l: FirstPlayerLayout, t: TileRollLayout, s: Int, rot: Int) {
-        val lab = t.label[s]
-        f.text.draw(l.ui, D20, lab.left, lab.top, l.play.tk, rot)
     }
 
     /** The FIRST flag: an ink pennant (notched ends) with the line in paper caps, facing the seat. */
@@ -363,7 +367,8 @@ class FirstPlayer(
         /** How long the FIRST flag stays on the winner's tile after the tiles come back. */
         const val SHOW_MS = 4_000L
 
-        const val D20 = "D20"
+        /** The winner's sting (T55's effect, drawn in the roll-off's WINNER beat, T65). */
+        const val STING = "start-flag"
         const val TIE = "TIE!"
 
         /** What the roll-off hides on the rolling seats (and the diamond on the screen). */

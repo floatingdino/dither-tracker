@@ -104,19 +104,19 @@ class Presentation internal constructor(
                 val t = Region.TRACK
                 val b = Region.BOX
 
-                // The die enters at the far end of the face, bounces once mid-face, skids in beside the
-                // result box and lands there (it travels towards the face's start, so the speed ticks
+                // The die enters at the far end of the face, bounces once mid-face, skids in on the floor
+                // beside the result box (T65: low, not rising again — it is slowing down) and lands there (it travels towards the face's start, so the speed ticks
                 // trail to its right). Fast: the same path in five poses.
                 fun tumbleBeats(first: Int, mid: Int): Array<Beat> = if (!fast) arrayOf(
                     Beat(SLOW_TOSS, Beat.NONE, Place(first, t, 1000, 0, 1000, 0, dx = -10), Place(trail, t, 1000, 0, 1000, 0, dy = 8)),
                     Beat(SLOW_BOUNCE, Beat.NONE, Place(first + 1, t, 560, 1000, 500, 1000), Place(dust, t, 560, 1000, 500, 1000, dy = 1)),
-                    Beat(SLOW_SKID, Beat.NONE, Place(first + 2, t, 250, 300, 500, 300), Place(trail, t, 250, 300, 0, 300, dx = 15)),
+                    Beat(SLOW_SKID, Beat.NONE, Place(first + 2, t, 250, 900, 500, 900), Place(trail, t, 250, 900, 0, 900, dx = 15)),
                 ) else arrayOf(
                     Beat(FAST_TOSS, Beat.NONE, Place(first, t, 1000, 0, 1000, 0, dx = -10), Place(trail, t, 1000, 0, 1000, 0, dy = 8)),
                     Beat(FAST_FLY, Beat.NONE, Place(mid, t, 780, 500, 500, 500), Place(trail, t, 780, 500, 0, 500, dx = 15)),
                     Beat(FAST_BOUNCE, Beat.NONE, Place(first + 1, t, 560, 1000, 500, 1000), Place(dust, t, 560, 1000, 500, 1000, dy = 1)),
                     Beat(FAST_TUMBLE, Beat.NONE, Place(mid + 1, t, 400, 550, 500, 550), Place(trail, t, 400, 550, 0, 550, dx = 15)),
-                    Beat(FAST_SKID, Beat.NONE, Place(first + 2, t, 250, 300, 500, 300), Place(trail, t, 250, 300, 0, 300, dx = 15)),
+                    Beat(FAST_SKID, Beat.NONE, Place(first + 2, t, 250, 900, 500, 900), Place(trail, t, 250, 900, 0, 900, dx = 15)),
                 )
                 fun land(hold: Long, result: Int, vararg extra: Place) = Beat(hold, result, *extra)
                 val impactRight = Place(impact, b, 1000, 500, 0, 500, dx = 3)
