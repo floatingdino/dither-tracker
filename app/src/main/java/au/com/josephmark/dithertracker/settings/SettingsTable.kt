@@ -6,6 +6,7 @@ import au.com.josephmark.dithertracker.core.serial.Tracker
 import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.Icon
+import au.com.josephmark.dithertracker.eink.EinkConfig
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.widgets.Segmented
 
@@ -88,7 +89,7 @@ object SettingsTable {
             ToggleRow("Invert", { it.app.inverted }, { s, v -> s.updateApp(s.app.copy(inverted = v)) }),
             ChoiceRow("Hold step", labels(HOLD_STEPS), HOLD_STEPS, { it.app.holdRepeatStep }, { s, v -> s.updateApp(s.app.copy(holdRepeatStep = v)) }),
             ToggleRow("Keep awake", { it.app.keepScreenAwake }, { s, v -> s.updateApp(s.app.copy(keepScreenAwake = v)) }),
-            ChoiceRow("Screen clean", arrayOf("OFF", "20", "50", "100"), CLEAN_EVERY, { it.app.fullRefreshEvery }, { s, v -> s.updateApp(s.app.copy(fullRefreshEvery = v)) }),
+            screenClean(),
             LinkRow(COUNTERS_LABEL, counters()),
             lifeHint(), // last: appearing never moves a row under a finger
         ),
@@ -166,6 +167,35 @@ object SettingsTable {
         },
         { s, opened -> (opened != null && s.game.startingLife != opened.startingLife) || s.app.playerCount != s.players },
     )
+
+    /**
+     * "Screen clean" (T19b). Where the per-view e-ink mode works (a Supernote, T58) it gets a › to the
+     * [SCREEN_TITLE] page holding [display] — a row of its own would make the main page page at S=4.
+     * (`PlayersRow` is T53's choice-plus-› row; nothing in it is about players but its name.)
+     */
+    fun screenClean(): ChoiceRow {
+        val label = "Screen clean"
+        val options = arrayOf("OFF", "20", "50", "100")
+        val read = IntRead { it.app.fullRefreshEvery }
+        val write = IntWrite { s, v -> s.updateApp(s.app.copy(fullRefreshEvery = v)) }
+        if (!EinkConfig.fastDisplayAvailable) return ChoiceRow(label, options, CLEAN_EVERY, read, write)
+        return PlayersRow(label, options, CLEAN_EVERY, read, write, SettingsPage(SCREEN_TITLE, arrayOf(BackRow("Settings"), display())))
+    }
+
+    /** The page behind Screen clean's › (T58). */
+    const val SCREEN_TITLE = "SCREEN"
+
+    /**
+     * The e-ink waveform (T58): `[FAST][NORMAL]` (`AppSettings.fastDisplay`; FAST = the Nomad's DU
+     * waveform, `eink/EinkDisplay`). Listed only where the per-view mode works (a Supernote).
+     */
+    fun display(): ChoiceRow = object : ChoiceRow(
+        "Display", arrayOf("FAST", "NORMAL"), intArrayOf(1, 0),
+        { if (it.app.fastDisplay) 1 else 0 },
+        { s, v -> s.updateApp(s.app.copy(fastDisplay = v == 1)) },
+    ) {
+        override fun visible(s: SettingsAccess): Boolean = EinkConfig.fastDisplayAvailable
+    }
 
     fun scale(): ScaleRow = ScaleRow({ it.app.scale }, { s, v -> s.updateApp(s.app.copy(scale = v)) })
 
