@@ -178,9 +178,19 @@ sleep 1
 cap 31_settings_inverted
 tap 934 702                         # Invert back off
 sleep 1
+tap 1542 222                        # T53: the Players row's › -> the layout picker (4 players)
+sleep 1
+cap 31b_settings_layouts
+tap 936 222                         # its back row
+sleep 1
 tap 934 1150                        # Counters page
 sleep 1
 cap 32_settings_counters
+tap 1528 1296                       # T53: › page 2 of "Counters and trackers" (the trackers)
+sleep 1
+cap 32b_settings_trackers
+tap 344 1296                        # ‹ page 1
+sleep 1
 tap 358 126                         # rotate the card a quarter turn (it now faces the east edge)
 sleep 1
 cap 33_settings_rotated
