@@ -18,9 +18,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   commit building and passing tests, message `T07: <what changed>`, ending with the Co-Authored-By
   line. Stage explicit paths only — never `git add -A`, `git add .` or a whole shared directory; never
   stage another agent's files. If `index.lock` is held by another agent, wait a moment and retry.
-  Agents never push, never commit to `main`, never rewrite history. **The coordinator pushes `build` to
-  `origin` (github.com/floatingdino/dither-tracker, public) regularly** — after each verified task or
-  backlog update (Sam, 2026-11-13). **Private material never goes in a commit** (Sam, 2026-11-13): device
+  Agents never push and never rewrite history. **The working branch is `main`** (Sam, 2026-11-14:
+  "Releases should be on main, build will be retired"; before that it was `build`). **The coordinator
+  pushes `main` to `origin` (github.com/floatingdino/dither-tracker, public) regularly** — after each
+  verified task or backlog update (Sam, 2026-11-13). Releases are cut from `main` (see README,
+  "Releases on GitHub"). **Private material never goes in a commit** (Sam, 2026-11-13): device
   serials, third-party reference screenshots, private links (e.g. the Figma file), personal details.
   Put them in the untracked `local/` folder (gitignored; see `local/README.md`) or the coordinator's
   memory, and refer to them from tracked docs without the content. The coordinator still verifies each task
@@ -949,3 +951,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   "Dither 0.1.0" (tag `v0.1.0`, target `build`) created with install notes + the changelog. The four
   signing secrets are set. To release: merge the PR, publish the draft; the tag starts the workflow.
   Not yet exercised: signing with the real key, and the attach-to-draft path.
+- 2026-11-14 — Tick 104: Sam: "Releases should be on main, build will be retired". `main` created on
+  `origin` at `build`'s tip and made the default branch; PR #1 retargeted to `main`; the draft
+  release targets `main`; the local checkout is on `main`. `build` still exists on the remote,
+  untouched from here on — delete it when Sam says. From now on all work lands on `main`.
