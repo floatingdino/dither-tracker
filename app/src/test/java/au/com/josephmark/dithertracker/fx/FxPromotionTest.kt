@@ -29,7 +29,9 @@ class FxPromotionTest {
         "chime" to FxRole.HEAL, "heart-burst" to FxRole.HEAL,
         "ooze" to FxRole.POISON, "brand" to FxRole.POISON, "imp-raspberry" to FxRole.COMMANDER, "imp-poke" to FxRole.COMMANDER,
         "charge" to FxRole.ENERGY, "level-up" to FxRole.EXPERIENCE, "rad-glow" to FxRole.RAD, "storm-copy" to FxRole.STORM,
-        "crown-drop" to FxRole.MONARCH, "torch" to FxRole.INITIATIVE, "dusk" to FxRole.NIGHT, "dawn" to FxRole.DAY,
+        "crown-drop" to FxRole.MONARCH, "torch" to FxRole.INITIATIVE,
+        // The owner's art fixes (T55): full-tier frames plus a narrow-tier twin each (FxPolicy.variant).
+        "crown-drop-narrow" to FxRole.MONARCH, "torch-narrow" to FxRole.INITIATIVE, "dusk" to FxRole.NIGHT, "dawn" to FxRole.DAY,
         "ring-tempt" to FxRole.RING, "your-turn" to FxRole.TURN, "spotlight" to FxRole.TURN,
         "start-flag" to FxRole.FIRST_PLAYER, "revive" to FxRole.REVIVE,
     )
@@ -55,6 +57,34 @@ class FxPromotionTest {
         for (retired in listOf("claw", "wham", "zap", "pow2", "crack2", "twinkle2", "claw-paper", "claw-swipe")) {
             assertNull(retired, Fx.byName(retired))
         }
+    }
+
+    @Test fun theArtFixesHold() {
+        // crown-drop: frame 1's crown on the vertical line it lands on in frame 2 (the owner's note).
+        for (name in listOf("crown-drop", "crown-drop-narrow")) {
+            val f = Fx.byName(name)!!.spec
+            fun centreX(fr: Int): Double {
+                val l = f.ink(fr); var sum = 0.0; var n = 0
+                // The crown's columns only (the landing's bounce ticks and glint lie further out).
+                val c = f.width / 2
+                for (y in 0 until l.height) for (x in c - 20..c + 20) if (l.isInk(x, y) && y < 72) { sum += x; n++ }
+                return sum / n
+            }
+            assertEquals("$name crown column, frame 1 vs 2", centreX(1), centreX(0), 1.0)
+        }
+        // torch: the firelight disc (tile 2, D1) is whole — nothing of it touches the frame's edge.
+        for (name in listOf("torch", "torch-narrow")) {
+            val f = Fx.byName(name)!!.spec
+            val i = f.tiles.indexOfFirst { it.digit == 2 }
+            val l = f.tileLayer(i, 1)
+            assertTrue("$name has its light", l.inkCount > 0)
+            for (y in 0 until l.height) assertTrue("$name light at the left edge, row $y", !l.isInk(0, y))
+            for (x in 0 until l.width) assertTrue("$name light at the top edge", !l.isInk(x, 0))
+        }
+        // The full torch reaches past the narrow tile's half-width (77) to sit behind the − glyph.
+        val t = Fx.byName("torch")!!.spec
+        assertEquals(173, t.width)
+        assertEquals(-12, t.anchorDx)
     }
 
     @Test fun everyShippedMetaDeclaresItsRole() {

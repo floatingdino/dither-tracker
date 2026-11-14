@@ -1,14 +1,14 @@
-# crown-drop: A crown drops in and lands on top of the total with a bounce and a glint.
-# trigger: monarch claimed
+# crown-drop: A crown drops in on the line it lands on, lands on top of the total with a bounce and a glint.
+# trigger: monarch claimed (full-tier tiles)
 size 149 165
 frames 4
 role monarch
 anchor centre 0 0
 hold_ms 250 400 250 0
-ink_px 570 656 62 0
-knockout_px 258 368 72 0
-flips 570 1146 718 62   # total 2496, over sticker "37" on the quad tile
-# flips on the narrow tile: 570 1146 718 62 (total 2496)
+ink_px 552 656 62 0
+knockout_px 236 368 72 0
+flips 552 1128 718 62   # total 2460, over sticker "37" on the quad tile
+# flips on the narrow tile: 545 1121 718 62 (total 2446)
 # role: shipped (T55; app/.../fx/FxPolicy.kt plays it).
 # anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
 # symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).

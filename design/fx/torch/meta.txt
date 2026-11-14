@@ -1,17 +1,17 @@
-# torch: A torch flares at the shoulder of the total, its light washes the tile, embers rise.
-# trigger: initiative taken
-size 149 165
+# torch: A torch flares at the shoulder of the total; a whole disc of firelight, behind the - glyph; embers.
+# trigger: initiative taken (full-tier tiles)
+size 173 165
 frames 4
 role initiative
-anchor centre 0 0
+anchor centre -12 0
 tile 1 D4 ink
 tile 2 D1 ink
 hold_ms 300 350 250 0
 ink_px 284 651 12 0
 knockout_px 0 12 0 0
-tile_px 980 4795 0 0
-flips 529 754 1171 12   # total 2466, over sticker "37" on the quad tile
-# flips on the narrow tile: 529 760 1173 12 (total 2474)
+tile_px 980 6021 0 0
+flips 529 838 1255 12   # total 2634, over sticker "37" on the quad tile
+# flips on the narrow tile: 529 788 1201 12 (total 2530)
 # role: shipped (T55; app/.../fx/FxPolicy.kt plays it).
 # anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
 # symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).

@@ -1,0 +1,18 @@
+# torch-narrow: torch for the narrow tier: a smaller whole disc of firelight that fits the 155-wide tile.
+# trigger: initiative taken (narrow tiles)
+size 149 165
+frames 4
+role initiative
+anchor centre 0 0
+tile 1 D4 ink
+tile 2 D1 ink
+hold_ms 300 350 250 0
+ink_px 284 296 12 0
+knockout_px 16 36 0 0
+tile_px 332 2008 0 0
+flips 367 392 537 12   # total 1308, over sticker "37" on the quad tile
+# flips on the narrow tile: 367 394 535 12 (total 1308)
+# role: shipped (T55; app/.../fx/FxPolicy.kt plays it).
+# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
+# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
+# hold_ms: last frame (empty) = 0: the clean redraw is the end state.

@@ -35,6 +35,23 @@ import render3  # noqa: E402
 FW, FH = 149, 165
 EFFECTS = {}
 
+# T55: the owner's approvals. These are authored into the shipped set, design/fx/<name>/, with the
+# role the runtime plays them for (app/.../fx/FxRole); the rest stay candidates here in round3/.
+PROMOTED = {
+    'chomp': 'damage', 'slash': 'damage', 'stomp': 'big-hit', 'crit': 'big-hit',
+    'chime': 'heal', 'heart-burst': 'heal',
+    'ooze': 'poison', 'brand': 'poison', 'imp-raspberry': 'commander', 'imp-poke': 'commander',
+    'charge': 'energy', 'level-up': 'experience', 'rad-glow': 'rad', 'storm-copy': 'storm',
+    'crown-drop': 'monarch', 'crown-drop-narrow': 'monarch', 'torch': 'initiative',
+    'torch-narrow': 'initiative', 'dusk': 'night', 'dawn': 'day', 'ring-tempt': 'ring',
+    'your-turn': 'turn', 'spotlight': 'turn', 'start-flag': 'first-player', 'revive': 'revive',
+}
+
+
+def effect_dir(name):
+    """Where an effect's frames live: the shipped set for a promoted one, round3/ otherwise."""
+    return os.path.join(FX, name) if name in PROMOTED else os.path.join(HERE, name)
+
 
 def effect(group, role, size, trigger, intent):
     def deco(fn):
@@ -49,6 +66,25 @@ def effect(group, role, size, trigger, intent):
 
 def F():
     return G(FW, FH)
+
+
+class OG(G):
+    """A frame grid whose centre is offset from the total's centre (anchor `centre -ox 0`): drawing
+    coordinates stay relative to the total, like F(), so the art reads the same."""
+
+    def __init__(self, w, h, ox):
+        G.__init__(self, w, h)
+        self.ox = ox
+
+    def put(self, x, y, ch):
+        G.put(self, x + self.ox, y, ch)
+
+    def at(self, x, y):
+        return G.at(self, x + self.ox, y)
+
+    def cells(self):
+        for x, y in G.cells(self):
+            yield x - self.ox, y
 
 
 def icon(name):
@@ -128,12 +164,17 @@ def region(fn):
     return set((x, y) for x, y in t.cells() if t.at(x, y) not in (None, '.'))
 
 
-def keepout(g):
+# Full-tier-only variants (their `-narrow` twin plays on the narrow tier, T55): the diamond biting
+# the narrow middle seats' top edge is not on their tiles, so only the tab keep-out applies.
+FULL_ONLY = {'crown-drop', 'torch'}
+
+
+def keepout(g, diamond=True):
     n = 0
     for x, y in g.cells():
         if g.at(x, y) == '.':
             continue
-        if (abs(x) <= 47 and y >= 64) or abs(x) + (y + 87) <= 27:
+        if (abs(x) <= 47 and y >= 64) or (diamond and abs(x) + (y + 87) <= 27):
             g.put(x, y, '.')
             n += 1
     return n
@@ -730,13 +771,13 @@ def storm_copy():
 CROWN = trim(icon('monarch'))
 
 
-@effect('state', 'monarch', 'state', 'monarch claimed',
-        'A crown drops in and lands on top of the total with a bounce and a glint.')
-def crown_drop():
+def crown_frames(drop_y, lines):
+    """f1: the crown falls on the line it lands on (T55, the owner: frame 1 must line up with where
+    it drops in frame 2); f2: landed on the total with a bounce and a glint; f3: twinkles."""
     f1 = F()
-    spr(f1, CROWN, 40, -58, 2)
-    for x in (30, 40, 50):
-        f1.stroke([(x, -82), (x, -76)], 2)
+    spr(f1, CROWN, 0, drop_y, 2)
+    for x, y0, y1 in lines:
+        f1.stroke([(x, y0), (x, y1)], 2)
     halo(f1)
     f2 = F()
     spr(f2, CROWN, 0, -42, 2)
@@ -748,6 +789,21 @@ def crown_drop():
     sparkle(f3, 30, -50, 4, waist=.3)
     halo(f3)
     return [f1, f2, f3], ('centre', 0, 0), [250, 400, 250], {}
+
+
+@effect('state', 'monarch', 'state', 'monarch claimed (full-tier tiles)',
+        'A crown drops in on the line it lands on, lands on top of the total with a bounce and a glint.')
+def crown_drop():
+    # Full tiles: 20 px of fall; speed lines between the spikes up to the frame's top edge.
+    return crown_frames(-62, [(-8, -82, -77), (8, -82, -77)])
+
+
+@effect('state', 'monarch', 'state', 'monarch claimed (narrow tiles: the diamond bites the top)',
+        'crown-drop for the narrow tier: a shorter fall that keeps clear of the centre diamond.')
+def crown_drop_narrow():
+    # Narrow middle seats: the diamond reaches y = -60 over the centre line, so the crown starts just
+    # under it (5 px of fall) with its speed lines beside the diamond.
+    return crown_frames(-47, [(-16, -72, -64), (16, -72, -64)])
 
 
 @effect('state', 'monarch', 'state', 'monarch claimed (alt)',
@@ -765,24 +821,46 @@ def crown_cut():
     return [f1, f2], ('centre', 0, 0), [350, 350], {}
 
 
-@effect('state', 'initiative', 'state', 'initiative taken',
-        'A torch flares at the shoulder of the total, its light washes the tile, embers rise.')
-def torch():
-    f1 = F()
-    ellipse(f1, -54, -28, 20, 20, '1')
-    spr(f1, trim(icon('initiative')), -54, -28, 2)
+def torch_frames(g, cx, cy, r_glow, r_light, r_core, k, embers1, embers2):
+    """The initiative flame at (cx, cy): f1 a small D4 glow; f2 a bigger flame in a D4 core inside a
+    complete D1 firelight disc (T55: the owner asked for the circle to be completed); f3 embers.
+    Tile layers are `ink`, so whatever lies under the light (the − glyph on a full tile) still reads."""
+    f1 = g()
+    ellipse(f1, cx - 4, cy - 4, r_glow, r_glow, '1')
+    spr(f1, trim(icon('initiative')), cx - 4, cy - 4, 2)
     halo(f1, src=('#',))
-    f2 = F()
-    ellipse(f2, -50, -24, 46, 46, '2', inner=(26, 26))
-    ellipse(f2, -50, -24, 26, 26, '1')
-    spr(f2, trim(icon('initiative')), -50, -26, 3)
-    for x, y in ((-30, -62), (-62, -66), (-44, -74)):
+    f2 = g()
+    ellipse(f2, cx, cy, r_light, r_light, '2', inner=(r_core, r_core))
+    ellipse(f2, cx, cy, r_core, r_core, '1')
+    spr(f2, trim(icon('initiative')), cx, cy - 2, k)
+    for x, y in embers1:
         dot(f2, x, y)
     halo(f2, src=('#',))
-    f3 = F()
-    for x, y in ((-28, -68), (-58, -74), (-40, -60)):
+    f3 = g()
+    for x, y in embers2:
         dot(f3, x, y)
-    return [f1, f2, f3], ('centre', 0, 0), [300, 350, 250], {'1': ('D4', 'ink'), '2': ('D1', 'ink')}
+    return [f1, f2, f3]
+
+
+TORCH_W = 173      # full tier: x -98..74 about the total, so the disc (to x = -96) is whole
+TORCH_OX = 12      # the frame centre sits 12 px left of the total's centre: `anchor centre -12 0`
+
+
+@effect('state', 'initiative', 'state', 'initiative taken (full-tier tiles)',
+        'A torch flares at the shoulder of the total; a whole disc of firelight, behind the - glyph; embers.')
+def torch():
+    g = lambda: OG(TORCH_W, FH, TORCH_OX)
+    frames = torch_frames(g, -50, -24, 20, 46, 26, 3,
+                          ((-30, -62), (-62, -66), (-44, -74)), ((-28, -68), (-58, -74), (-40, -60)))
+    return frames, ('centre', -TORCH_OX, 0), [300, 350, 250], {'1': ('D4', 'ink'), '2': ('D1', 'ink')}
+
+
+@effect('state', 'initiative', 'state', 'initiative taken (narrow tiles)',
+        'torch for the narrow tier: a smaller whole disc of firelight that fits the 155-wide tile.')
+def torch_narrow():
+    frames = torch_frames(F, -45, -30, 14, 27, 17, 2,
+                          ((-34, -62), (-58, -64), (-46, -70)), ((-32, -68), (-56, -72), (-44, -62)))
+    return frames, ('centre', 0, 0), [300, 350, 250], {'1': ('D4', 'ink'), '2': ('D1', 'ink')}
 
 
 def sky(g, sym):
@@ -949,8 +1027,8 @@ def start_flag():
     return [f1, f2, f3], ('centre', 0, 0), [300, 350, 250], {}
 
 
-@effect('table', 'dice', 'table', 'a natural 20 is rolled (the roller, or every seat)',
-        'Critical: a big burst behind the total, then four fat twinkles at the corners.')
+@effect('damage', 'big-hit', 'huge', 'damage 20 or more in one readout (T55: was the natural 20)',
+        'Critical hit: a big burst behind the total, then four fat twinkles at the corners.')
 def crit():
     f1 = F()
     pts = []
@@ -1036,13 +1114,15 @@ def revive():
 
 def write(name, info):
     frames, anchor, holds, tiles = info['fn']()
-    cleared = [keepout(g) if anchor[0] == 'centre' and g.w == FW else 0 for g in frames]
-    d = os.path.join(HERE, name)
+    cleared = [keepout(g, diamond=name not in FULL_ONLY) if anchor[0] == 'centre' and g.h == FH else 0
+               for g in frames]
+    d = effect_dir(name)
+    role = PROMOTED.get(name, info['role'])
     os.makedirs(d, exist_ok=True)
     for f in os.listdir(d):
         if f.startswith('frame-'):
             os.remove(os.path.join(d, f))
-    frames = frames + [G(frames[0].w, frames[0].h)]
+    frames = frames + [G(frames[0].w, frames[0].h)]   # the empty end frame (no offset needed)
     for i, g in enumerate(frames, 1):
         with open(os.path.join(d, f'frame-{i}.txt'), 'w') as f:
             f.write('\n'.join(g.rows()) + '\n')
@@ -1053,7 +1133,7 @@ def write(name, info):
         f.write(f'# trigger: {info["trigger"]}\n')
         f.write(f'size {frames[0].w} {frames[0].h}\n')
         f.write(f'frames {len(frames)}\n')
-        f.write(f'role {info["role"]}\n')
+        f.write(f'role {role}\n')
         f.write(f'anchor {ref} {dx} {dy}\n')
         for k, (t, m) in sorted(tiles.items()):
             f.write(f'tile {k} {t} {m}\n')
@@ -1077,7 +1157,8 @@ def write(name, info):
                 ' quad tile\n')
         fn = out['narrow'][0]
         f.write(f'# flips on the narrow tile: {" ".join(map(str, fn))} (total {sum(fn)})\n')
-        f.write('# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).\n'
+        f.write(('# role: shipped (T55; app/.../fx/FxPolicy.kt plays it).\n' if name in PROMOTED else
+                 '# role: proposed (a candidate: not shipped).\n') +
                 '# anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.\n'
                 '# symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).\n'
                 '# hold_ms: last frame (empty) = 0: the clean redraw is the end state.\n')
