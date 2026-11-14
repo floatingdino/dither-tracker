@@ -24,6 +24,8 @@ import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.layout.Arrangements
 import au.com.josephmark.dithertracker.eink.EinkConfig
+import au.com.josephmark.dithertracker.eink.EinkDisplay
+import au.com.josephmark.dithertracker.eink.EinkViewMode
 import au.com.josephmark.dithertracker.eink.ScreenCleaner
 import au.com.josephmark.dithertracker.eink.SupernoteFullRefresh
 import au.com.josephmark.dithertracker.fx.FxDebug
@@ -73,6 +75,11 @@ class MainActivity : Activity() {
         //                       "Screen clean" setting; 0 = off), to trigger it with a few taps (T19b)
         //   --ez vendorRefresh true  (debuggable builds only) full cleans use the Supernote vendor refresh
         //                       instead of the black flash (SupernoteFullRefresh; off by default)
+        //   --ei einkMode N     (debuggable builds only) pin the root view's e-ink mode instead of the Display
+        //                       setting (T58): 0 none, 1 DU (= FAST), 2 GC, 4 A2, 7 AUTO, 11 DUX; with --ez
+        //                       trace true (or any debug build) tag EinkViewMode logs the mode read back
+        //   --ez gcClean true   (debuggable builds only) cleans redraw in the GC waveform instead of the black
+        //                       ink frame (T58, ScreenCleaner.waveform; full cleans still prefer vendorRefresh)
         //   --ei players N      (debuggable builds only) start a new game at N seats (2..6) and choose N in
         //                       settings (T11 captures); applied before --es partners / --es lives
         //   --es lives 40,0,12  (debuggable builds only) set each seat's life in order (T11 captures: a KO)
@@ -110,13 +117,7 @@ class MainActivity : Activity() {
             }
         }
         setContentView(root)
-        // --ei einkMode N  (debug builds only) EXPERIMENT: per-View e-ink update mode, docs/eink.md
-        // "Faster display modes" (1 DU, 2 GC, 3 GL, 4 A2, 7 AUTO, 11 DUX).
-        if (BuildConfig.DEBUG && intent?.hasExtra("einkMode") == true) {
-            val mode = intent.getIntExtra("einkMode", 0)
-            au.com.josephmark.dithertracker.eink.EinkViewMode.apply(root, mode)
-            root.post { au.com.josephmark.dithertracker.eink.EinkViewMode.apply(root, mode) }
-        }
+        startEinkDisplay(trace)
         if (trace) {
             val t2 = SystemClock.elapsedRealtimeNanos()
             Log.d(
@@ -166,6 +167,34 @@ class MainActivity : Activity() {
             (debug && i?.getBooleanExtra("vendorRefresh", false) == true)
         val ctx = applicationContext
         EinkConfig.vendorFull = if (vendor) ScreenCleaner.FullRefresh { SupernoteFullRefresh.tryFullRefresh(ctx) } else null
+        // T58: before the Play view (and its settings table) is built — the Display row is Supernote-only.
+        EinkConfig.fastDisplayAvailable = EinkViewMode.available
+    }
+
+    /**
+     * The root view's e-ink waveform (T58, eink/EinkDisplay): the Display setting (FAST = DU) or the debug
+     * `--ei einkMode N`, set now and again on resume and on every setting change; `--ez gcClean true`
+     * makes cleans use the GC waveform. A no-op off a Supernote (EinkViewMode's guard).
+     */
+    private fun startEinkDisplay(trace: Boolean) {
+        val debug = BuildConfig.DEBUG
+        val i = intent
+        val override = if (debug && i?.hasExtra("einkMode") == true) i.getIntExtra("einkMode", 0) else EinkDisplay.NO_OVERRIDE
+        val view = root
+        val port = object : EinkDisplay.Port {
+            override fun set(mode: Int) = EinkViewMode.set(view, mode)
+            override fun read() = EinkViewMode.read(view)
+        }
+        val d = EinkDisplay(port, override, if (debug || trace) { msg -> Log.d("EinkViewMode", msg) } else null)
+        display = d
+        d.apply(SettingsHolder.shared.current.fastDisplay, "create")
+        EinkConfig.gcClean = if (debug && i?.getBooleanExtra("gcClean", false) == true) d else null
+    }
+
+    private var display: EinkDisplay? = null
+
+    private val displaySetting = SettingsHolder.Listener { old, new ->
+        if (old.fastDisplay != new.fastDisplay) display?.apply(new.fastDisplay, "setting")
     }
 
     /**
@@ -282,6 +311,8 @@ class MainActivity : Activity() {
         super.onResume()
         SettingsHolder.shared.addListener(keepAwake)
         applyKeepAwake(SettingsHolder.shared.current.keepScreenAwake)
+        SettingsHolder.shared.addListener(displaySetting)
+        display?.apply(SettingsHolder.shared.current.fastDisplay, "resume")
         (root as? PlayView)?.onHostResume()
     }
 
@@ -289,6 +320,8 @@ class MainActivity : Activity() {
         super.onPause()
         SettingsHolder.shared.removeListener(keepAwake)
         applyKeepAwake(false)
+        SettingsHolder.shared.removeListener(displaySetting)
+        display?.check("pause")
         (root as? PlayView)?.onHostPause() // no e-ink cleanup timer while in the background
         // Home, sleep, swipe-away: write anything still waiting on the debounce before we can be killed.
         Persistence.flush()
@@ -308,6 +341,7 @@ class MainActivity : Activity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) enterImmersive()
+        display?.check(if (hasFocus) "focus" else "focus lost")
     }
 
     override fun finish() {

@@ -14,6 +14,11 @@ import au.com.josephmark.dithertracker.play.Scheduler
  * drawn, the call runs [VENDOR_DELAY_MS] later (so a redraw posted in the same frame reaches the panel
  * first), and on failure it falls back to the ink frame.
  *
+ * Or a clean may use the panel's GC waveform ([waveform], T58: the debug extra `--ez gcClean true`):
+ * no ink frame — the view is switched to GC, the region is redrawn as it is (the GC update drives every
+ * pixel there through black and white), and [HOLD_MS] later the view goes back to its normal mode. Any
+ * clean, seat or full; when the switch is unavailable it falls back to the ink frame.
+ *
  * The owner draws [draw] last in its frame, routes [timerId] to [onTimer] and calls [cancel] on any
  * touch, which still acts normally (SPEC rule 4: never block input; a tap cancels a
  * running sequence; the redraw then happens at once). Allocation-free.
@@ -39,6 +44,17 @@ class ScreenCleaner(
 
     var vendorFull: FullRefresh? = null
 
+    /**
+     * Switches the view's waveform for a GC clean (`EinkDisplay`): `gc(true)` before the redraw (false
+     * when unavailable), `gc(false)` once it has reached the panel or the clean is cancelled.
+     */
+    fun interface Waveform {
+        fun gc(on: Boolean): Boolean
+    }
+
+    /** The GC clean's switch, or null for the ink frame. */
+    var waveform: Waveform? = null
+
     /** The whole screen (dither px); the owner sets it on layout. */
     val screen = IRect()
 
@@ -57,6 +73,14 @@ class ScreenCleaner(
     var black: Boolean = false
         private set
 
+    /** True while a GC clean holds the view in GC (the redraw is in flight). */
+    var gc: Boolean = false
+        private set
+
+    /** The current (or last) clean used the GC waveform. */
+    var viaGc: Boolean = false
+        private set
+
     /** Number of cleans started (tests / trace). */
     var count: Int = 0
         private set
@@ -72,10 +96,18 @@ class ScreenCleaner(
         region.set(rect.left, rect.top, rect.right, rect.bottom)
         this.full = full
         active = true
+        viaGc = false
         count++
         if (full && vendorFull != null) {
             black = false
             timers.schedule(timerId, VENDOR_DELAY_MS)
+            return
+        }
+        if (waveform?.gc(true) == true) {
+            gc = true
+            viaGc = true
+            timers.schedule(timerId, holdMillis)
+            host.redraw(region)
             return
         }
         showBlack()
@@ -94,12 +126,24 @@ class ScreenCleaner(
         val wasBlack = black
         active = false
         black = false
+        if (gc) {
+            gc = false
+            waveform?.gc(false)
+        }
         if (wasBlack) host.redraw(region)
     }
 
     /** The owner's timer fired. */
     fun onTimer(id: Int) {
         if (id != timerId || !active) return
+        if (gc) {
+            // The GC redraw has reached the panel: back to the normal waveform.
+            gc = false
+            waveform?.gc(false)
+            active = false
+            host.onCleaned(full)
+            return
+        }
         if (!black) {
             // Vendor refresh pending: run it; on failure fall back to the app-drawn flash.
             if (vendorFull?.refresh() == true) {

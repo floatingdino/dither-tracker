@@ -23,6 +23,10 @@ fun signingValue(key: String): String? =
 val releaseStoreFile: File? = signingValue("storeFile")?.let { rootProject.file(it) }
 val debugSignRelease = providers.gradleProperty("debugSignRelease").isPresent
 
+// `-PappIdSuffix=.t58` installs a build beside the owner's app (its own data) for on-device checks
+// (T58: the release build's hidden-API answer). Default: none. Uninstall the suffixed package after.
+val appIdSuffix: String? = providers.gradleProperty("appIdSuffix").orNull?.takeIf { it.isNotEmpty() }
+
 android {
     namespace = "au.com.josephmark.dithertracker"
     compileSdk = 37
@@ -34,6 +38,7 @@ android {
         // Bump versionCode for every APK handed to a device as an update; versionName is semver.
         versionCode = 1
         versionName = "0.1.0"
+        appIdSuffix?.let { applicationIdSuffix = it }
     }
 
     signingConfigs {
@@ -51,7 +56,8 @@ android {
         release {
             // R8 (full mode) + resource shrinking. The app needs no keep rules of its own: nothing is
             // looked up by name (no Class.forName, no enum valueOf, saves are numeric codes), and the
-            // one reflective call (eink/SupernoteFullRefresh) targets a framework class R8 never sees.
+            // reflective calls (eink/SupernoteFullRefresh, eink/EinkViewMode) look up methods of framework
+            // classes by string, which R8 never sees or renames (T58, docs/eink.md).
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))

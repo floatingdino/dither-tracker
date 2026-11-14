@@ -72,6 +72,7 @@ class CleanComponent : Component(Layer.OVERLAY, Kind.OVERLAY, timerCount = TIMER
 
     override fun onAttach() {
         cleaner.vendorFull = EinkConfig.vendorFull
+        cleaner.waveform = EinkConfig.gcClean
         cadence.setThreshold(threshold(stage.settings.current))
         logHead = stage.session.game.log.firstOrNull()
         tableCovered = stage.covered(Kind.STATUS, 0)
@@ -200,6 +201,11 @@ class CleanComponent : Component(Layer.OVERLAY, Kind.OVERLAY, timerCount = TIMER
     }
 
     override fun onCleaned(full: Boolean) {
+        if (cleaner.viaGc) {
+            trace("eink clean end: ${if (full) "full" else "seat $cleaning"} (gc)")
+            cadence.cleaned(if (full) CleanCadence.FULL else cleaning)
+            return
+        }
         trace("eink clean end: ${if (full) "full" else "seat $cleaning"}${if (full && !cleaner.black && cleaner.vendorFull != null) " (vendor)" else ""}")
         cadence.cleaned(if (full) CleanCadence.FULL else cleaning)
     }
@@ -261,4 +267,10 @@ object EinkConfig {
 
     /** The vendor full refresh (`SupernoteFullRefresh`) when enabled, else null (app flash only). */
     var vendorFull: ScreenCleaner.FullRefresh? = null
+
+    /** The GC clean's waveform switch (T58, debug `--ez gcClean true`), else null (the ink frame). */
+    var gcClean: ScreenCleaner.Waveform? = null
+
+    /** Whether the per-view e-ink mode works on this device (T58): the settings' Display row shows. */
+    var fastDisplayAvailable: Boolean = false
 }

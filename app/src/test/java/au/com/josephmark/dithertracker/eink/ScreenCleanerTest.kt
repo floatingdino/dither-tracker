@@ -114,4 +114,77 @@ class ScreenCleanerTest {
         assertTrue(redraws.isEmpty())
         assertTrue(done.isEmpty())
     }
+
+    // ---- T58: the GC clean ------------------------------------------------------------------------
+
+    private val gcCalls = ArrayList<Boolean>()
+
+    private fun gc(available: Boolean = true) {
+        cleaner.waveform = ScreenCleaner.Waveform { on -> gcCalls += on; available || !on }
+    }
+
+    @Test fun gcCleanRedrawsInGcWithNoInkFrameThenRestores() {
+        gc()
+        cleaner.cleanRegion(tile)
+        assertTrue(cleaner.active)
+        assertTrue(cleaner.gc)
+        assertTrue(cleaner.viaGc)
+        assertFalse("no ink frame", cleaner.black)
+        assertEquals(listOf(true), gcCalls) // switched before the redraw
+        assertEquals(listOf(tile), redraws)
+        clock.advance(ScreenCleaner.HOLD_MS - 1)
+        assertEquals(listOf(true), gcCalls)
+        clock.advance(1)
+        assertFalse(cleaner.active)
+        assertFalse(cleaner.gc)
+        assertEquals(listOf(true, false), gcCalls)
+        assertEquals("one redraw only", listOf(tile), redraws)
+        assertEquals(listOf(false), done)
+    }
+
+    @Test fun gcFullClean() {
+        gc()
+        cleaner.cleanFull()
+        assertEquals(listOf(screen), redraws)
+        clock.advance(ScreenCleaner.HOLD_MS)
+        assertEquals(listOf(true, false), gcCalls)
+        assertEquals(listOf(true), done)
+    }
+
+    @Test fun aTouchDuringAGcCleanRestoresTheWaveformAtOnce() {
+        gc()
+        cleaner.cleanRegion(tile)
+        cleaner.cancel()
+        assertFalse(cleaner.active)
+        assertFalse(cleaner.gc)
+        assertFalse(clock.isArmed(2))
+        assertEquals(listOf(true, false), gcCalls)
+        assertEquals("nothing inked, nothing to redraw", listOf(tile), redraws)
+        assertTrue(done.isEmpty())
+        cleaner.cancel()
+        assertEquals(listOf(true, false), gcCalls)
+    }
+
+    @Test fun gcUnavailableFallsBackToTheInkFrame() {
+        gc(available = false)
+        cleaner.cleanRegion(tile)
+        assertTrue(cleaner.black)
+        assertFalse(cleaner.viaGc)
+        clock.advance(ScreenCleaner.HOLD_MS)
+        assertEquals(listOf(true), gcCalls) // asked once, never "restored"
+        assertEquals(listOf(tile, tile), redraws)
+        assertEquals(listOf(false), done)
+    }
+
+    @Test fun vendorRefreshStillTakesFullCleansWhenBothAreOn() {
+        gc()
+        var calls = 0
+        cleaner.vendorFull = ScreenCleaner.FullRefresh { calls++; true }
+        cleaner.cleanFull()
+        clock.advance(ScreenCleaner.VENDOR_DELAY_MS)
+        assertEquals(1, calls)
+        assertTrue(gcCalls.isEmpty())
+        cleaner.cleanRegion(tile) // seats use GC
+        assertEquals(listOf(true), gcCalls)
+    }
 }
