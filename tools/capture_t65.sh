@@ -24,12 +24,12 @@ launch() { # extras…
   $A shell am start -S -n $P/au.com.josephmark.dithertracker.MainActivity --el seed 7 --ef diceHold 12 --es displaySpeed fast "$@" >/dev/null
   sleep 7
 }
-# The gem at (x, y), then its FIRST facet 232 px below; the REST keyframe ~11.5 s later.
+# The gem at (x, y), then its FIRST facet 232 px below; the REST keyframe ~13 s later.
 rest() { # name players diamondX
   launch --ei players "$2"
   $A shell input tap "$3" 702; sleep 0.8
   $A shell input tap "$3" 934
-  sleep 11.5
+  sleep 13
   snap "$1"
 }
 
