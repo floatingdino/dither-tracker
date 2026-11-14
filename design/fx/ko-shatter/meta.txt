@@ -5,7 +5,7 @@ role ko
 anchor tile 0 0
 tile 1 D8 paper
 tile 2 D12 paper
-hold_ms 350 350 0
+hold_ms 300 450 0
 ink_px 983 35 0
 knockout_px 348 80 0
 tile_px 6107 6720 0

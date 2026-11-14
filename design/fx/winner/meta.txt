@@ -4,7 +4,7 @@ frames 4
 role win
 anchor tile 0 0
 tile 3 CHECKER fill
-hold_ms 350 400 250 0
+hold_ms 300 500 250 0
 ink_px 1112 1438 100 0
 knockout_px 1139 1680 0 0
 tile_px 0 256 0 0

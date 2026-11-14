@@ -215,4 +215,18 @@ class FxPlayerTest {
             }
         }
     }
+
+    /** T65: every shipped effect is timed as a curve — the read frame longest, nothing under 250 ms (slow panel). */
+    @Test fun everyShippedEffectHoldsItsReadFrameLongest() {
+        for (fx in Fx.entries) {
+            val n = fx.frameCount - 1
+            var max = 0
+            for (i in 0 until n) {
+                assertTrue("${fx.id} frame $i: ${fx.holdMs(i)} ms", fx.holdMs(i) >= 250)
+                max = maxOf(max, fx.holdMs(i))
+            }
+            val longest = (0 until n).count { fx.holdMs(it) == max }
+            assertEquals("${fx.id}: one read frame holds longest", 1, longest)
+        }
+    }
 }

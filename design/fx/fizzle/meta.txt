@@ -6,7 +6,7 @@ anchor centre 0 -2
 tile 1 D4 paper
 tile 2 D8 paper
 tile 3 D12 paper
-hold_ms 300 300 300 0
+hold_ms 250 400 250 0
 ink_px 4 8 8 0
 knockout_px 0 0 0 0
 tile_px 4560 4560 4560 0
