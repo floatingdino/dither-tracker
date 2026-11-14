@@ -84,6 +84,8 @@ On the contact sheet, each icon is drawn at 8× nearest-neighbour inside a grey 
 | `dead` | Tombstone outline with a solid cross, on grassy ground | Auto-KO marker and toggle |
 | `dice` | Die face showing five, with 3D depth on the right and bottom | Dice tool (d6/d20/custom) |
 | `coin` | Coin at an angle: face with an embossed dot, solid edge | Coin-flip tool |
+| `coin-heads` | Heads: the imp's face — horns, slanted eyes, a grin with two fangs (not `commander`'s face: the coin imp is grinning wider) | The coin's heads face at a 1× result (the 2× landed coin is its 28-px twin, `design/tools/coin/`) |
+| `coin-tails` | Tails: the imp's tail — a 2-px S-curve ending in a barbed spade | The coin's tails face at a 1× result (as above) |
 | `timer` | Stopwatch with a solid elapsed-time wedge | Turn/game timer |
 | `turn` | Solid play triangle with an end bar (next/skip) | Turn tracker, pass turn |
 | `undo` | Hooked arrow, solid head pointing left | Undo (menu) |
@@ -116,7 +118,7 @@ On the contact sheet, each icon is drawn at 8× nearest-neighbour inside a grey 
 - `undo` and `redo` are open hooks, while `reset` and `refresh` are closed circles. `reset` has one anticlockwise arrow and `refresh` has two clockwise arrows. `rotate` is the only one with a device in it.
 - `day` has block rays that stand apart from a solid disc. `settings` has teeth joined to the body and a big hole in the middle.
 - `monarch` (crown) and `commander` (imp) share no outline: the imp's horns are single curved points, the crown has a straight band. `partner` reuses the `commander` imp face on purpose, so the two read as related, and adds a tiny sidekick so it never reads as a single imp. `players` uses the same front/back overlap with people.
-- `coin` is a single angled coin with a solid edge. `commander-tax` is a money sack. `generic-counter` is a flat round token marked "+1". `invert` is a perfect circle split down the middle with no emblem.
+- `coin` is a single angled coin with a solid edge. `coin-heads` is an imp face like `commander` but with a wider fanged grin and slanted eyes; it only ever appears on the coin panel, beside the word HEADS. `coin-tails` is the only thin S-curve. `commander-tax` is a money sack. `generic-counter` is a flat round token marked "+1". `invert` is a perfect circle split down the middle with no emblem.
 - `storm` is a cloud with a small bolt. `energy` is a big bolt on its own.
 - `dead` (tombstone) is the only arched slab, and its grassy ground extends past the stone. `commander` and `partner` (imps) are the only faces.
 - `new-game` (card with a plus) has a second card behind it. `dice` has pips and a thick edge.
@@ -143,3 +145,26 @@ Sam: "Add a new icon for winner so we're not repurposing the monarch icon." Thre
 `design/captures/t51-winner-icons.png`: **a** trophy cup (wired as `winner`), **b** medal on a
 ribbon with a star knocked out, **c** a foam "#1" finger. Pick: **a** — the plainest "you won" at
 arm's length, and its solid cup carries the weight of the other badges.
+
+## T61 coin faces (2026-11-14)
+
+Sam: "Add a ticket for heads/tails coin icons." A coin flip used to show the result as a word, a quip
+and a coin with an H or T knocked out. Now each side has its own symbol. Three pairs are in
+[`candidates/t61/`](candidates/t61/). `<side>-<option>.txt` is the 16×16 icon and
+`<side>-<option>-coin.txt` is the 28×28 landed coin (an ink disc, a paper ring, the emblem knocked
+out of the ink field). The sheet is `design/captures/t61-coin-faces.png`, showing each option landing
+on the real panel (both faces, S = 4) and at icon size, plain and inverted.
+
+- **a** imp face / the imp's spade-tipped tail (**built**)
+- **b** skull / shooting star
+- **c** fish head / fish tail
+
+Pick: **a**. Both faces come from the app's own imp, so they read as one coin. The silhouettes are
+opposites (a round face against a thin S-curve with a barbed tip), so you can tell them apart at
+thumbnail size and upside down. The heads face is literally a head and the tails face literally a
+tail, with no convention to learn. In **b**, the star's streaks read as a wand at a distance. In
+**c**, the head half reads as a ball or Pac-Man.
+
+Where each size is used: the 28-px face is the landed coin at the shipped 2× result (scaled by k / 2,
+so it is 112 device px at S = 4). The 16×16 icons (`coin-heads`, `coin-tails`) are the coin at a 1×
+result, where the coin is only 14 px. The tumbling coin never shows either face.

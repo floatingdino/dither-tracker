@@ -10,6 +10,14 @@ Outputs (generated, committed; do not edit by hand):
   app/src/main/java/au/com/josephmark/dithertracker/tools/DiceSprites.kt   the shipped set (variant A)
   app/src/test/java/au/com/josephmark/dithertracker/tools/DiceSpritesB.kt the variant not built (B),
                                                                             test-only: the sheet draws it
+  app/src/test/java/au/com/josephmark/dithertracker/tools/CoinFacesT61.kt  T61's coin-face options
+                                                                            (test-only: the contact sheet)
+
+Coin faces (T61): the landed coin's heads / tails faces are 28 x 28 bitmaps (`#` ink, `.` not drawn)
+in `design/tools/coin/heads.txt` / `tails.txt` (an ink disc, a paper ring, the emblem knocked out of
+the ink field), shipped as `COIN_HEADS` / `COIN_TAILS`. Their 16 x 16 twins are the icons
+`design/icons/coin-heads.txt` / `coin-tails.txt`. Every option drawn for T61 (a, b, c; both sizes)
+is in `design/icons/candidates/t61/`.
 
 Symbols (as the effects' frame files, design/fx/README.md):
   .  transparent      #  ink      o  paper (opaque knock-out)
@@ -30,6 +38,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 MAIN = os.path.join(ROOT, 'app/src/main/java/au/com/josephmark/dithertracker/tools/DiceSprites.kt')
 TEST = os.path.join(ROOT, 'app/src/test/java/au/com/josephmark/dithertracker/tools/DiceSpritesB.kt')
+T61 = os.path.join(ROOT, 'app/src/test/java/au/com/josephmark/dithertracker/tools/CoinFacesT61.kt')
+COIN_DIR = os.path.join(HERE, 'coin')
+T61_DIR = os.path.join(ROOT, 'design', 'icons', 'candidates', 't61')
 
 PHI = (1 + 5 ** 0.5) / 2
 LIGHT = (-0.40, 0.50, 0.77)  # x right, y up, z toward the viewer: upper left, mostly frontal
@@ -417,6 +428,13 @@ def cloud(w, h, circles):
     return trim(rows)
 
 
+def read_bits(path):
+    with open(path) as f:
+        rows = f.read().rstrip('\n').split('\n')
+    assert rows and all(len(r) == len(rows[0]) and set(r) <= {'#', '.'} for r in rows), path
+    return rows
+
+
 def build():
     ico = icosahedron()
     cub = cube()
@@ -451,6 +469,9 @@ def build():
     shipped['ARC_UP'] = ARC_UP
     shipped['ARC_DOWN'] = ARC_DOWN
     shipped['THUD'] = THUD
+    # T61: the landed coin's faces (28 x 28; not in the presentation's sprite table: `DiceArt` draws them).
+    shipped['COIN_HEADS'] = read_bits(os.path.join(COIN_DIR, 'heads.txt'))
+    shipped['COIN_TAILS'] = read_bits(os.path.join(COIN_DIR, 'tails.txt'))
     b = {
         'CLOUD_A': cloud(52, 31, [(12, 17, 9), (24, 11, 10), (37, 13, 9), (43, 21, 8), (28, 21, 10), (14, 23, 7)]),
         'CLOUD_B': cloud(52, 31, [(10, 16, 8), (21, 10, 9), (33, 9, 9), (44, 16, 8), (36, 22, 9), (20, 22, 9)]),
@@ -543,6 +564,18 @@ def main():
         f.write(kotlin('DiceSprites', shipped, doc_a))
     with open(TEST, 'w') as f:
         f.write(kotlin('DiceSpritesB', b, doc_b))
+    t61 = {}
+    for opt in 'abc':
+        for side in ('heads', 'tails'):
+            t61['%s_%s_COIN' % (side.upper(), opt.upper())] = read_bits(os.path.join(T61_DIR, '%s-%s-coin.txt' % (side, opt)))
+            t61['%s_%s_ICON' % (side.upper(), opt.upper())] = read_bits(os.path.join(T61_DIR, '%s-%s.txt' % (side, opt)))
+    doc_t61 = [
+        'T61 coin-face options (test-only): a imp face / imp tail (shipped), b skull / shooting star,',
+        'c fish head / fish tail. `*_COIN` is the 28 x 28 landed coin, `*_ICON` the 16 x 16 icon.',
+        '`CoinFacesSheetTest` draws them on the real panel for `design/captures/t61-coin-faces.png`.',
+    ]
+    with open(T61, 'w') as f:
+        f.write(kotlin('CoinFacesT61', t61, doc_t61))
     if len(sys.argv) > 2 and sys.argv[1] == '--preview':
         os.makedirs(sys.argv[2], exist_ok=True)
         preview(os.path.join(sys.argv[2], 'sprites-a.png'), shipped)
