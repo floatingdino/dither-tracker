@@ -19,7 +19,8 @@ import kotlin.random.Random
 class CommanderModeTest {
 
     private val session = GameSession.newGame(4)
-    private val timers = FakeScheduler(1)
+    private val timers = FakeScheduler(CommanderMode.TIMERS)
+    private val hints = ArrayList<Int>()
     private val changes = ArrayList<Pair<Int, Int>>()
     private val dispatched = ArrayList<Pair<Int, Action.ChangeCommanderDamage>>()
 
@@ -30,6 +31,10 @@ class CommanderModeTest {
             session.dispatch(action, timers.now)
         }
         override fun onModeChanged(old: Int, new: Int) { changes += old to new }
+        override fun dispatchPartner(seat: Int, on: Boolean) {
+            session.dispatch(Action.SetPartner(session.state.players[seat].id, on), timers.now)
+        }
+        override fun onHintChanged(seat: Int) { hints += seat }
     }
 
     private val mode = CommanderMode(timers, host, Random(42)).also { timers.target = it }
@@ -171,5 +176,73 @@ class CommanderModeTest {
         assertEquals(Commander.PARTNER, CommanderZones.slotOf(CommanderZones.B_MINUS))
         assertEquals(PlayLayout.MINUS, CommanderZones.sideOf(CommanderZones.B_MINUS))
         assertEquals(PlayLayout.PLUS, CommanderZones.sideOf(CommanderZones.A_PLUS))
+    }
+
+    // ---- T52: the PARTNER tab ---------------------------------------------------------------------
+
+    private fun partner(seat: Int) = session.state.players[seat].partner
+
+    @Test fun partnerTabTogglesOnAndOffWhenNothingIsAtStakeOneUndoStepEach() {
+        assertFalse("inactive: nothing", mode.partnerTap(1))
+        button(3)
+        val steps = session.history.past.size
+        assertTrue(mode.partnerTap(1))
+        assertTrue(partner(1))
+        assertEquals(steps + 1, session.history.past.size)
+        assertFalse(mode.partnerAtStake(1))
+        assertFalse("nothing at stake: a plain tap, no hold needed", mode.partnerRepeats(1))
+        assertTrue(mode.partnerTap(1))
+        assertFalse(partner(1))
+        assertEquals(steps + 2, session.history.past.size)
+        // The target can set their own partner too.
+        assertTrue(mode.partnerTap(3))
+        assertTrue(partner(3))
+        session.undo()
+        assertFalse(partner(3))
+        assertTrue("the mode stays on", mode.active)
+    }
+
+    @Test fun droppingAPartnerWithDamageNeedsAHoldAndUndoRestoresIt() {
+        button(3)
+        mode.partnerTap(1)
+        tap(1, CommanderZones.B_PLUS)
+        tap(1, CommanderZones.B_PLUS)
+        assertEquals(2, mode.damage(1, Commander.PARTNER))
+        assertTrue(mode.partnerAtStake(1))
+        val life = session.state.players[3].life
+        // A tap only shows the hint (and it times out).
+        assertFalse(mode.partnerTap(1))
+        assertTrue(partner(1))
+        assertEquals(1, mode.hint)
+        assertEquals(listOf(1), hints)
+        assertTrue(mode.partnerRepeats(1))
+        timers.advance(CommanderMode.HINT_MS)
+        assertEquals(CommanderMode.NONE, mode.hint)
+        assertTrue(mode.active)
+        // A hold drops it: core zeroes the partner's damage (life is not refunded).
+        assertTrue(mode.partnerHold(1))
+        assertFalse(partner(1))
+        assertEquals(0, mode.damage(1, Commander.PARTNER))
+        assertEquals(life, session.state.players[3].life)
+        assertFalse("later repeats of the same hold do nothing", mode.partnerHold(1))
+        assertFalse(partner(1))
+        // One undo step brings partner and damage back.
+        session.undo()
+        assertTrue(partner(1))
+        assertEquals(2, mode.damage(1, Commander.PARTNER))
+    }
+
+    @Test fun partnerTaxAlsoCountsAndLeavingClearsTheHint() {
+        session.dispatch(Action.SetPartner(id(2), true), 0)
+        session.dispatch(Action.ChangeCommanderTax(id(2), Commander.PARTNER, 2), 0)
+        button(0)
+        assertTrue(mode.partnerAtStake(2))
+        mode.partnerTap(2)
+        assertEquals(2, mode.hint)
+        assertTrue(timers.isArmed(CommanderMode.TIMER_HINT))
+        mode.exit()
+        assertEquals(CommanderMode.NONE, mode.hint)
+        assertFalse(timers.isArmed(CommanderMode.TIMER_HINT))
+        assertFalse(timers.isArmed(CommanderMode.TIMER))
     }
 }

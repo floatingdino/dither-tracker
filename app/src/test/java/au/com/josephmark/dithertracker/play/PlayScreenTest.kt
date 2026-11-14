@@ -165,9 +165,12 @@ class PlayScreenTest {
         val n3 = mid(l.numberSlot[3])
         assertEquals("cmd:3:${CommanderZones.TARGET}", rig.hit(n3[0], n3[1]))
         assertEquals("close", rig.hit(l.diamondCx, l.diamondCy))
-        // Tabs are hidden in the mode: the tab area is part of the tile's half.
+        // Drawer tabs are hidden in the mode: their spot is each tile's PARTNER tab (T52), and
+        // beside it the tile's half.
         val tab = l.tab[2]
-        assertEquals("cmd:2:${CommanderZones.A_MINUS}", rig.hit(tab.left + 2, tab.top + 2))
+        assertEquals("cmd:2:${CommanderZones.PARTNER}", rig.hit(tab.left + 2, tab.top + 2))
+        assertEquals("cmd:3:${CommanderZones.PARTNER}", mid(l.tab[3]).let { rig.hit(it[0], it[1]) })
+        assertEquals("cmd:2:${CommanderZones.A_MINUS}", rig.hit(l.panels[2].left + 2, tab.top + 2))
         // Upright seat 2: screen-left half is −.
         val p2 = l.panels[2]
         assertEquals("cmd:2:${CommanderZones.A_MINUS}", rig.hit(p2.left + 10, n3[1]))

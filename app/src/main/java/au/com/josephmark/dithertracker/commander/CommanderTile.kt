@@ -29,9 +29,13 @@ import kotlin.random.Random
  * shows the quip and its life. The readout ([Kind.READOUT]) stays: damage shows on the source seat,
  * linked life loss on the target ([Origin.ATTRIBUTED] dispatches, fed to the readouts here). The
  * close X on the diamond is [CommanderClose].
+ *
+ * T52: every tile also shows its player's PARTNER tab (see [CommanderLayout], [CommanderMode]): tap to
+ * give their commander a partner (the tile splits into quarters) or take it away; when the partner
+ * has damage or tax recorded the tab says HOLD and only a hold drops it. One undo step each.
  */
 class CommanderTile(private val random: Random = Random(System.nanoTime())) :
-    Component(Layer.TILE, Kind.MODE, zonesPerSeat = CommanderZones.PER_SEAT, timerCount = 1), CommanderMode.Host {
+    Component(Layer.TILE, Kind.MODE, zonesPerSeat = CommanderZones.PER_SEAT, timerCount = CommanderMode.TIMERS), CommanderMode.Host {
 
     lateinit var mode: CommanderMode
         private set
@@ -48,6 +52,8 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
     private val label = UpperLabel()
     private val fp = IRect()
     private val fi = IRect()
+    private val pIcon = IRect()
+    private val pLabel = IRect()
 
     override fun onAdded() {
         mode = CommanderMode(timers, this, random)
@@ -73,7 +79,10 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
     override fun onTimer(id: Int) = mode.onTimer(id)
 
     override fun onEvent(event: Int, seat: Int) {
-        if (event == Events.COMMANDER_TARGET) mode.press(seat)
+        when (event) {
+            Events.COMMANDER_TARGET -> mode.press(seat)
+            Events.PAUSE -> mode.clearHint()
+        }
     }
 
     // ---- CommanderMode.Host ------------------------------------------------------------------------
@@ -96,6 +105,19 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
         ro.add(t, new.players[t].life - old.players[t].life)
     }
 
+    override fun dispatchPartner(seat: Int, on: Boolean) {
+        val ps = stage.session.state.players
+        if (seat !in ps.indices) return
+        // Its own undo step (no coalesce key) and log entry; external: open readouts commit first.
+        stage.dispatch(Origin.EXTERNAL, Action.SetPartner(ps[seat].id, on))
+        stage.log?.invoke("commander mode: seat $seat partner $on")
+    }
+
+    override fun onHintChanged(seat: Int) {
+        val c = layout ?: return
+        if (seat in 0 until c.play.playerCount) invalidate(c.partnerTab[seat])
+    }
+
     override fun onModeChanged(old: Int, new: Int) {
         // Every tile changes meaning: the cover cancels held touches, commits readouts, closes drawers
         // and redraws every panel and the diamond.
@@ -116,6 +138,7 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
         val np = new.players
         if (tg !in np.indices) { mode.exit(); return }
         if (np[tg].life != op[tg].life) invalidate(c.lifeRow[tg])
+        if (np[tg].partner != op[tg].partner) invalidate(c.partnerTab[tg])
         for (s in np.indices) {
             if (s == tg) continue
             if (np[s].partner != op[s].partner) {
@@ -142,6 +165,7 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
             z.add(CommanderZones.A_MINUS, l.zones[PlayLayout.zone(seat, PlayLayout.MINUS)])
             z.add(CommanderZones.A_PLUS, l.zones[PlayLayout.zone(seat, PlayLayout.PLUS)])
         }
+        if (seat < players.size && t?.compact(seat) != true) z.add(CommanderZones.PARTNER, c.partnerHit[seat])
     }
 
     override fun feedback(seat: Int, local: Int, out: IRect): Boolean {
@@ -149,13 +173,15 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
         return c.feedbackRect(seat, local, stage.session.state.players, out)
     }
 
-    override fun repeats(seat: Int, local: Int): Boolean = mode.repeats(seat, local)
+    override fun repeats(seat: Int, local: Int): Boolean =
+        if (local == CommanderZones.PARTNER) mode.partnerRepeats(seat) else mode.repeats(seat, local)
 
     override fun onTap(seat: Int, local: Int) {
-        mode.onTap(seat, local)
+        if (local == CommanderZones.PARTNER) mode.partnerTap(seat) else mode.onTap(seat, local)
     }
 
     override fun onRepeat(seat: Int, local: Int) {
+        if (local == CommanderZones.PARTNER) { mode.partnerHold(seat); return }
         mode.holdStep = stage.holdStep // damage holds step like life (designer, T30 pass 2)
         mode.onRepeat(seat, local)
     }
@@ -171,6 +197,7 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
         val tg = mode.target
         val rot = l.rotation[seat]
         if (tg !in players.indices) return
+        if (seat < players.size) partnerTab(f, c, seat, players[seat].partner, rot)
         if (seat == tg) {
             // The target: one composed block — the quip in caps, a dotted rule, then the life.
             val q = mode.quip
@@ -218,6 +245,21 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
                 f.icons.icon(c.tk, Icon.PARTNER, c.partnerIcon[seat * 2 + 1], rot, invert = false, opaque = false)
             }
         }
+    }
+
+    /**
+     * [seat]'s PARTNER tab: outlined paper when off, solid ink when on (content in paper), the
+     * `partner` icon and PARTNER — or HOLD while [CommanderMode.hint] is this seat.
+     */
+    private fun partnerTab(f: Frame, c: CommanderLayout, seat: Int, on: Boolean, rot: Int) {
+        val tab = c.partnerTab[seat]
+        if (!f.hit(tab)) return
+        val r = f.r
+        if (on) r.rect(tab, ink = true) else { r.rect(tab, ink = false); r.frame(tab, 1, ink = true) }
+        val text = if (mode.hint == seat) CommanderLayout.HOLD_LABEL else CommanderLayout.PARTNER_LABEL
+        c.partnerContent(seat, text.length, pIcon, pLabel)
+        if (c.partnerIconShown) f.icons.icon(c.tk, Icon.PARTNER, pIcon, rot, invert = on, opaque = false)
+        if (c.partnerLabelShown) f.text.draw(c.ui, text, pLabel.left, pLabel.top, c.tk, rot, invert = on)
     }
 
     /** A damage number at footprint [fp]: lethal (≥ 21) on a solid ink card, in paper. */

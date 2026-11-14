@@ -28,6 +28,13 @@ import kotlin.random.Random
  * `ChangeCommanderDamage(target = X, source = that seat's player, slot, ±1, linkLife = null)`:
  * tap ±1 on release, hold [holdStep] per repeat (±10 like life, with life's slow repeat timing,
  * `PlayInput`).
+ *
+ * **Partner** (T52): every tile's PARTNER tab ([CommanderZones.PARTNER], where the drawer tab is
+ * outside the mode) says whether that player's commander has a partner. A tap turns it on, or off
+ * when nothing is recorded against the partner yet ([partnerAtStake]); with partner damage dealt to
+ * anyone or partner tax on the books (core zeroes both when the partner goes) a tap only shows the
+ * [hint] ("HOLD") for [HINT_MS] and **holding** the tab ([PlayInput]'s first repeat, 500 ms) turns it
+ * off. Each change is one `Action.SetPartner` through [Host.dispatchPartner]: one undo step, logged.
  */
 class CommanderMode(
     private val scheduler: Scheduler,
@@ -43,7 +50,17 @@ class CommanderMode(
 
         /** The target changed from [old] to [new] (either may be [NONE]): redraw the tiles, close drawers. */
         fun onModeChanged(old: Int, new: Int)
+
+        /** Sets [seat]'s partner flag to [on] (one undoable game change). */
+        fun dispatchPartner(seat: Int, on: Boolean) {}
+
+        /** The partner hint appeared on / left [seat]'s tab: redraw it. */
+        fun onHintChanged(seat: Int) {}
     }
+
+    /** Seat whose PARTNER tab shows "HOLD" (a tap that would have dropped recorded damage), or [NONE]. */
+    var hint: Int = NONE
+        private set
 
     /** Damage per hold repeat: the life hold step (the View keeps it in step with its own). */
     var holdStep: Int = PlayInput.DEFAULT_HOLD_STEP
@@ -76,6 +93,7 @@ class CommanderMode(
     fun exit() {
         if (!active) return
         scheduler.cancel(TIMER)
+        clearHint()
         val old = target
         target = NONE
         quip = ""
@@ -97,7 +115,62 @@ class CommanderMode(
         if (active) scheduler.schedule(TIMER, idleMillis)
     }
 
-    override fun onTimer(id: Int) = exit()
+    override fun onTimer(id: Int) {
+        if (id == TIMER_HINT) clearHint() else exit()
+    }
+
+    // ---- partner -----------------------------------------------------------------------------------
+
+    /**
+     * Whether turning [seat]'s partner off would lose something: damage their partner dealt anyone, or
+     * partner tax. False when they have no partner.
+     */
+    fun partnerAtStake(seat: Int, game: GameState = host.game): Boolean {
+        val ps = game.players
+        if (seat !in ps.indices || !ps[seat].partner) return false
+        val p = ps[seat]
+        if (p.commanderTax[Commander.PARTNER] != 0) return true
+        for (i in ps.indices) if (i != seat && ps[i].commanderDamageFrom(p.id, Commander.PARTNER) != 0) return true
+        return false
+    }
+
+    /** A tap on [seat]'s PARTNER tab. Returns true if the flag changed. */
+    fun partnerTap(seat: Int): Boolean {
+        if (!active || seat !in host.game.players.indices) return false
+        touch()
+        val on = host.game.players[seat].partner
+        if (on && partnerAtStake(seat)) {
+            val old = hint
+            hint = seat
+            scheduler.schedule(TIMER_HINT, HINT_MS)
+            if (old != NONE && old != seat) host.onHintChanged(old)
+            host.onHintChanged(seat)
+            return false
+        }
+        clearHint()
+        host.dispatchPartner(seat, !on)
+        return true
+    }
+
+    /** Whether holding [seat]'s PARTNER tab repeats (only to drop a partner with something at stake). */
+    fun partnerRepeats(seat: Int): Boolean = active && partnerAtStake(seat)
+
+    /** [seat]'s PARTNER tab held past the first repeat: drop the partner (once; later repeats do nothing). */
+    fun partnerHold(seat: Int): Boolean {
+        if (!active || !partnerAtStake(seat)) return false
+        touch()
+        clearHint()
+        host.dispatchPartner(seat, false)
+        return true
+    }
+
+    fun clearHint() {
+        scheduler.cancel(TIMER_HINT)
+        val old = hint
+        if (old == NONE) return
+        hint = NONE
+        host.onHintChanged(old)
+    }
 
     // ---- zones (locals in [CommanderZones], per seat) --------------------------------------------
 
@@ -150,6 +223,11 @@ class CommanderMode(
     companion object {
         const val NONE = -1
         const val TIMER = 0
+        const val TIMER_HINT = 1
+        const val TIMERS = 2
+
+        /** How long a PARTNER tab says "HOLD" after a tap that would have dropped recorded damage. */
+        const val HINT_MS = 2_500L
 
         /**
          * The mode ends by itself after 45 s without a press in it: long enough to talk through a

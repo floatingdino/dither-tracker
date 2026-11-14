@@ -32,6 +32,12 @@ import au.com.josephmark.dithertracker.type.TextLayout
  * - Lethal damage (≥ 21 from one commander) is drawn on a solid ink card ([lethalPad] round the
  *   number) with the number in paper.
  * - The centre diamond shows a close X ([closeIcon]) instead of the menu bars.
+ * - **PARTNER tab** (T52) on every tile, exactly where the drawer tab is outside the mode (the near
+ *   edge, facing the player; same rect [partnerTab] and hit pad [partnerHit], so it is where each
+ *   player already reaches for "my stuff", and it exists at every tier and on sideways seats): the
+ *   `partner` icon and the word PARTNER ([partnerContent]), outlined when off, solid ink when on.
+ *   The word is dropped where it does not fit beside the icon, the icon where the tab is shorter
+ *   than it (S = 6).
  *
  * [lifeFont] is a parameter (default `num-m`, the bold mini sticker since T37).
  *
@@ -90,6 +96,14 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
     /** Full-width rect of the target's life row on each seat for the longest quip layout (invalidate on a life change). */
     val lifeRow: Array<IRect> = Array(P) { IRect() }
 
+    /** Every tile's PARTNER tab: visual rect and hit rect (screen), = the drawer tab's. */
+    val partnerTab: Array<IRect> = Array(P) { IRect() }
+    val partnerHit: Array<IRect> = Array(P) { IRect() }
+
+    /** Whether the tab shows the `partner` icon / the label (at [tk]) — see [partnerContent]. */
+    val partnerIconShown: Boolean
+    val partnerLabelShown: Boolean
+
     /** The close X on the centre diamond while the mode is on (opaque icon, screen rect). */
     val closeIcon = IRect()
 
@@ -135,12 +149,44 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
         lifeRowH = maxOf(iconSize, lifeFont.height(lk))
         // The life row moves with the quip's height: cover every position it can take.
         for (s in 0 until P) play.mapRect(s, 0, targetTop, W, maxOf(0, targetBottom - targetTop), lifeRow[s])
+        for (s in 0 until P) {
+            copy(play.tab[s], partnerTab[s])
+            copy(play.tabHit[s], partnerHit[s])
+        }
+        val tabW = minOf(play.chrome.tabW, W)
+        val tabH = minOf(play.chrome.tabH, H)
+        partnerIconShown = iconSize + 2 <= tabH
+        val room = tabW - 2 * PARTNER_PAD - (if (partnerIconShown) iconSize + iconGap else 0)
+        partnerLabelShown = ui.widthOf(PARTNER_LABEL.length, tk) <= room && ui.capHeight * tk + 2 <= tabH
         val cx = play.diamondCx
         val cy = play.diamondCy
         closeIcon.setXywh(cx - iconSize / 2, cy - iconSize / 2, iconSize, iconSize)
     }
 
     // ---- footprints (draw-time; write `out`, never allocate) -------------------------------------
+
+    /**
+     * The PARTNER tab's content on [seat] for a label of [labelLen] glyphs (PARTNER, or the shorter
+     * HOLD hint): the icon (if [partnerIconShown]) then the label (if [partnerLabelShown]), centred
+     * as one unit in the tab, in the player's frame mapped to the screen. An unused rect is emptied.
+     */
+    fun partnerContent(seat: Int, labelLen: Int, icon: IRect, label: IRect) {
+        val tabW = minOf(play.chrome.tabW, W)
+        val tabH = minOf(play.chrome.tabH, H)
+        val tabX = (W - tabW) / 2
+        val tabY = H - tabH
+        val iw = if (partnerIconShown) iconSize else 0
+        val lw = if (partnerLabelShown) ui.widthOf(labelLen, tk) else 0
+        val unit = iw + (if (iw > 0 && lw > 0) iconGap else 0) + lw
+        val x = tabX + (tabW - unit) / 2
+        if (iw > 0) play.mapRect(seat, x, tabY + (tabH - iconSize) / 2, iconSize, iconSize, icon) else icon.set(0, 0, 0, 0)
+        if (lw > 0) {
+            val capTop = tabY + (tabH - ui.capHeight * tk + 1) / 2
+            play.mapRect(seat, x + unit - lw, capTop - ui.capTop * tk, lw, ui.height(tk), label)
+        } else {
+            label.set(0, 0, 0, 0)
+        }
+    }
 
     /**
      * Glyph scale of a quip of [len] chars (drawn in caps): the largest ≤ [quipKMax] at which it and
@@ -231,6 +277,7 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
         val s = seat
         when {
             local == CommanderZones.TARGET -> copy(play.panels[s], out)
+            local == CommanderZones.PARTNER -> copy(partnerTab[s], out)
             CommanderZones.isSlot(local) -> {
                 val partner = s < players.size && players[s].partner
                 if (partner) {
@@ -252,6 +299,12 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
             "target block $targetTop..$targetBottom, life ${lifeFont.name} k$lifeK, quip k $quipKMax, rule gap $ruleGap)"
 
     companion object {
+        const val PARTNER_LABEL = "PARTNER"
+        const val HOLD_LABEL = "HOLD"
+
+        /** Paper between the PARTNER tab's edge and its content (dither px). */
+        const val PARTNER_PAD = 2
+
         /** Digits a partner number slot is sized for (commander damage past 99 is not a real game). */
         const val PARTNER_CHARS = 2
 
