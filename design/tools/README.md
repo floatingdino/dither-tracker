@@ -76,11 +76,26 @@ First-player roll-off (`FirstRoll`):
 |---|---|---|
 | tumble, fast | 150 × 5 | 200 / 130 / 120 / 130 / 200 |
 | tumble, slow | 250 × 3 | 300 / 250 / 300 |
+| **rest** (new keyframe) | — | **400 fast / 500 slow**: the d20 stopped |
 | the rolls landed | 1600 with the FIRST flag at once | **1000 alone**, then the flag appears |
 | the FIRST flag beside every roll | (in the 1600) | **1600** |
 | "TIE" before a re-roll | 700, at once | 1000 landed alone, then **1000** with the TIE flags |
 | the flag after the tiles return | 4000 | 4000 (unchanged) |
 | the sting (`start-flag`) | 300 / 350 / 250 | 250 / 450 / 250 slow, 150 / 450 / 150 fast |
+
+**The rest keyframe** (owner: "it still reads as rolling on the final frame"): between the last tumbling
+pose and the numbers the die comes to rest — `D20_REST` from `author.py`: a face turned full-on to the
+player, square, no tilt and no speed ticks, standing on a contact shadow with two settle ticks, centred
+on the tile's floor where the roll will land. Then the roll lands in the hero numerals and a small
+resting die (`D20_REST_S`) takes the place of "D20" for as long as the roll shows (landed, tie, winner),
+so the tile keeps saying "this is a die result" (composition (b): stronger than the rest die alone, as
+the stop reads first and the number never loses its die). No digits on the resting die. Tie rounds rest
+too. Strip: `design/captures/t65-first-roll-strip.png` (last pose → rest → number → flag); on the
+device: `t65-first-rest-4p.png`, `-6p.png`, `-3p.png` (`tools/capture_t65.sh`).
+
+The dice panel was checked for the same weakness and left as it is: its landing is a different
+picture, not another pose — the die is gone, the result is stamped in paper on an ink plate with
+impact ticks, and only then the label and quip — so the stop already reads there.
 
 A tap during the tumble or the landed beat now goes straight to the winner's flag (held as usual); a
 second tap returns to the game.
