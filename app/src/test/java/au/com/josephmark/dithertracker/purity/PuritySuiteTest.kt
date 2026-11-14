@@ -13,6 +13,7 @@ import au.com.josephmark.dithertracker.ko.KoComponent
 import au.com.josephmark.dithertracker.menu.MenuItem
 import au.com.josephmark.dithertracker.menu.MenuOverlay
 import au.com.josephmark.dithertracker.play.PlayLayout
+import au.com.josephmark.dithertracker.layout.Screens
 import au.com.josephmark.dithertracker.settings.BackRow
 import au.com.josephmark.dithertracker.settings.LinkRow
 import au.com.josephmark.dithertracker.stage.Stage
@@ -54,6 +55,8 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         fun configs(): List<Array<Any>> {
             val out = ArrayList<Array<Any>>()
             for ((w, h) in listOf(1872 to 1404, 1404 to 1872)) for (s in 2..6) out += arrayOf<Any>(w, h, s)
+            // T62: the compatibility matrix's other screens, at the S AUTO picks there (4 players).
+            for (d in Screens.ALL) if (d.w != 1872 || d.h != 1404) out += arrayOf<Any>(d.w, d.h, PlayLayout.chooseScale(d.w, d.h, d.dpi))
             return out
         }
 

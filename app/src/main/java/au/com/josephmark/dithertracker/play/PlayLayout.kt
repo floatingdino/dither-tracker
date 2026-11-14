@@ -296,8 +296,11 @@ class PlayLayout private constructor(
             if (overlapsXywh(d, side, slotY, slotW, slotH)) clash = true
             if (pmVisible && (overlapsXywh(d, pmX, pmY, pmW, pmH) || overlapsXywh(d, panelW - pmX - pmW, pmY, pmW, pmH))) clash = true
         }
+        // T62: the open gem must fit the grid whole (a short phone grid cannot hold it round a mid-height diamond).
+        val reach = menuReach(grid.scale, c)
+        val gemFits = diamondCx - reach >= 0 && diamondCy - reach >= 0 && diamondCx + reach < grid.width && diamondCy + reach < grid.height
         tier = when {
-            underH <= 0 || blocked || clash -> TIER_NONE
+            underH <= 0 || blocked || clash || !gemFits -> TIER_NONE
             fits(font, pmFont, kMax, panelW, panelH, c.tabH) -> TIER_FULL
             fitsNarrow(font, kMax, panelW, panelH, c.tabH) -> TIER_NARROW
             else -> TIER_NONE

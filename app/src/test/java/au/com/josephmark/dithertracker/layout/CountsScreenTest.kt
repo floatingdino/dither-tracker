@@ -30,6 +30,11 @@ class CountsScreenTest(private val players: Int, private val layout: String, pri
         fun configs(): List<Array<Any>> {
             val out = ArrayList<Array<Any>>()
             for (a in Arrangements.ALL) for ((w, h) in listOf(1872 to 1404, 1404 to 1872)) for (s in 2..6) out += arrayOf<Any>(a.players, a.id, w, h, s)
+            // T62: every arrangement on the other screens of the compatibility matrix, at the S AUTO picks there for its count.
+            for (d in Screens.ALL) {
+                if (d.w == 1872 && d.h == 1404) continue
+                for (a in Arrangements.ALL) out += arrayOf<Any>(a.players, a.id, d.w, d.h, PlayLayout.chooseScale(d.w, d.h, d.dpi, players = a.players))
+            }
             return out
         }
     }
