@@ -69,6 +69,7 @@ object Arrangements {
         Arrangement("2-corner", 0, 1, false, true, Arrangement.DiamondAt.JUNCTION, "Corner"),
         Arrangement("3-tee", 1, 1, false, true, Arrangement.DiamondAt.JUNCTION, "Tee"),
         Arrangement("3-pyramid", 1, 2, false, false, Arrangement.DiamondAt.JUNCTION, "Pyramid"),
+        Arrangement("3-side", 0, 3, false, false, Arrangement.DiamondAt.JUNCTION, "One side"),
         Arrangement("4-grid", 2, 2, false, false, Arrangement.DiamondAt.JUNCTION, "Grid"),
         Arrangement("4-dinner", 1, 1, true, true, Arrangement.DiamondAt.CENTRE, "Dinner"),
         Arrangement("5-three-two", 3, 2, false, false, Arrangement.DiamondAt.JUNCTION, "Three and two"),
