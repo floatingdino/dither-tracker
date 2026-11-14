@@ -3,7 +3,7 @@ size 84 84
 frames 3
 role damage
 anchor tr -14 10
-hold_ms 350 300 0
+hold_ms 400 250 0
 ink_px 264 111 0
 knockout_px 640 430 0
 flips 531 470 283   # total 1284 dither px = 20544 device px, over sticker "37" in a full tile

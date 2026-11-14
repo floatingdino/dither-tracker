@@ -5,7 +5,7 @@ frames 4
 role damage
 anchor centre 0 0
 tile 1 D8 fill
-hold_ms 300 350 300 0
+hold_ms 250 450 250 0
 ink_px 934 1005 21 0
 knockout_px 1426 1422 432 0
 cut_px 0 398 0 0

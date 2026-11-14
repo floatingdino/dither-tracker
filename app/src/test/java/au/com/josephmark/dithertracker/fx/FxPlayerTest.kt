@@ -1,5 +1,6 @@
 package au.com.josephmark.dithertracker.fx
 
+import au.com.josephmark.dithertracker.eink.DisplaySpeed
 import au.com.josephmark.dithertracker.play.FakeScheduler
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -9,12 +10,16 @@ import org.junit.Test
 
 class FxPlayerTest {
 
-    private val pow = Fx.byName("pow")!!         // holds 350 300 0
-    private val twinkle = Fx.byName("twinkle")!! // holds 300 300 250 0
+    private val pow = Fx.byName("pow")!!         // holds 400 250 0 (T65: the burst holds longest)
+    private val twinkle = Fx.byName("twinkle")!!
+    private val t0 = twinkle.holdMs(0).toLong()
+    private val t1 = twinkle.holdMs(1).toLong()
+    private val t2 = twinkle.holdMs(2).toLong()
 
     private val sched = FakeScheduler(5) // 4 seats + the all-seat group's timer
     private val events = ArrayList<String>()
-    private val player: FxPlayer = FxPlayer(4, sched, { seat -> events += "$seat:${player.current(seat)?.id ?: "clean"}:${player.frame(seat)}@${sched.now}" })
+    // A slow display: the authored holds (the fast ones are derived, see fastDisplayDerivesThePushPull).
+    private val player: FxPlayer = FxPlayer(4, sched, { seat -> events += "$seat:${player.current(seat)?.id ?: "clean"}:${player.frame(seat)}@${sched.now}" }, speed = { DisplaySpeed.SLOW })
         .also { sched.target = it }
 
     @Test fun playsEveryDrawnFrameWithItsHoldThenEndsClean() {
@@ -22,7 +27,7 @@ class FxPlayerTest {
         assertEquals(pow, player.current(1))
         assertEquals(0, player.frame(1))
         sched.advance(2000)
-        assertEquals(listOf("1:pow:0@0", "1:pow:1@350", "1:clean:-1@650"), events)
+        assertEquals(listOf("1:pow:0@0", "1:pow:1@400", "1:clean:-1@650"), events)
         assertNull(player.current(1))
         assertFalse(sched.isArmed(1))
         assertEquals(0, player.active)
@@ -31,20 +36,20 @@ class FxPlayerTest {
     @Test fun fourFrameEffectStepsThroughThreeDrawnFrames() {
         player.play(0, twinkle)
         sched.advance(5000)
-        assertEquals(listOf("0:twinkle:0@0", "0:twinkle:1@300", "0:twinkle:2@600", "0:clean:-1@850"), events)
+        assertEquals(listOf("0:twinkle:0@0", "0:twinkle:1@$t0", "0:twinkle:2@${t0 + t1}", "0:clean:-1@${t0 + t1 + t2}"), events)
     }
 
     @Test fun holdScaleScalesEveryHold() {
         player.holdScale = 1.5f
         player.play(2, pow)
         sched.advance(5000)
-        assertEquals(listOf("2:pow:0@0", "2:pow:1@525", "2:clean:-1@975"), events)
-        assertEquals(525L, player.hold(pow, 0))
+        assertEquals(listOf("2:pow:0@0", "2:pow:1@600", "2:clean:-1@975"), events)
+        assertEquals(600L, player.hold(pow, 0))
     }
 
     @Test fun nothingChangesBetweenKeyframes() {
         player.play(0, pow)
-        sched.advance(349)
+        sched.advance(399)
         assertEquals(1, events.size)
         assertEquals(0, player.frame(0))
         sched.advance(1)
@@ -53,15 +58,15 @@ class FxPlayerTest {
 
     @Test fun playOnBusySeatReplacesImmediatelyWithoutQueueing() {
         player.play(0, pow)
-        sched.advance(400) // on pow frame 1
+        sched.advance(450) // on pow frame 1
         assertTrue(player.play(0, twinkle))
         assertEquals(twinkle, player.current(0))
         assertEquals(0, player.frame(0))
         assertEquals(1, player.active)
         sched.advance(5000)
-        // Restarted at 400: twinkle frames at 400, 700, 1000, clean at 1250; no pow frames after.
+        // Restarted at 450: twinkle's frames from there; no pow frames after.
         assertEquals(
-            listOf("0:pow:0@0", "0:pow:1@350", "0:twinkle:0@400", "0:twinkle:1@700", "0:twinkle:2@1000", "0:clean:-1@1250"),
+            listOf("0:pow:0@0", "0:pow:1@400", "0:twinkle:0@450", "0:twinkle:1@${450 + t0}", "0:twinkle:2@${450 + t0 + t1}", "0:clean:-1@${450 + t0 + t1 + t2}"),
             events,
         )
     }
@@ -143,9 +148,9 @@ class FxPlayerTest {
         assertEquals(0b1111, player.group)
         for (s in 0 until 4) assertFalse("no per-seat timers", sched.isArmed(s))
         assertTrue(sched.isArmed(player.groupTimer))
-        sched.advance(300)
+        sched.advance(t0)
         // One timer: every seat's keyframe changes at the same instant (one entry point, one flush).
-        assertEquals(listOf("0:twinkle:1@300", "1:twinkle:1@300", "2:twinkle:1@300", "3:twinkle:1@300"), events.takeLast(4))
+        assertEquals(listOf("0:twinkle:1@$t0", "1:twinkle:1@$t0", "2:twinkle:1@$t0", "3:twinkle:1@$t0"), events.takeLast(4))
         sched.advance(5000)
         for (s in 0 until 4) assertNull(player.current(s))
         assertEquals(0, player.active)
@@ -182,5 +187,32 @@ class FxPlayerTest {
         player.enabled = false
         assertFalse(player.playAll(0b1111, pow))
         assertEquals(0, player.active)
+    }
+
+    /**
+     * T65: on a fast display the read frame (the longest hold) keeps its hold and every other frame is
+     * cut to FAST_IN_OUT of it, floored at FAST_FLOOR_MS; the speed is read when the effect starts.
+     */
+    @Test fun fastDisplayDerivesThePushPull() {
+        var speed = DisplaySpeed.FAST
+        val ev = ArrayList<String>()
+        val s2 = FakeScheduler(5)
+        lateinit var p: FxPlayer
+        p = FxPlayer(4, s2, { seat -> ev += "$seat:${p.frame(seat)}@${s2.now}" }, speed = { speed }).also { s2.target = it }
+        assertEquals(400L, p.hold(pow, 0, fast = true))
+        assertEquals(150L, p.hold(pow, 1, fast = true))
+        p.play(0, pow)
+        speed = DisplaySpeed.SLOW // mid-effect: the effect keeps the speed it started with
+        s2.advance(5000)
+        assertEquals(listOf("0:0@0", "0:1@400", "0:-1@550"), ev)
+        for (fx in Fx.entries) {
+            var peak = 0
+            for (i in 1 until fx.frameCount) if (fx.holdMs(i) > fx.holdMs(peak)) peak = i
+            for (i in 0 until fx.frameCount - 1) {
+                val fast = FxPlayer.fastHold(fx, i)
+                assertTrue("${fx.id} $i", fast >= FxPlayer.FAST_FLOOR_MS && fast <= fx.holdMs(i))
+                if (i == peak) assertEquals(fx.holdMs(i).toLong(), fast)
+            }
+        }
     }
 }

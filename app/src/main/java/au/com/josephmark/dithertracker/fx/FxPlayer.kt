@@ -1,5 +1,6 @@
 package au.com.josephmark.dithertracker.fx
 
+import au.com.josephmark.dithertracker.eink.DisplaySpeed
 import au.com.josephmark.dithertracker.play.Scheduler
 import kotlin.math.roundToLong
 
@@ -31,6 +32,8 @@ class FxPlayer(
     private val scheduler: Scheduler,
     private val listener: Listener,
     maxConcurrent: Int = DEFAULT_MAX_CONCURRENT,
+    /** The display speed (`eink.DisplaySpeed`), read when an effect starts (T65: [fastHold]). */
+    private val speed: DisplaySpeed.Source = DisplaySpeed.Source { DisplaySpeed.current() },
 ) : Scheduler.Target {
 
     fun interface Listener {
@@ -61,6 +64,10 @@ class FxPlayer(
 
     private val effect = arrayOfNulls<Fx>(seats)
     private val frame = IntArray(seats)
+
+    /** Per seat (and for the group): whether its effect started on a fast display. */
+    private val fastSeat = BooleanArray(seats)
+    private var fastGroup = false
 
     /** The scheduler id of the all-seat group's timer (the seat ids are `0 until seats`). */
     val groupTimer: Int = seats
@@ -96,7 +103,8 @@ class FxPlayer(
         if (effect[seat] == null) active++
         effect[seat] = fx
         frame[seat] = 0
-        scheduler.schedule(seat, hold(fx, 0))
+        fastSeat[seat] = speed.current() == DisplaySpeed.FAST
+        scheduler.schedule(seat, hold(fx, 0, fastSeat[seat]))
         listener.onFrameChanged(seat)
         return true
     }
@@ -121,7 +129,8 @@ class FxPlayer(
         group = mask
         groupFx = fx
         groupFrame = 0
-        scheduler.schedule(groupTimer, hold(fx, 0))
+        fastGroup = speed.current() == DisplaySpeed.FAST
+        scheduler.schedule(groupTimer, hold(fx, 0, fastGroup))
         for (s in effect.indices) if (mask and (1 shl s) != 0) listener.onFrameChanged(s)
         return true
     }
@@ -163,7 +172,7 @@ class FxPlayer(
             return
         }
         frame[id] = next
-        scheduler.schedule(id, hold(fx, next))
+        scheduler.schedule(id, hold(fx, next, fastSeat[id]))
         listener.onFrameChanged(id)
     }
 
@@ -178,15 +187,21 @@ class FxPlayer(
             return
         }
         groupFrame = next
-        scheduler.schedule(groupTimer, hold(fx, next))
+        scheduler.schedule(groupTimer, hold(fx, next, fastGroup))
         for (s in effect.indices) if (group and (1 shl s) != 0) {
             frame[s] = next
             listener.onFrameChanged(s)
         }
     }
 
-    /** Scaled hold of [frame] of [fx], in ms. */
-    fun hold(fx: Fx, frame: Int): Long = (fx.holdMs(frame) * holdScale).roundToLong().coerceAtLeast(0L)
+    /**
+     * Scaled hold of [frame] of [fx], in ms, on a [fast] display (default: the speed now) — the meta's
+     * `hold_ms` on a slow one, [fastHold] on a fast one; × [holdScale] (the `--ef fxHold` knob).
+     */
+    fun hold(fx: Fx, frame: Int, fast: Boolean = speed.current() == DisplaySpeed.FAST): Long {
+        val ms = if (fast) fastHold(fx, frame) else fx.holdMs(frame).toLong()
+        return (ms * holdScale).roundToLong().coerceAtLeast(0L)
+    }
 
     private fun clear(seat: Int) {
         effect[seat] = null
@@ -197,5 +212,25 @@ class FxPlayer(
 
     companion object {
         const val DEFAULT_MAX_CONCURRENT = 2
+
+        /**
+         * T65: on a fast display every frame but the effect's read frame (its longest hold — the
+         * impact) is cut to [FAST_IN_OUT] of its slow hold, never below [FAST_FLOOR_MS]; the read
+         * frame keeps its full hold. One curve per effect is authored (`hold_ms`, every hold ≥ 250 ms
+         * for the slow panel); the fast one is derived from it, so the push/pull grows on a display
+         * that can show it.
+         */
+        const val FAST_IN_OUT = 0.6f
+        const val FAST_FLOOR_MS = 120L
+
+        /** [fx]'s fast-display hold of [frame] (unscaled). Allocation-free. */
+        fun fastHold(fx: Fx, frame: Int): Long {
+            val ms = fx.holdMs(frame).toLong()
+            if (ms <= 0L) return ms
+            var peak = 0
+            for (i in 1 until fx.frameCount) if (fx.holdMs(i) > fx.holdMs(peak)) peak = i
+            if (frame == peak) return ms
+            return maxOf(FAST_FLOOR_MS, (ms * FAST_IN_OUT).roundToLong())
+        }
     }
 }

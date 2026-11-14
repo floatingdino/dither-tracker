@@ -4,7 +4,7 @@ frames 3
 role big-hit
 anchor tile 0 0
 tile 1 HLINES paper
-hold_ms 400 300 0
+hold_ms 450 250 0
 ink_px 570 420 0
 knockout_px 0 0 0
 tile_px 6720 0 0

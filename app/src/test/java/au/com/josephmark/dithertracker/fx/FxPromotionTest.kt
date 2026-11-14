@@ -103,8 +103,9 @@ class FxPromotionTest {
             val frames = src.listFiles()!!.filter { it.name.startsWith("frame-") }.map { it.name }.sorted()
             assertEquals(name, frames, dst.listFiles()!!.filter { it.name.startsWith("frame-") }.map { it.name }.sorted())
             for (f in frames) assertTrue("$name/$f", File(src, f).readBytes().contentEquals(File(dst, f).readBytes()))
-            // meta: same lines except the title comment (renamed) and the added role line.
-            fun body(f: File) = f.readLines().drop(1).filterNot { it.startsWith("role ") }
+            // meta: same lines except the title comment (renamed), the added role line and the holds
+            // (T65 re-timed the shipped effects; the archive keeps the timings they were designed with).
+            fun body(f: File) = f.readLines().drop(1).filterNot { it.startsWith("role ") || it.startsWith("hold_ms ") }
             assertEquals(name, body(File(src, "meta.txt")), body(File(dst, "meta.txt")))
             assertTrue(name, File(dst, "meta.txt").readLines()[0].startsWith("# $name:"))
             // And the generated data match (the options build is an independent generator run).

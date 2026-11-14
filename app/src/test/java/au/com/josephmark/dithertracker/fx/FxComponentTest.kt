@@ -684,7 +684,7 @@ class FxComponentTest {
             // Then exactly the footprint, once per keyframe, the clean step included.
             for (i in 1 until fx.frameCount) {
                 m.platform.invalidated.clear()
-                m.platform.clock.advance(fx.holdMs(i - 1).toLong())
+                m.platform.clock.advance(m.fx.player.hold(fx, i - 1))
                 assertEquals("$name step $i", listOf(dev), m.platform.invalidated)
             }
             assertNull(m.fx.player.current(seat))

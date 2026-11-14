@@ -4,7 +4,7 @@ size 149 165
 frames 3
 role damage
 anchor centre 0 0
-hold_ms 350 350 0
+hold_ms 400 300 0
 ink_px 88 44 0
 knockout_px 59 126 0
 cut_px 512 0 0
