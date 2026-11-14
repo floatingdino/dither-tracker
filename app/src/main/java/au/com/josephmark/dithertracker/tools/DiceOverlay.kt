@@ -28,6 +28,9 @@ import kotlin.random.Random
  * the **coin** at once (the current tool is solid), the centre diamond (`dice` knocked out) rolls the
  * current tool again, and **×** closes.
  *
+ * - The coin's result is its **face** (T61): the landed coin shows the imp's face for heads or its
+ *   spade-tipped tail for tails ([DiceArt], [CoinFaces]), with the word HEADS / TAILS as the label
+ *   beside it; the tumbling coin never shows a face.
  * - Every roll plays its **presentation** (T52, [Presentation.TUMBLE]): the die or coin tumbles
  *   across each face in three held keyframes (five shorter ones on a fast display, T59:
  *   [Presentation.TUMBLE_FAST], chosen by `eink.DisplaySpeed` at the roll), then the result lands (a stamp, with a little
@@ -69,6 +72,16 @@ class DiceOverlay(
         layout?.let { place(it) }
     }
 
+    /**
+     * The coin's faces (T61): the shipped pair; tests swap in the other options for the contact sheet.
+     * Set before the layout (or it rebuilds the art at once, off the draw path).
+     */
+    var coinFaces: CoinFaces = CoinFaces.SHIPPED
+        set(v) {
+            field = v
+            layout?.let { art = DiceArt(it.resultK, v) }
+        }
+
     /** Where results go besides the screen (the future game log). */
     var results: ToolResults
         get() = state.results
@@ -92,7 +105,7 @@ class DiceOverlay(
     override fun onLayout(play: PlayLayout, tiles: TileSlots) {
         val l = DiceLayout(play)
         layout = l
-        if (art?.k != l.resultK) art = DiceArt(l.resultK)
+        if (art?.k != l.resultK || art?.faces !== coinFaces) art = DiceArt(l.resultK, coinFaces)
         place(l)
         screen.set(0, 0, play.grid.width, play.grid.height)
         if (state.isOpen) arrange(l)

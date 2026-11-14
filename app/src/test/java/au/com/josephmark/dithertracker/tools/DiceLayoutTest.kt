@@ -252,25 +252,39 @@ class DiceLayoutTest {
         assertEquals("Yikes", split("Yikes"))
     }
 
-    @Test fun coinArtIsASymmetricDiscWithItsLetterKnockedOut() {
-        for (k in 1..2) {
+    /**
+     * T61: the landed coin shows its face — at an even result scale the 28-px face (a round ink disc,
+     * the emblem knocked out), at an odd one the face's 16×16 icon twin — turned with its face, and
+     * heads and tails differ.
+     */
+    @Test fun coinArtShowsItsFace() {
+        for (k in 1..4) {
             val a = DiceArt(k)
             assertEquals(14 * k, a.diameter)
-            val up = a.coin(true, 0)
-            val turned = a.coin(true, 180)
-            var ink = 0
-            for (y in 0 until a.box) for (x in 0 until a.box) {
-                assertEquals(up.isInk(x, y), turned.isInk(a.box - 1 - x, a.box - 1 - y))
-                if (up.isInk(x, y)) ink++
+            for (heads in listOf(true, false)) {
+                val up = a.coin(heads, 0)
+                val turned = a.coin(heads, 180)
+                assertEquals(a.box, up.width)
+                for (y in 0 until a.box) for (x in 0 until a.box) {
+                    assertEquals(up.isInk(x, y), turned.isInk(a.box - 1 - x, a.box - 1 - y))
+                }
+                if (k % 2 == 0) {
+                    var ink = 0
+                    for (y in 0 until a.box) for (x in 0 until a.box) {
+                        if (up.isInk(x, y)) ink++
+                        // Round: nothing outside the disc.
+                        if (DiceArt.dist2(x / (k / 2), y / (k / 2), DiceArt.FACE) > DiceArt.FACE.toLong() * DiceArt.FACE) assertFalse(up.isInk(x, y))
+                    }
+                    assertTrue(ink > a.diameter * a.diameter / 3)
+                    assertTrue(up.isInk(0, a.diameter / 2)) // the rim
+                    assertTrue(up.isInk(a.diameter / 2, 0))
+                }
             }
-            assertTrue(ink > a.diameter * a.diameter / 3)
-            assertFalse(up.isInk(0, 0)) // round
-            assertTrue(up.isInk(0, a.diameter / 2)) // the rim
-            // The letters differ.
-            val tails = a.coin(false, 0)
+            val h = a.coin(true, 0)
+            val t = a.coin(false, 0)
             var diff = 0
-            for (y in 0 until a.box) for (x in 0 until a.box) if (up.isInk(x, y) != tails.isInk(x, y)) diff++
-            assertTrue(diff > 5 * k)
+            for (y in 0 until a.box) for (x in 0 until a.box) if (h.isInk(x, y) != t.isInk(x, y)) diff++
+            assertTrue(diff > 40 * k * k / (if (k % 2 == 0) 4 else 1))
         }
     }
 }

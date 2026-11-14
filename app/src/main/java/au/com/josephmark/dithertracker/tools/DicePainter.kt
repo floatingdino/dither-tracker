@@ -116,7 +116,9 @@ internal class DicePainter {
         if (state.tool.isCoin) {
             val heads = Tool.coinFace(state.value) == CoinFace.HEADS
             val c = art.coin(heads, rot)
-            r.blit(c, box.left + (box.width - c.width) / 2, centredTop(l, box, c.height, rot))
+            // Centred, and on the upper face exactly the lower one's 180° image (an odd slack rounds outward on both).
+            val dx = (box.width - c.width) / 2
+            r.blit(c, if (rot == 180) box.right - dx - c.width else box.left + dx, centredTop(l, box, c.height, rot))
             return
         }
         if (plate) {

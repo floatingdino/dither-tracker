@@ -1,6 +1,8 @@
 package au.com.josephmark.dithertracker.tools
 
+import au.com.josephmark.dithertracker.dither.Icon
 import au.com.josephmark.dithertracker.dither.MonoImage
+import au.com.josephmark.dithertracker.dither.PackedImage
 import au.com.josephmark.dithertracker.type.Fonts
 
 /**
@@ -8,45 +10,46 @@ import au.com.josephmark.dithertracker.type.Fonts
  * instance, so build these once per layout and draw them every frame without allocating). [k] is the
  * result's glyph scale (`DiceLayout.resultK`); everything matches the `num-m` result's height:
  *
- * - [coin]: a "sticker" coin as tall as a result numeral — an ink disc with a paper milled ring and
- *   the face's letter (H / T, the `ui` glyph enlarged) knocked out. No drop shadow, like the `num-m`
- *   numerals it stands in for (T46).
- * (T52 retired the reveal beat's dither "?": the roll presentation's sprites are [SpriteSet].)
+ * - [coin]: the landed coin, as tall as a result numeral, showing its face (T61): heads the imp's face,
+ *   tails the imp's spade-tipped tail, knocked out of an ink disc inside a paper ring. No drop shadow,
+ *   like the `num-m` numerals it stands in for (T46). At an even [k] (the shipped 2× result) it is the
+ *   28-px face ([CoinFaces.heads] / [CoinFaces.tails]) at k / 2; at an odd [k] (the 1× result) the
+ *   face's 16×16 icon twin ([CoinFaces.headsIcon], art in its inner 14×14) at k.
+ * (T52 retired the reveal beat's dither "?": the roll presentation's sprites are [SpriteSet]. The
+ * tumbling coin never shows a face: only the landing does.)
  *
  * Every image comes in the two face rotations: index 0 upright, 1 turned 180°.
  */
-class DiceArt(val k: Int) {
+class DiceArt(val k: Int, val faces: CoinFaces = CoinFaces.SHIPPED) {
     /** Coin disc diameter (dither px): the result's cap height. */
     val diameter: Int = Fonts.NUM_M.capHeight * k
     val box: Int = diameter
 
     /** `coin[face * 2 + rot]`: face 0 heads, 1 tails; rot 0 upright, 1 turned. */
-    val coin: Array<MonoImage> = Array(4) { i -> Turn(Coin(k, if (i / 2 == 0) 'H' else 'T'), i % 2 == 1) }
+    val coin: Array<MonoImage> = Array(4) { i ->
+        val heads = i / 2 == 0
+        val src: MonoImage
+        val s: Int
+        val inset: Int
+        if (k % 2 == 0) {
+            src = if (heads) faces.heads else faces.tails
+            s = k / 2
+            inset = 0
+        } else {
+            src = if (heads) faces.headsIcon else faces.tailsIcon
+            s = k
+            inset = 1 // the icon's empty 1-px margin
+        }
+        Turn(Scaled(src, s, inset, box), i % 2 == 1)
+    }
 
     fun coin(heads: Boolean, rotation: Int): MonoImage = coin[(if (heads) 0 else 2) + (if (rotation == 180) 1 else 0)]
 
-    private inner class Coin(k: Int, letter: Char) : MonoImage {
-        override val width = box
-        override val height = box
-        private val d = diameter
-        private val ringIn = d - 2 * RING_INSET * k
-        private val ringOut = ringIn - 2 * RING_W * k
-        private val glyph = Fonts.UI.glyph(letter).scaled(LETTER_K * k)
-        private val gw = Fonts.UI.glyphWidth * LETTER_K * k
-        private val capH = Fonts.UI.capHeight * LETTER_K * k
-        private val gx = (d - gw) / 2
-        private val gy = (d - capH) / 2 - Fonts.UI.capTop * LETTER_K * k
-
-        override fun isInk(x: Int, y: Int): Boolean {
-            if (x >= d || y >= d) return false
-            val q = dist2(x, y, d)
-            if (q > d.toLong() * d) return false
-            if (q <= ringIn.toLong() * ringIn && q > ringOut.toLong() * ringOut) return false // the milled ring
-            val lx = x - gx
-            val ly = y - gy
-            if (lx in 0 until glyph.width && ly in 0 until glyph.height && glyph.isInk(lx, ly)) return false
-            return true
-        }
+    /** [src] less an [inset]-px margin, scaled by [s], [size]² (identity equality: one cached mask each). */
+    private class Scaled(private val src: MonoImage, private val s: Int, private val inset: Int, size: Int) : MonoImage {
+        override val width = size
+        override val height = size
+        override fun isInk(x: Int, y: Int) = src.isInk(x / s + inset, y / s + inset)
     }
 
     /** [src] as is, or turned 180°. */
@@ -58,12 +61,8 @@ class DiceArt(val k: Int) {
     }
 
     companion object {
-        /** Milled ring: inset from the rim and width, per k (the 14-px disc at k = 1: 1 px each). */
-        const val RING_INSET = 1
-        const val RING_W = 1
-
-        /** The coin letter's `ui` scale, per k (H/T 5×7 in the 14-px disc at k = 1, 10×14 at k = 2). */
-        const val LETTER_K = 1
+        /** The coin face's size at the 2× result's half scale (dither px): `num-m`'s cap height × 2. */
+        const val FACE = 28
 
         /**
          * Squared distance, ×4, of pixel (x, y)'s centre from the centre of a [d]-px disc: compare with
@@ -73,6 +72,29 @@ class DiceArt(val k: Int) {
             val dx = (2 * x + 1 - d).toLong()
             val dy = (2 * y + 1 - d).toLong()
             return dx * dx + dy * dy
+        }
+    }
+}
+
+/**
+ * The coin's two faces (T61): [heads] / [tails] at [DiceArt.FACE]² (from `design/tools/coin/`, via
+ * `DiceSprites`), and their 16×16 icon twins (`design/icons/coin-heads.txt` / `coin-tails.txt`).
+ * Tests build the other T61 options from `CoinFacesT61` for the contact sheet.
+ */
+class CoinFaces(
+    val heads: MonoImage, val tails: MonoImage, val headsIcon: MonoImage, val tailsIcon: MonoImage,
+) {
+    init {
+        for (f in arrayOf(heads, tails)) require(f.width == DiceArt.FACE && f.height == DiceArt.FACE) { "face ${f.width}x${f.height}" }
+        for (f in arrayOf(headsIcon, tailsIcon)) require(f.width == Icon.SIZE && f.height == Icon.SIZE) { "icon ${f.width}x${f.height}" }
+    }
+
+    companion object {
+        /** Packs 28-px face rows (`#` ink, `.` none). */
+        fun face(rows: Array<String>): MonoImage = PackedImage(rows[0].length, rows.size, PackedImage.pack(rows))
+
+        val SHIPPED: CoinFaces by lazy {
+            CoinFaces(face(DiceSprites.COIN_HEADS), face(DiceSprites.COIN_TAILS), Icon.COIN_HEADS, Icon.COIN_TAILS)
         }
     }
 }

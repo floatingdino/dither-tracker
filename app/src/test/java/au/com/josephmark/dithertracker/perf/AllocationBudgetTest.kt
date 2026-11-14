@@ -4,6 +4,7 @@ import au.com.josephmark.dithertracker.commander.CommanderZones
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.drawer.DrawerZones
+import au.com.josephmark.dithertracker.eink.DisplaySpeed
 import au.com.josephmark.dithertracker.fx.Fx
 import au.com.josephmark.dithertracker.ko.KoComponent
 import au.com.josephmark.dithertracker.menu.MenuItem
@@ -12,6 +13,7 @@ import au.com.josephmark.dithertracker.purity.ScreenRig
 import au.com.josephmark.dithertracker.stage.Stage
 import au.com.josephmark.dithertracker.tools.DiceLayout
 import au.com.josephmark.dithertracker.tools.DiceState
+import au.com.josephmark.dithertracker.tools.Outcome
 import au.com.josephmark.dithertracker.tools.Presentation
 import au.com.josephmark.dithertracker.turns.TurnLayout
 import au.com.josephmark.dithertracker.turns.TurnTab
@@ -103,9 +105,28 @@ class AllocationBudgetTest {
             rig.advance(pres.holdMs(o, beat))
         }
         assertDrawFree(rig, "dice result")
-        rig.tap(rig.dice, Stage.SCREEN, DiceLayout.COIN)
-        assertDrawFree(rig, "coin keyframe 0")
-        rig.advance(DiceState.PRESENT_MAX_MS)
+        // T61: a heads and a tails flip at both display speeds — every keyframe (the landing shows the
+        // coin's face) and the result.
+        for (speed in intArrayOf(DisplaySpeed.SLOW, DisplaySpeed.FAST)) try {
+            DisplaySpeed.override = speed
+            for (face in intArrayOf(Outcome.HEADS, Outcome.TAILS)) {
+                var tries = 0
+                while (true) {
+                    rig.tap(rig.dice, Stage.SCREEN, DiceLayout.COIN)
+                    if (rig.dice.state.outcome == face) break
+                    rig.tap(rig.dice, Stage.SCREEN, DiceLayout.COIN) // skip to the result
+                    check(++tries < 500)
+                }
+                val p = rig.dice.state.presentation!!
+                for (beat in 0 until p.beats(face)) {
+                    assertDrawFree(rig, "coin ${DisplaySpeed.name(speed)} $face keyframe $beat")
+                    rig.advance(p.holdMs(face, beat))
+                }
+                assertDrawFree(rig, "coin ${DisplaySpeed.name(speed)} $face result")
+            }
+        } finally {
+            DisplaySpeed.override = DisplaySpeed.NO_OVERRIDE
+        }
         rig.tap(rig.dice, Stage.SCREEN, DiceLayout.CLOSE)
         rig.advance(1_000)
         rig.dispatch(Action.SetLife(rig.id(2), 0))

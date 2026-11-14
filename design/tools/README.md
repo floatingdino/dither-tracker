@@ -24,8 +24,8 @@ but never readable early. Label and quip are held back until the result settles.
 | 1 toss | pose A at the far end, high, speed ticks | tilted face up, spin arcs above and below | 250 ms |
 | 2 bounce | pose B mid-face, on the floor, dust puffs | edge-on at the top of its arc | 250 ms |
 | 3 skid | pose C beside the result box, speed ticks | the other face, low, speed ticks | 250 ms |
-| 4 land | the result **stamped**: paper numerals on an ink plate, impact ticks | the coin face, impact ticks | 300 ms |
-| result | plain numerals, label, quip | coin, HEADS / TAILS, quip | — |
+| 4 land | the result **stamped**: paper numerals on an ink plate, impact ticks | the coin's **face** (T61: the imp's face for heads, its spade-tipped tail for tails), impact ticks | 300 ms |
+| result | plain numerals, label, quip | the coin face, HEADS / TAILS, quip | — |
 
 Character in the landing (beat 4):
 - **natural 20**: the stamp, impact ticks and four twinkles across the face (held 400 ms);
@@ -105,3 +105,23 @@ Turning partner **off** zeroes the partner's damage dealt and its tax in core (l
 With nothing recorded a tap does it; with something recorded a tap only says **HOLD** on the tape for
 2.5 s and holding the tab (500 ms, the first hold repeat) drops it. Every change is one `SetPartner`:
 one undo step, logged in the game history (`LogEvent.PartnerChanged`).
+
+## Coin faces (T61)
+
+The landed coin shows its side as a symbol, not a letter. Heads is the imp's face and tails is the
+imp's spade-tipped tail, both knocked out of an ink disc inside a paper ring. The faces are 28×28
+bitmaps in `coin/heads.txt` and `coin/tails.txt`. `author.py` writes them into `DiceSprites` as
+`COIN_HEADS` / `COIN_TAILS`, and `DiceArt` draws them at k / 2. They are not in the presentation's
+sprite table. The other options are in `design/icons/candidates/t61/` (see `design/icons/README.md`).
+
+The coin face is the result box's big glyph, and the word HEADS / TAILS stays beside it as the label.
+The symbol reads at a glance from across the table, from either long side and upside down. The word
+covers anyone who doesn't know the symbols. The landing still has its character: a glint for heads,
+a thud for tails.
+
+The tumbling poses (`COIN_A`/`AB`/`B`/`BC`/`C`) stay face-less shaded discs, so the result is never
+readable before it lands.
+
+Mask memory: four masks (two faces in two rotations), each the coin's ink box at device scale. That is
+112 × 112 ALPHA_8 at S = 4, about 12 KB each and about 50 KB in all. It is the same as the lettered coin
+these masks replace. They are prewarmed with the panel in the LATER phase (`DiceOverlay.prewarm`).
