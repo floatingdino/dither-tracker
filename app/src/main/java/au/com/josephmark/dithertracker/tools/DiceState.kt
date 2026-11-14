@@ -12,7 +12,8 @@ import kotlin.random.Random
  * The dice panel's state machine (T16, presentation T52; pure, JVM-tested on a fake [Scheduler]):
  *
  * ```
- * CLOSED ──open()──▶ ROLLING ─beat timers─▶ SHOWN ──roll(t) / again()──▶ ROLLING … ─▶ SHOWN
+ * CLOSED ──openEmpty()──▶ EMPTY ──roll(t)──▶ ROLLING (T59: the menu opens it empty)
+ * CLOSED ──open(t)──▶ ROLLING ─beat timers─▶ SHOWN ──roll(t) / again()──▶ ROLLING … ─▶ SHOWN
  *    ▲                  │ skip() (a tap), pause()  ▲                                   │
  *    │                  └──────────────────────────┘                                   │
  *    └──────────────── close() / IDLE_MS without a touch ──────────────────────────────┘
@@ -93,7 +94,21 @@ class DiceState(
 
     private var paused = false
 
-    /** Opens on a fresh roll of [first] (a d20 from the menu). No-op while open. */
+    /**
+     * Opens the panel **empty** (T59, the menu's DICE): no result, no tool chosen; the player picks d20,
+     * d6 or the coin. No-op while open.
+     */
+    fun openEmpty() {
+        if (phase != CLOSED) return
+        phase = EMPTY
+        if (!paused) timers.schedule(TIMER_IDLE, idleMillis)
+        listener.onChanged(CLOSED, EMPTY)
+    }
+
+    /** True until the first roll after [openEmpty] (nothing to show or roll again yet). */
+    val empty: Boolean get() = phase == EMPTY
+
+    /** Opens on a fresh roll of [first]. No-op while open. */
     fun open(first: Tool = Tool.D20) {
         if (phase != CLOSED) return
         roll(first)
@@ -130,9 +145,9 @@ class DiceState(
         listener.onChanged(old, phase)
     }
 
-    /** Re-rolls the current tool. */
+    /** Re-rolls the current tool (nothing while [empty]). */
     fun again() {
-        if (phase != CLOSED) roll(tool)
+        if (phase != CLOSED && phase != EMPTY) roll(tool)
     }
 
     /** A tap during the presentation: show the result now. No-op otherwise. */
@@ -191,6 +206,9 @@ class DiceState(
         const val CLOSED = 0
         const val ROLLING = 1
         const val SHOWN = 2
+
+        /** Open with nothing rolled yet (T59). */
+        const val EMPTY = 3
 
         /** Local timer ids (the owner's `timers` bank). */
         const val TIMER_IDLE = 0

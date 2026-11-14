@@ -397,6 +397,8 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
     @Test fun diceAndFirstPlayer() = script { rig ->
         val dice = rig.dice
         rig.openFromMenu(MenuItem.DICE)
+        shot("70_dice_empty") // T59: opens with nothing rolled
+        rig.tap(dice, Stage.SCREEN, DiceLayout.D20)
         shot("70_dice_rolling")
         rig.advance(DiceState.PRESENT_MAX_MS)
         shot("71_dice_d20")

@@ -152,7 +152,10 @@ cap_pressed 22_press_gem_dice 702 702 # DICE held; release opens the dice panel
 # --- dice / coin panel ---------------------------------------------------------------------------------
 # T52: each roll first plays its ~1.1 s presentation (a tap during it only skips to the result), so
 # every capture waits 2 s for the result; the keyframes themselves are tools/capture_t52.sh's.
-sleep 2
+# T59: the panel opens empty (nothing rolled, nothing chosen); d20 is the first pick here.
+sleep 1
+cap 22b_dice_empty
+tap 686 702; sleep 2                # d20
 cap 23_dice_d20
 tap 810 702; sleep 2                # d6
 cap 24_dice_d6

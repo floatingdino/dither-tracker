@@ -54,12 +54,21 @@ internal class DicePainter {
                 keyframe(f, l, art, state, p!!, sprites!!, placed!!, face, rot)
                 continue
             }
-            result(f, l, art, state, face, rot, plate = false)
+            if (state.empty) {
+                // T59: an empty result box, outlined in dots (nothing rolled yet).
+                val box = l.resultBox[face]
+                r.dottedH(box.left, box.top, box.width)
+                r.dottedH(box.left, box.bottom - 1, box.width)
+                r.dottedV(box.left, box.top, box.height)
+                r.dottedV(box.right - 1, box.top, box.height)
+            } else {
+                result(f, l, art, state, face, rot, plate = false)
+            }
             f.text.draw(l.ui, labelText, l.label[face].left, l.label[face].top, l.k, rot)
             r.rect(l.underline[face], ink = true)
             for (i in 0 until l.lines) {
                 val lr = l.line[face * DiceLayout.MAX_LINES + i]
-                slice.set(state.caption, l.lineStart[i], l.lineEnd[i])
+                slice.set(if (state.empty) DiceOverlay.PROMPT else state.caption, l.lineStart[i], l.lineEnd[i])
                 f.text.draw(l.ui, slice, lr.left, lr.top, l.k, rot)
             }
         }
@@ -72,9 +81,10 @@ internal class DicePainter {
                 r.frame(bt, 1, ink = true)
                 gem.cross(r, (bt.left + bt.right - 1) / 2, l.cy, l.xHalf, l.xRun, ink = true)
             } else {
-                foldButton(f, l, bt, t.label, filled = t == state.tool)
+                foldButton(f, l, bt, t.label, filled = !state.empty && t == state.tool)
             }
         }
+        if (state.empty) return // T59: nothing to roll again: the dotted fold runs through the crossing
         gem.diamond(r, l.cx, l.cy, l.foldR, l.foldHalf, ink = true)
         val ic = 16 * l.k
         tmp.setXywh(l.cx - ic / 2, l.cy - ic / 2, ic, ic)

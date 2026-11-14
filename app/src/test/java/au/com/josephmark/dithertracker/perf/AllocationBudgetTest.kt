@@ -93,6 +93,8 @@ class AllocationBudgetTest {
         assertDrawFree(rig, "history card")
         rig.tapAt(1, 1)
         rig.openFromMenu(MenuItem.DICE)
+        assertDrawFree(rig, "dice panel empty")
+        rig.tap(rig.dice, Stage.SCREEN, DiceLayout.D20)
         // T52: every keyframe of the presentation, then the result.
         val o = rig.dice.state.outcome
         val pres = rig.dice.state.presentation!!

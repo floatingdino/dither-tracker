@@ -116,6 +116,8 @@ class BackgroundTest {
         assertEquals("nothing armed before", "", armed(rig))
         rig.openFromMenu(MenuItem.DICE)
         val state = rig.dice.state
+        assertTrue("opens empty (T59), nothing armed but the idle timeout", state.empty)
+        rig.tap(rig.dice, Stage.SCREEN, DiceLayout.D20)
         assertEquals(DiceState.ROLLING, state.phase)
         rig.advance(300)
         val value = state.value
@@ -134,6 +136,7 @@ class BackgroundTest {
         assertEquals("", armed(rig))
         // A presentation that ends by itself disarms its timer too.
         rig.openFromMenu(MenuItem.DICE)
+        rig.tap(rig.dice, Stage.SCREEN, DiceLayout.COIN)
         rig.advance(DiceState.PRESENT_MAX_MS)
         assertEquals(DiceState.SHOWN, state.phase)
         rig.tap(rig.dice, Stage.SCREEN, DiceLayout.CLOSE)

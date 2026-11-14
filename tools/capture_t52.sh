@@ -62,7 +62,8 @@ if [ -z "${NO_INSTALL:-}" ]; then $A install -r "$APK" >/dev/null; fi
 # ---- dice and coin -------------------------------------------------------------------------------
 launch
 tap 934 702                          # the gem
-present t52-d20 702 702              # DICE: the panel opens on a d20 roll
+tap 702 702                          # DICE: the panel opens empty (T59)
+present t52-d20 686 702              # d20
 sleep 1
 present t52-coin 1058 702            # coin
 # The landing's stamp at real speed (no hold scale), for the timing feel: AGAIN, then a tap skips.

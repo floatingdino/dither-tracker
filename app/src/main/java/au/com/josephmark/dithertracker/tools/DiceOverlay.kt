@@ -20,7 +20,9 @@ import au.com.josephmark.dithertracker.stage.ZoneSink
 import kotlin.random.Random
 
 /**
- * The dice / coin panel (T16): the menu's DICE tip opens it on a fresh d20 roll. A two-faced tent on
+ * The dice / coin panel (T16): the menu's DICE tip opens it **empty** (T59: no result, no tool chosen —
+ * a dotted result box, "dice" over "Pick your poison", the roll-again diamond hidden) and the player
+ * picks d20, d6 or the coin. A two-faced tent on
  * the crossing ([DiceLayout]) — each long side reads its own face: the result in the bold small
  * numerals (or the sticker coin), the die label and a quip. The fold row rolls a **d20**, a **d6** or
  * the **coin** at once (the current tool is solid), the centre diamond (`dice` knocked out) rolls the
@@ -82,7 +84,7 @@ class DiceOverlay(
 
     /** [MenuDestination]: DICE opens the panel on a d20. */
     override fun open(item: MenuItem, facing: Int) {
-        if (item == MenuItem.DICE) state.open(Tool.D20)
+        if (item == MenuItem.DICE) state.openEmpty() // T59: nothing rolled until the player picks
     }
 
     // ---- layout ----------------------------------------------------------------------------------
@@ -118,6 +120,8 @@ class DiceOverlay(
             f.text.draw(l.ui, HEADS, 0, 0, l.k, rot)
             f.text.draw(l.ui, TAILS, 0, 0, l.k, rot)
             f.text.draw(l.ui, NAT_20, 0, 0, l.k, rot)
+            f.text.draw(l.ui, EMPTY_LABEL, 0, 0, l.k, rot)
+            f.text.draw(l.ui, PROMPT, 0, 0, l.k, rot)
             for (kind in KINDS) for (line in flavour.lines(kind)) f.text.draw(l.ui, line, 0, 0, l.k, rot)
             f.r.blit(a.coin(true, rot), 0, 0)
             f.r.blit(a.coin(false, rot), 0, 0)
@@ -125,10 +129,11 @@ class DiceOverlay(
         f.icons.prewarm(arrayOf(Icon.DICE), l.k)
     }
 
-    private fun arrange(l: DiceLayout) = l.arrange(label(), state.caption)
+    private fun arrange(l: DiceLayout) = l.arrange(label(), if (state.empty) PROMPT else state.caption)
 
     /** The face label: the die ("d20"; "nat 20" / "nat 1" once revealed), or the coin's side ("HEADS"). */
     fun label(): String {
+        if (state.empty) return EMPTY_LABEL
         val t = state.tool
         if (state.phase != DiceState.SHOWN) return t.label
         return when {
@@ -165,7 +170,7 @@ class DiceOverlay(
         z.add(DISMISS, screen)
         z.block(l.panelOuter)
         for (b in 0 until DiceLayout.BUTTONS) z.add(b, l.buttonHit[b])
-        z.add(AGAIN, l.foldRect)
+        if (!state.empty) z.add(AGAIN, l.foldRect) // nothing to roll again yet: the fold row swallows it
     }
 
     override fun contains(seat: Int, local: Int, gx: Int, gy: Int): Boolean {
@@ -229,6 +234,10 @@ class DiceOverlay(
         const val TAILS = "TAILS"
         const val NAT_20 = "nat 20"
         const val NAT_1 = "nat 1"
+
+        /** The empty panel (T59): the label and the prompt beside the empty result box. */
+        const val EMPTY_LABEL = "dice"
+        const val PROMPT = "Pick your poison"
         private const val DIGITS = "0123456789"
         private val ROTATIONS = intArrayOf(0, 180)
         private val KINDS = arrayOf(

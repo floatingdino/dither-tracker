@@ -29,12 +29,16 @@ class DiceOverlayTest {
 
         fun tap(r: IRect) = tap((r.left + r.right) / 2, (r.top + r.bottom) / 2)
 
-        /** Opens the gem and taps its DICE tip (and, with [present], lets the presentation play out). */
+        /**
+         * Opens the gem and taps its DICE tip — the panel opens empty (T59) — then rolls a d20 and,
+         * with [present], lets its presentation play out.
+         */
         fun openFromMenu(present: Boolean = true) {
             tap(rig.l.diamondCx, rig.l.diamondCy)
             val g = menu.gem!!
             val s = GemLayout.slotOf(MenuItem.DICE)
             tap(g.facetX[s], g.facetY[s])
+            tap(l.button[DiceLayout.D20])
             if (present) reveal()
         }
 
@@ -55,7 +59,7 @@ class DiceOverlayTest {
         }
     }
 
-    @Test fun diceTipOpensOnAFreshD20InOneRedraw() {
+    @Test fun diceTipOpensEmptyThenAPickRollsAndPresentsIt() {
         val r = Rig()
         r.tap(r.rig.l.diamondCx, r.rig.l.diamondCy)
         assertTrue(r.menu.enabled[GemLayout.slotOf(MenuItem.DICE)])
@@ -65,9 +69,18 @@ class DiceOverlayTest {
         r.tap(g.facetX[s], g.facetY[s])
         assertEquals(MenuState.CLOSED, r.menu.state.phase)
         assertTrue(r.state.isOpen)
-        assertEquals(Tool.D20, r.state.tool)
-        assertTrue(r.state.value in 1..20)
+        // T59: nothing rolled, nothing chosen; AGAIN is not there to tap; nothing armed but the idle timeout.
+        assertTrue(r.state.empty)
+        assertEquals(0, r.state.rolls)
+        assertEquals(DiceOverlay.EMPTY_LABEL, r.dice.label())
+        assertEquals("none", r.hit(r.l.cx, r.l.cy))
         assertTrue(r.invalidatedCovers(r.l.panelOuter))
+        r.tap(r.l.cx, r.l.cy)
+        assertTrue("a tap on the crossing rolls nothing", r.state.empty)
+        r.tap(r.l.button[DiceLayout.D6])
+        assertEquals(Tool.D6, r.state.tool)
+        assertEquals(DiceState.ROLLING, r.state.phase)
+        assertEquals("dice:${DiceOverlay.AGAIN}", r.hit(r.l.cx, r.l.cy))
         // The presentation: one redraw of the panel only per keyframe, then the result.
         r.rig.platform.invalidated.clear()
         r.reveal()
