@@ -97,7 +97,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T56 | review | T17 | Sam: the delta is a touch too close to the life number — centre it in the space between the number and the top of the tile. | `readout/` |
 | T57 | review | T51 T55 | Tap responsiveness on the panel (slow-mo, `docs/eink.md`): the press inversion holds a region busy ~450 ms before the result can show. Proposal: show press feedback only after a touch has been down ≈100–150 ms, so quick taps go straight to the result in one update (action still on release); try the vendor fast waveform for our window; consider a faster hold repeat. | `stage/`, `play/PlayInput`, `eink/` |
 | T58 | review | T19b | Faster display modes: the Nomad's framework has a per-View e-ink mode (`View.setEinkUpdateMode`, DU/A2/…); the call succeeds from our debug build (`--ei einkMode N`, `eink/EinkViewMode.kt`). To find out: does the panel respond faster, which mode, ghosting cost, per-region modes (fast for taps, GC for cleans), and whether a release build is allowed to call it. | `eink/` |
-| T59 | wip | T52 T58 | Sam's review of T52: a global fast/slow display flag, and a couple more in-between poses for die and coin on a fast display; the dice panel opens empty (no automatic d20); first player re-imagined as simultaneous d20 rolls on every live tile, results in the life-total digits, a sting and a "FIRST" flag on the winner, more informative quips ("On the play", "First out the gates"); PARTNER tab on the dither ground with halo/tape, new small-partner + / − icons instead of the big imp. | `tools`, `commander/`, `eink/`, `design/icons/` |
+| T59 | review | T52 T58 | Sam's review of T52: a global fast/slow display flag, and a couple more in-between poses for die and coin on a fast display; the dice panel opens empty (no automatic d20); first player re-imagined as simultaneous d20 rolls on every live tile, results in the life-total digits, a sting and a "FIRST" flag on the winner, more informative quips ("On the play", "First out the gates"); PARTNER tab on the dither ground with halo/tape, new small-partner + / − icons instead of the big imp. | `tools`, `commander/`, `eink/`, `design/icons/` |
 | T60 | wip | T53 | Sam's review of the layout picker ("a good start"): allow different-sized tiles within one game; thumbnails shrink so more options fit a page; each seat drawn as an inset dithered ground rather than outlined; no layout names; no drawer-tab mark in the thumbnails; add layouts with an empty seat (e.g. L shapes with any corner missing). Second reference in untracked `local/reference/`. | `layout/`, `settings/`, every N-seat component |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
@@ -778,3 +778,15 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-14 — Tick 78: Sam reviewed the layout picker → T60 to the T53 agent (resumed; emulator
   5566): mixed tile sizes, empty-seat layouts, denser picker with dithered seat grounds, no labels.
   Running: T59, T60.
+- 2026-11-14 — Tick 79: T59 reported (`d2fbe1d` speed flag, `541c37b` extra poses, `f59bda2` empty
+  dice panel, `7e22d28` first-player roll-off, `dd86219` partner tab, `fd20ee5` captures); verified
+  by coordinator at `fd20ee5` with `--no-build-cache --no-watch-fs` (the agent saw Gradle's file
+  watching miss edits under concurrent agents — use both flags from now on): 176 core + 2085 app,
+  captures pure. `eink/DisplaySpeed.current()` = FAST when not e-ink or the fast waveform is in
+  effect, else SLOW (`--es displaySpeed fast|slow`); SPEC rule 4 updated. Dice/coin: SLOW 3 × 250 ms,
+  FAST 5 × 150 ms, same totals. Dice panel opens empty ("Pick your poison"). First player: every
+  live seat's tile is taken over (double frame, "D20"), tumbles, then shows its roll in the hero
+  numerals for 1600 ms; highest gets a FIRST pennant with a quip; ties re-roll (max 3 rounds);
+  `start-flag` is the sting; the flag stays 4 s. PARTNER tab on the TAB dither with small-partner
+  +/− icons; paper tape off, ink tape on. That build (includes T60's first two engine commits) is on
+  the Nomad. In `review`. Running: T60.
