@@ -107,8 +107,8 @@ On the contact sheet, each icon is drawn at 8× nearest-neighbour inside a grey 
 | `scale` | Diagonal double-headed arrow, solid heads | Integer scale S setting |
 | `rotate` | Phone (with a chin and home button) and a curved arrow | Seat/screen orientation |
 | `partner` | The `commander` imp (smaller) with a tiny fanged sidekick imp at its shoulder | Partner commanders (two damage sources) |
-| `partner-add` | The mini imp from the top left of `partner`, drawn at 2× (10×12), with a 6×6 `+` (2-px arms) at its top right: "add a partner". Shown on the commander-mode PARTNER tab when the seat has none. (The earlier squat-head drawing is in `candidates/t59/partner-add-a.txt`.) |
-| `partner-remove` | The same mini imp with a 6×2 `−` at its top right: "remove the partner". Shown when the seat has one. |
+| `partner-add` | Laid out like `partner`: the mini imp stays in the top-left corner at 1× and a big `+` (9×9, 3-px arms) takes the big imp's space: "add a partner". Shown on the commander-mode PARTNER tab when the seat has none. (Earlier drawings: `candidates/t59/partner-add-a.txt` squat head, `-c.txt` 2× imp with a corner sign.) |
+| `partner-remove` | The same with a big `−` (9×3) in the big imp's space: "remove the partner". Shown when the seat has one. |
 | `refresh` | Two clockwise circular arrows, solid heads | Full e-ink refresh (ghosting cleanup) |
 
 ## Telling similar icons apart
