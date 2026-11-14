@@ -125,6 +125,16 @@ class ArrangementSurveyTest {
             val l = nomad(a, s)
             sb.append("${a.id}, $s, ${l.panelW}x${l.panelH}, ${when (l.tier) { PlayLayout.TIER_FULL -> "full"; PlayLayout.TIER_NARROW -> "narrow"; else -> "none" }}, k${l.kMax}\n")
         }
+        // Device px at S = 4 (landscape) of each seat's drawer tab and of the diamond, for capture scripts.
+        for (a in Arrangements.ALL) {
+            val l = nomad(a)
+            sb.append("DIAMOND ${a.id} ${l.diamondCx * 4 + 2} ${l.diamondCy * 4 + 2}\n")
+            for (s in 0 until l.playerCount) {
+                val t = l.tabHit[s]
+                val area = l.seats[s].width * l.seats[s].height
+                sb.append("TAB ${a.id} $s ${(t.left + t.right) / 2 * 4 + 2} ${(t.top + t.bottom) / 2 * 4 + 2} $area\n")
+            }
+        }
         File(PurityChecks.outDir, "t53").mkdirs()
         File(PurityChecks.outDir, "t53/arrangement-survey.txt").writeText(sb.toString())
     }
