@@ -98,7 +98,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T57 | review | T51 T55 | Tap responsiveness on the panel (slow-mo, `docs/eink.md`): the press inversion holds a region busy ~450 ms before the result can show. Proposal: show press feedback only after a touch has been down ≈100–150 ms, so quick taps go straight to the result in one update (action still on release); try the vendor fast waveform for our window; consider a faster hold repeat. | `stage/`, `play/PlayInput`, `eink/` |
 | T58 | review | T19b | Faster display modes: the Nomad's framework has a per-View e-ink mode (`View.setEinkUpdateMode`, DU/A2/…); the call succeeds from our debug build (`--ei einkMode N`, `eink/EinkViewMode.kt`). To find out: does the panel respond faster, which mode, ghosting cost, per-region modes (fast for taps, GC for cleans), and whether a release build is allowed to call it. | `eink/` |
 | T59 | review | T52 T58 | Sam's review of T52: a global fast/slow display flag, and a couple more in-between poses for die and coin on a fast display; the dice panel opens empty (no automatic d20); first player re-imagined as simultaneous d20 rolls on every live tile, results in the life-total digits, a sting and a "FIRST" flag on the winner, more informative quips ("On the play", "First out the gates"); PARTNER tab on the dither ground with halo/tape, new small-partner + / − icons instead of the big imp. | `tools`, `commander/`, `eink/`, `design/icons/` |
-| T60 | wip | T53 | Sam's review of the layout picker ("a good start"): allow different-sized tiles within one game; thumbnails shrink so more options fit a page; each seat drawn as an inset dithered ground rather than outlined; no layout names; no drawer-tab mark in the thumbnails; add layouts with an empty seat (e.g. L shapes with any corner missing). Second reference in untracked `local/reference/`. | `layout/`, `settings/`, every N-seat component |
+| T60 | review | T53 | Sam's review of the layout picker ("a good start"): allow different-sized tiles within one game; thumbnails shrink so more options fit a page; each seat drawn as an inset dithered ground rather than outlined; no layout names; no drawer-tab mark in the thumbnails; add layouts with an empty seat (e.g. L shapes with any corner missing). Second reference in untracked `local/reference/`. | `layout/`, `settings/`, every N-seat component |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -790,3 +790,16 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   `start-flag` is the sting; the flag stays 4 s. PARTNER tab on the TAB dither with small-partner
   +/− icons; paper tape off, ink tape on. That build (includes T60's first two engine commits) is on
   the Nomad. In `review`. Running: T60.
+- 2026-11-14 — Tick 80: T60 reported (`2c0a800`, `ea2ed38`, `996fee0`, `3db8285`, `7bc9b7e`,
+  `94afa15`, `71104ca`); verified by coordinator at HEAD `71104ca` (`--no-build-cache
+  --no-watch-fs`): 176 core + 3826 app; that build is on the Nomad. Lattice arrangements: seats are
+  rectangles of cells, cells may be empty (`Role.EMPTY` chunky-dot ground, no input). 20 new
+  arrangements: 2 diagonal ×2; 3 wide-far/near, tall-left/right, L ×4; 4 wide-far/near; 5
+  wide-near/far, 2×3 with a hole ×6. Picker: wordless 4×3 grid, seats as inset TAB-dither blocks,
+  empty cells dotted outlines, selected = ink frame + solid seats + a small arrow per seat;
+  unavailable layouts hatched with a hint line on tap. **Deviation from the brief:** tiles differ in
+  size but content is laid out in ONE frame per game (the largest every seat can hold), placed
+  against each seat's near edge — bigger seats get more paper, not bigger content. Defaults
+  unchanged. **Needs Sam:** per-seat content sizing?; `5-wide-near` as the 5-player default?;
+  empty-cell ground weight; arrows vs numerals on the selected thumbnail; trim the four L variants?
+  In `review`. No agents running.
