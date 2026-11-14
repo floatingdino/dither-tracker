@@ -9,5 +9,5 @@ an ink card) and OFF (ink on a 1-px halo over the drawer texture).
 |---|---|---|---|---|
 | initiative | torch: flame, cup, handle | squat torch, heavier cup and stem | campfire on crossed logs | **a** |
 | citys-blessing (`blessing-*`) | flagged keep between towers, arched gate | walled keep under three rays | castle under a sparkle | **a** |
-| ring | 2-px ring, solid gem, sparkle | 3-px band, solid gem, sparkle | plain 3-px band, sparkle | **b** (wired) |
+| ring | 2-px ring, solid gem, sparkle | 3-px band, solid gem, sparkle | plain 3-px band, sparkle | **a** (Sam, T51; T14 had wired b) |
 | day | solid sun, glint, block rays | ring sun, thin rays | bigger disc, thin diagonal rays | **a** |
