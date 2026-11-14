@@ -18,12 +18,16 @@ class StageTest {
 
     /** Records everything the stage asks of the platform. */
     class FakePlatform : Stage.Platform {
+        companion object {
+            const val CLOCK_IDS = 1024
+        }
+
         val invalidated = ArrayList<IRect>()
         var all = 0
         /** False: [invalidate] only counts (no allocation, for the T20 allocation tests). */
         var record = true
         var count = 0
-        val clock = FakeScheduler(1024) // the real component list at six seats needs ~330 ids (T11)
+        val clock = FakeScheduler(CLOCK_IDS) // the real component list at six seats needs ~330 ids (T11), more with T57's show timers
         override fun invalidate(left: Int, top: Int, right: Int, bottom: Int) {
             count++
             if (record) invalidated += IRect(left, top, right, bottom)
@@ -31,7 +35,7 @@ class StageTest {
         override fun invalidateAll() { all++ }
         override fun schedule(id: Int, delayMillis: Long) = clock.schedule(id, delayMillis)
         override fun cancel(id: Int) = clock.cancel(id)
-        override fun cancelAllTimers() { for (i in 0 until 256) clock.cancel(i) }
+        override fun cancelAllTimers() { for (i in 0 until CLOCK_IDS) clock.cancel(i) }
         override fun now(): Long = clock.now
     }
 
@@ -115,8 +119,10 @@ class StageTest {
             assertEquals(tile, stage.zoneOwner(id)); assertEquals(s, stage.zoneSeat(id)); assertEquals(local, stage.zoneLocal(id))
         }
         assertEquals(Stage.SCREEN, stage.zoneSeat(17)); assertEquals(1, stage.zoneLocal(17))
-        // Timers: one hold timer per zone, then each component's block.
-        assertEquals(18 + 2 + 1, stage.timerCount)
+        // Timers: a hold and a press-show timer per zone (T57), then each component's block.
+        assertEquals(18 * 2, stage.inputTimerCount)
+        assertEquals(18 * 2 + 2 + 1, stage.timerCount)
+        assertEquals(36, stage.timerId(tile, 0)); assertEquals(38, stage.timerId(screen, 0))
     }
 
     @Test fun componentTimersRouteToTheirOwner() {
@@ -168,10 +174,14 @@ class StageTest {
         tile.repeating += 2
         stage.down(0, a.left + 5, a.top + 5, 0)
         stage.down(1, b.left + 5, b.top + 5, 0)
-        assertTrue(stage.isPressed(tile, 3, 0)); assertTrue(stage.isPressed(tile, 1, 2))
+        assertTrue(stage.isDown(tile, 3, 0)); assertTrue(stage.isDown(tile, 1, 2))
+        assertFalse(stage.isPressed(tile, 3, 0)); assertFalse(stage.isPressed(tile, 1, 2)) // T57: not yet
         assertEquals(listOf("tile.event(1,3)", "readout.event(1,3)", "chrome.event(1,3)", "screen.event(1,3)"), log.take(4))
         log.clear()
-        platform.clock.advance(PlayInput.HOLD_DELAY_MS) // seat 1 local 2 repeats; seat 3 local 0 does not
+        platform.clock.advance(PlayInput.PRESS_DELAY_MS)
+        assertTrue(stage.isPressed(tile, 3, 0)); assertTrue(stage.isPressed(tile, 1, 2))
+        assertTrue(log.isEmpty())
+        platform.clock.advance(PlayInput.HOLD_DELAY_MS - PlayInput.PRESS_DELAY_MS) // seat 1 local 2 repeats; seat 3 local 0 does not
         assertEquals(listOf("tile.repeat(1,2)"), log)
         stage.up(0) // release-to-fire
         assertEquals(listOf("tile.repeat(1,2)", "tile.tap(3,0)"), log)
@@ -215,6 +225,8 @@ class StageTest {
         val r = rect(p.left + 4, p.top + 4, 10, 10)
         chrome.rects[2 to 0] = r
         stage.down(0, p.left + 5, p.top + 5, 0)
+        assertTrue(platform.invalidated.isEmpty()) // T57: nothing until the press delay
+        platform.clock.advance(PlayInput.PRESS_DELAY_MS)
         assertEquals(listOf(IRect(r.left * 4, r.top * 4, r.right * 4, r.bottom * 4)), platform.invalidated)
         stage.up(0)
         assertEquals(2, platform.invalidated.size)
@@ -230,6 +242,10 @@ class StageTest {
         stage.down(1, p.left + 5, p.top + 5, 0)   // chrome zone
         log.clear()
         stage.draw(RecFrame(log))
+        assertTrue("not inverted before the press delay (T57)", log.none { it.startsWith("invert") })
+        platform.clock.advance(PlayInput.PRESS_DELAY_MS)
+        log.clear()
+        stage.draw(RecFrame(log))
         val want = ArrayList<String>()
         for (s in 0 until 4) { want += "tile.draw($s)"; want += "readout.draw($s)" }
         want += "invert(L1 ${tile.rects[1 to 0]})"
@@ -239,6 +255,163 @@ class StageTest {
         assertEquals(want, log)
     }
 
+    // ---- delayed press feedback (T57) ------------------------------------------------------------
+
+    /** A pressable on seat 2's chrome with a 10×10 feedback rect; returns a point inside it. */
+    private fun chromeZone(seat: Int = 2): IntArray {
+        val p = l.panels[seat]
+        chrome.rects[seat to 0] = rect(p.left + 4, p.top + 4, 10, 10)
+        return intArrayOf(p.left + 5, p.top + 5)
+    }
+
+    private fun showArmed(c: Component, seat: Int, local: Int) =
+        platform.clock.isArmed(stage.zoneCount + stage.zoneId(c, seat, local))
+
+    @Test fun quickTapActsWithoutEverInverting() {
+        val at = chromeZone()
+        stage.down(0, at[0], at[1], 0)
+        assertTrue(showArmed(chrome, 2, 0))
+        platform.clock.advance(PlayInput.PRESS_DELAY_MS - 1)
+        stage.up(0)
+        assertTrue(log.contains("chrome.tap(2,0)"))
+        assertTrue("no press or release frame", platform.invalidated.isEmpty())
+        assertFalse(stage.timersPending())
+        platform.clock.advance(10_000)
+        assertTrue(platform.invalidated.isEmpty())
+        assertFalse(stage.isPressed(chrome, 2, 0))
+    }
+
+    @Test fun heldPastTheDelayInvertsThenReleasesAsBefore() {
+        val at = chromeZone()
+        stage.down(0, at[0], at[1], 0)
+        platform.clock.advance(PlayInput.PRESS_DELAY_MS)
+        assertTrue(stage.isPressed(chrome, 2, 0))
+        assertFalse(showArmed(chrome, 2, 0))
+        assertEquals(1, platform.invalidated.size)
+        stage.up(0)
+        assertEquals(listOf("chrome.tap(2,0)"), log.filter { "tap" in it })
+        assertEquals(2, platform.invalidated.size) // the restore (with the result, in one frame)
+        assertFalse(stage.timersPending())
+    }
+
+    @Test fun cancelBeforeTheDelayDrawsAndAppliesNothing() {
+        val at = chromeZone()
+        stage.down(0, at[0], at[1], 0)
+        stage.cancel()
+        assertFalse(showArmed(chrome, 2, 0))
+        platform.clock.advance(1_000)
+        stage.up(0)
+        assertTrue(platform.invalidated.isEmpty())
+        assertTrue(log.none { "tap" in it })
+    }
+
+    @Test fun twoPointersStaggeredEachGetTheirOwnDelay() {
+        val a = chromeZone(2); val b = chromeZone(0)
+        stage.down(0, a[0], a[1], 0)
+        platform.clock.advance(100)
+        stage.down(1, b[0], b[1], 0)
+        platform.clock.advance(PlayInput.PRESS_DELAY_MS - 100) // a reaches its delay; b is 100 ms short
+        assertTrue(stage.isPressed(chrome, 2, 0)); assertFalse(stage.isPressed(chrome, 0, 0))
+        stage.up(1) // b: a quick tap, never inverted
+        assertTrue(log.contains("chrome.tap(0,0)"))
+        assertEquals(1, platform.invalidated.size) // only a's press
+        stage.up(0)
+        assertEquals(2, platform.invalidated.size)
+        assertFalse(stage.timersPending())
+    }
+
+    @Test fun aSecondFingerKeepsTheFirstsDelay() {
+        val at = chromeZone()
+        stage.down(0, at[0], at[1], 0)
+        platform.clock.advance(60)
+        stage.down(1, at[0], at[1], 0)
+        stage.up(0) // first finger taps quickly; the second stays: still due at the first's delay
+        platform.clock.advance(PlayInput.PRESS_DELAY_MS - 60)
+        assertTrue(stage.isPressed(chrome, 2, 0))
+        stage.up(1)
+        assertFalse(stage.isPressed(chrome, 2, 0))
+    }
+
+    @Test fun pauseMidPressCancelsItAndDisarmsEverything() {
+        val at = chromeZone()
+        val p = l.panels[1]
+        tile.rects[1 to 2] = IRect(p.left, p.top, p.right, p.bottom)
+        tile.repeating += 2
+        stage.down(0, at[0], at[1], 0)                 // pending
+        stage.down(1, p.left + 50, p.top + 50, 0)      // will be shown and holding
+        platform.clock.advance(PlayInput.PRESS_DELAY_MS)
+        stage.down(2, at[0] + 1, at[1] + 1, 0)
+        stage.send(Events.PAUSE, Stage.SCREEN)
+        assertFalse(stage.isDown(chrome, 2, 0)); assertFalse(stage.isDown(tile, 1, 2))
+        assertFalse(stage.timersPending())
+        log.clear()
+        platform.clock.advance(10_000)
+        assertTrue(log.none { "repeat" in it || "tap" in it })
+    }
+
+    @Test fun anOverlayOpeningMidPressCancelsThePendingInversion() {
+        val p = l.panels[1]
+        tile.rects[1 to 0] = IRect(p.left, p.top, p.right, p.bottom)
+        stage.down(0, p.left + 5, p.top + 5, 0)
+        stage.setCover(mode, 1 shl 1, screen = true)
+        platform.invalidated.clear()
+        assertFalse(showArmed(tile, 1, 0))
+        platform.clock.advance(1_000)
+        assertFalse(stage.isPressed(tile, 1, 0))
+        assertTrue(platform.invalidated.isEmpty())
+        stage.up(0)
+        assertTrue(log.none { "tap" in it })
+    }
+
+    @Test fun detachMidPressDisarmsTheShowTimer() {
+        val at = chromeZone()
+        stage.down(0, at[0], at[1], 0)
+        stage.detach()
+        assertFalse(showArmed(chrome, 2, 0))
+        assertFalse(stage.timersPending())
+    }
+
+    @Test fun holdInvertsAtTheDelayWellBeforeTheFirstRepeat() {
+        val p = l.panels[3]
+        tile.rects[3 to 1] = IRect(p.left, p.top, p.right, p.bottom)
+        tile.repeating += 1
+        stage.down(0, p.left + 5, p.top + 5, 0)
+        platform.clock.advance(PlayInput.PRESS_DELAY_MS)
+        assertTrue(stage.isPressed(tile, 3, 1))
+        assertTrue(log.none { "repeat" in it })
+        platform.clock.advance(PlayInput.HOLD_DELAY_MS - PlayInput.PRESS_DELAY_MS)
+        assertEquals(1, log.count { "repeat" in it }) // hold timing unchanged: from touch-down
+        platform.clock.advance(PlayInput.REPEAT_MS)
+        assertEquals(2, log.count { "repeat" in it })
+        stage.up(0)
+        assertTrue(log.none { "tap" in it })
+    }
+
+    @Test fun zeroDelayIsTheOldModel() {
+        stage.pressDelayMillis = 0
+        val at = chromeZone()
+        stage.down(0, at[0], at[1], 0)
+        assertTrue(stage.isPressed(chrome, 2, 0))
+        assertEquals(1, platform.invalidated.size)
+        assertFalse(showArmed(chrome, 2, 0))
+        stage.up(0)
+        assertEquals(2, platform.invalidated.size)
+    }
+
+    @Test fun aDelayLongerThanTheHoldInvertsWithTheFirstRepeat() {
+        stage.pressDelayMillis = 2_000
+        val p = l.panels[3]
+        tile.rects[3 to 1] = IRect(p.left, p.top, p.right, p.bottom)
+        tile.repeating += 1
+        stage.down(0, p.left + 5, p.top + 5, 0)
+        platform.clock.advance(PlayInput.HOLD_DELAY_MS - 1)
+        assertFalse(stage.isPressed(tile, 3, 1))
+        platform.clock.advance(1)
+        assertTrue(stage.isPressed(tile, 3, 1))
+        assertEquals(1, log.count { "repeat" in it })
+        assertFalse(showArmed(tile, 3, 1))
+    }
+
     // ---- covers --------------------------------------------------------------------------------
 
     @Test fun coversHideByKindOnTheirSeatsAndCancelTouches() {
@@ -246,6 +419,7 @@ class StageTest {
         tile.rects[1 to 0] = IRect(p.left, p.top, p.right, p.bottom)
         screen.rects[Stage.SCREEN to 0] = rect(l.diamondCx - 2, l.diamondCy - 2, 4, 4)
         stage.down(0, p.left + 5, p.top + 5, 0)
+        platform.clock.advance(PlayInput.PRESS_DELAY_MS)
         assertTrue(stage.isPressed(tile, 1, 0))
         log.clear(); platform.invalidated.clear()
 

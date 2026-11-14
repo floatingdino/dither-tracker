@@ -48,16 +48,9 @@ class TurnTabTest {
         fun tracker(on: Boolean) = stage.settings.update(stage.settings.current.copy(turnTracker = on))
         fun start(seat: Int) = c.dispatch(Action.SetStartingPlayer(c.id(seat)))
         fun active(): Int = c.session.state.let { it.indexOf(it.turn.activePlayer!!) }
-        val tickId: Int get() = stage.zoneCount + timerBase()
+        val tickId: Int get() = stage.timerId(turn, TurnTab.TICK)
         val armed: Boolean get() = c.platform.clock.isArmed(tickId)
         val history get() = c.one<HistoryOverlay>()
-        private fun timerBase(): Int {
-            // TurnTab's block: count the timers of the components before it.
-            var t = 0
-            for (comp in stage.components) { if (comp === turn) break; t += comp.timerCount }
-            return t + TurnTab.TICK
-        }
-
         fun press() {
             val p = c.pointOf(turn, turn.shownSeat, TurnTab.PASS) ?: throw AssertionError("no tab")
             stage.down(0, p[0], p[1], c.now)

@@ -224,6 +224,12 @@ class Stage(
         return zoneBase[c.index] + (if (c.isTile) seat * c.zonesPerSeat else 0) + local
     }
 
+    /** Global timer id of [c]'s local timer [local] (tests and debugging). */
+    fun timerId(c: Component, local: Int): Int {
+        require(local in 0 until c.timerCount) { "timer $local not in 0 until ${c.timerCount}" }
+        return timerBase[c.index] + local
+    }
+
     /** Owner of global zone [id]: component, seat, local. */
     fun zoneOwner(id: Int): Component = comps[idComp[id]]
     fun zoneSeat(id: Int): Int = idSeat[id]
@@ -382,10 +388,15 @@ class Stage(
     /** Whether a finger is on [c]'s [local] on [seat], pressed or not yet. */
     fun isDown(c: Component, seat: Int, local: Int): Boolean = input.isDown(zoneId(c, seat, local))
 
-    /** Sends [event] ([Events]) about [seat] to every component, in registration order. */
+    /**
+     * Sends [event] ([Events]) about [seat] to every component, in registration order. [Events.PAUSE]
+     * first releases every touch without applying it (T57: no hold or press-show timer outlives the
+     * window's focus).
+     */
     fun send(event: Int, seat: Int) {
         enter()
         try {
+            if (event == Events.PAUSE && sealed) input.cancelAll()
             for (c in comps) c.onEvent(event, seat)
         } finally { exit() }
     }

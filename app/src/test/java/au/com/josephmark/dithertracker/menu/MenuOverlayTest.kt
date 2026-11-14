@@ -294,6 +294,7 @@ class MenuOverlayTest {
         val s = GemLayout.slotOf(MenuItem.NEW)
         r.rig.stage.down(0, r.g.facetX[s], r.g.facetY[s], 0)
         val id = r.rig.stage.zoneId(r.menu, Stage.SCREEN, s)
+        r.rig.platform.clock.advance(r.rig.stage.pressDelayMillis) // held, not tapped (T57)
         assertTrue(r.rig.stage.input.isPressed(id))
         assertTrue(r.rig.stage.feedback(id, out))
         assertEquals(r.g.facetRect[s], out)

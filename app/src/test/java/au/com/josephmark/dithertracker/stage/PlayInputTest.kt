@@ -35,8 +35,10 @@ class PlayInputTest {
         // This test addresses life zones as `PlayLayout.zone(seat, side)`.
         for (s in 0 until 4) for (side in 0..1) check(rig.stage.zoneId(rig.life, s, side) == zone(s, side))
     }
-    private val clock = FakeScheduler(zoneCount)
-    private val input = PlayInput(sink, clock, zoneCount).also { it.zones = map; clock.target = it }
+    private val clock = FakeScheduler(zoneCount * PlayInput.TIMER_IDS_PER_ZONE)
+    // Most tests here pin the press/hold model with the inversion on touch-down (pressDelayMillis = 0,
+    // the pre-T57 behaviour); "delayed press feedback" below runs the default delay.
+    private val input = PlayInput(sink, clock, zoneCount).also { it.zones = map; it.pressDelayMillis = 0; clock.target = it }
 
     private fun centre(z: Int): IntArray {
         val r = layout.zones[z]
@@ -248,6 +250,72 @@ class PlayInputTest {
         clock.advance(599); assertTrue(reps().isEmpty())
         clock.advance(1 + 300 * 2)
         assertEquals(3, reps().size)
+    }
+
+    // ---- delayed press feedback (T57) --------------------------------------------------------
+
+    private fun delayed() = input.also { it.pressDelayMillis = PlayInput.PRESS_DELAY_MS }
+    private fun showId(z: Int) = zoneCount + z
+
+    @Test fun pressDelayDefault() {
+        assertEquals(120L, PlayInput.PRESS_DELAY_MS)
+        assertTrue(PlayInput.PRESS_DELAY_MS < PlayInput.HOLD_DELAY_MS / 2)
+        assertEquals(PlayInput.PRESS_DELAY_MS, PlayInput(sink, clock, zoneCount).pressDelayMillis)
+    }
+
+    @Test fun quickTapIsATapWithNoPressOrRelease() {
+        delayed()
+        down(0, zone(3, MINUS))
+        assertTrue(events.isEmpty())
+        assertTrue(input.isDown(zone(3, MINUS))); assertFalse(input.isPressed(zone(3, MINUS)))
+        assertEquals(0, input.pressedCount); assertEquals(1, input.downCount)
+        clock.advance(PlayInput.PRESS_DELAY_MS - 1)
+        input.up(0)
+        assertEquals(listOf("tap6"), events)
+        assertFalse(clock.isArmed(showId(zone(3, MINUS)))); assertFalse(clock.isArmed(zone(3, MINUS)))
+        assertEquals(0, input.downCount)
+        clock.advance(5_000)
+        assertEquals(listOf("tap6"), events)
+    }
+
+    @Test fun pressShowsAtTheDelayThenReleasesLikeBefore() {
+        delayed()
+        down(0, zone(3, MINUS))
+        clock.advance(PlayInput.PRESS_DELAY_MS)
+        assertEquals(listOf("press6"), events)
+        assertTrue(input.isPressed(zone(3, MINUS))); assertEquals(1, input.pressedCount)
+        input.up(0)
+        assertEquals(listOf("press6", "tap6", "release6"), events)
+        assertEquals(0, input.pressedCount)
+    }
+
+    @Test fun holdShowsAtTheDelayAndRepeatsOnTheOldCadence() {
+        delayed()
+        down(0, zone(3, MINUS))
+        clock.advance(PlayInput.HOLD_DELAY_MS + PlayInput.REPEAT_MS)
+        assertEquals(listOf("press6", "rep6", "rep6"), events)
+        input.up(0)
+        assertEquals("release6", events.last())
+    }
+
+    @Test fun cancelBeforeTheDelayIsSilent() {
+        delayed()
+        down(0, zone(0, MINUS)); down(1, zone(1, PLUS))
+        clock.advance(PlayInput.PRESS_DELAY_MS)
+        down(2, zone(2, PLUS)) // pending
+        events.clear()
+        input.cancelAll()
+        assertEquals(listOf("release0", "release3"), events) // the pending one has nothing to restore
+        for (z in 0 until zoneCount) { assertFalse(clock.isArmed(z)); assertFalse(clock.isArmed(showId(z))) }
+    }
+
+    @Test fun staleShowTimerDoesNothing() {
+        delayed()
+        down(0, zone(3, MINUS))
+        input.up(0)
+        input.onTimer(showId(zone(3, MINUS)))
+        assertEquals(listOf("tap6"), events)
+        assertFalse(input.isPressed(zone(3, MINUS)))
     }
 
     @Test fun staleTimerAfterRebindDoesNothing() {
