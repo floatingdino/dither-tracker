@@ -925,3 +925,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   tests. 176 core + 8957 app; on the Nomad.
 - 2026-11-14 — Tick 99: Sam on the turn timer → T66 to the T17 agent (resumed; emulator 5564): no
   live clock; `m:ss` reports on pass and per-seat times on the winner screen. Running: T66.
+- 2026-11-14 — Tick 100: Sam: add a short hourglass animation that replaces the menu glyph on the
+  centre diamond every 60 s while a timer mode (GAME/TURN) is on → added to T66 (one timer, active
+  time only, glyph box only).
