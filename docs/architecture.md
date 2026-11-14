@@ -26,7 +26,7 @@ life/ readout/ drawer/ peeks/ toggles/ commander/ chrome/   Features (components
 | `draw(f, seat)` | each frame, only while visible; tile components per seat whose panel is in the clip | draw via `f.r`, `f.text`, `f.icons`; cull with `f.hit(rect)`; no allocation |
 | `zones(seat, z)` | every touch-down | `z.add(local, rect)` / `z.block(rect)` from **current** state, bottom first |
 | `contains(seat, local, gx, gy)` | hit inside a declared rect | optional shape test (the diamond) |
-| `feedback(seat, local, out)` | press, release, every frame while pressed | the rect a press inverts, from current state |
+| `feedback(seat, local, out)` | press shown (after the press delay), release, every frame while pressed | the rect a press inverts, from current state |
 | `repeats(seat, local)` | press and each hold tick | whether holding repeats |
 | `onTap` / `onRepeat` | release before repeating / each hold step (500 ms, then 1000 ms) | apply one step |
 | `onStateChanged(old, new, origin)` | every game change | invalidate exactly what changed (diff `Player`s by reference) |
@@ -61,6 +61,16 @@ for layer in BACKDROP..OVERLAY:
     draw the layer's visible components
     invert the pressed zones OWNED by this layer's components     ← press feedback (SPEC rule 6)
 ```
+
+**Press delay (T57).** A zone is *down* from touch-down (`stage.isDown`) but *pressed* — inverted,
+drawn by the pass above, `stage.isPressed` true — only once held for `stage.pressDelayMillis` (120 ms,
+`PlayInput.PRESS_DELAY_MS`; debug builds `--ei pressDelay <ms>`, 0 = on touch-down). `PlayInput` arms
+one show timer per down zone (timer id `zoneCount + zone`, after the hold timers) and cancels it with
+the zone's last pointer, on cancel, on a cover change and on `Events.PAUSE` (which releases every
+touch). A quick tap therefore never invalidates its feedback rect: its `onTap` invalidation is the only
+frame. A hold inverts at the delay, long before the first repeat (500 ms, unchanged, still counted
+from touch-down); if the delay were longer than the hold delay, the first repeat shows the press.
+Components draw press-only details (shape compensation) from `isPressed`, never from `isDown`.
 
 So a press inverts everything drawn up to its own layer, and nothing above (a held life half is
 inverted under the closed tab, which is `TILE_CHROME`). On API < 29 the host redraws layers up to the

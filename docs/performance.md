@@ -19,7 +19,8 @@ owner's install). Debuggable builds run interpreted/JIT, so their CPU times are 
 | CPU while idle, foreground or background | 0 ticks | 0 ticks over 120 s each |
 | Timers armed after the app is paused | 0 | 0 — `perf/BackgroundTest` |
 | Turn timer (T17), while on and showing | ≤ 1 redraw a minute, digits only | 1 a minute, 10×14 dither px (`turns/TurnTabTest`) |
-| Frames per life tap | ≤ 2 (press, release) | 2 |
+| Frames per quick life tap (T57: released before the 120 ms press delay) | 1 (the result) | 1 (`play/TapFramesTest`) |
+| Frames per held tap (≥ 120 ms) | ≤ 2 (press, release) | 2 |
 | StrictMode violations (debug) | 0 | 0 |
 
 ## Before / after
@@ -173,6 +174,9 @@ effect invalidates its own seat only, at most one panel = 25 %.)
   KO tile) and 0 bytes per minute tick.
 - `perf/PrewarmPhaseTest` — the first prewarm phase covers a fresh table, KO tiles and a winner at
   S = 2..6, both orientations and colour modes; the phases add up to everything.
+- `play/TapFramesTest` (T57) — a quick life tap, drawer open and gem open flush exactly one frame;
+  delay 0 two; nothing of the press tracker left armed after a tap. `stage/StageTest` pins the press
+  delay's state machine (cancel, pause, cover, detach, multi-pointer, hold).
 - `perf/LayoutDeferralTest` — the settings card is not measured in the layout pass, and measures the
   same on open, after a relayout while open, and after a relayout while closed.
 - Purity suite (`purity/PuritySuiteTest`): every image or sparse tile paint a shot draws must have
@@ -219,13 +223,26 @@ effect invalidates its own seat only, at most one panel = 25 %.)
 
 ## E-ink
 
-- **Frames per action.** A tap is two frames (press inversion, then the release with the new number
-  and readout); a hold step is one; the effect's keyframes (2–4, each ≥ 250 ms) and a clean end
+- **Frames per action.** A quick tap is ONE frame, its result (T57: the press inversion only shows
+  once a touch has been down 120 ms; before, every tap was two — press inversion, then the release
+  with the new number and readout — and the panel held the region ~450 ms after the first, so the
+  result showed ~0.7–0.8 s after touch). A tap held past the delay is still two; a hold step is one; the effect's keyframes (2–4, each ≥ 250 ms) and a clean end
   frame start 300 ms after the seat's last life change (T55: `FxComponent.QUIET_MS`, one per-seat
   one-shot timer, cancelled on pause, no allocation), once per band per readout group; the readout's
   commit (3 s idle) is one more frame. Nothing else draws: idle is 0 frames.
-- **Area asked per frame** (invalidated rect, % of the screen): life tap 16–20 % (the seat's number
-  and readout), hold step 6–12 %, drawer cell under 1 %, drawer open/close ~13–25 % (the seat), an
+- **Frames per quick tap, before / after T57** (`play/TapFramesTest`, JVM, the real Play screen at
+  1872×1404 S = 4; a tap = down, 60 ms, up; "before" = `--ei pressDelay 0`). Invalidated rect per
+  frame as % of the screen:
+
+  | quick tap | before: frames (area) | after: frames (area) | to the result on the Nomad |
+  |---|---|---|---|
+  | life ± | 2 (half 12.4 %, then half + number + readout 19.8 %) | 1 (number + readout 7.0 %) | ~0.2 s + the update, was ~0.7–0.8 s |
+  | drawer open (tab) | 2 (tab 1.1 %, then the seat 24.8 %) | 1 (the seat 24.8 %) | the ~450 ms press hold is gone |
+  | gem open (diamond) | 2 (diamond 1.0 %, then the gem 19.9 %) | 1 (the gem 19.9 %) | 〃 |
+
+  A tap held ≥ 120 ms is still press + release (2). Not yet re-filmed on the Nomad.
+- **Area asked per frame** (invalidated rect, % of the screen): quick life tap 7 % (the seat's number
+  and readout; 16–20 % when held, with the half's restore), hold step 6–12 %, drawer cell under 1 %, drawer open/close ~13–25 % (the seat), an
   effect keyframe its footprint up to one panel (25 %), mode and overlay changes up to the whole
   screen. What the panel actually drives is the set of pixels that changed.
 - **Clean cadence cost** (`bench.sh` clean, Nomad, `--ei cleanEvery 3`): a seat clean is two extra

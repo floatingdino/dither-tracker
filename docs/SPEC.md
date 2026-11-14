@@ -29,7 +29,12 @@ A 1-bit life tracker for MTG Commander, built for E-ink. Primary target: **Super
    `onDraw`. Cache tile bitmaps/shaders. Cold start should be near-instant; APK should be tiny.
 7. **Single window.** No Dialog, PopupWindow, Toast or system IME; overlays are drawn in-app. System
    bars are hidden once and never toggled. Opaque white window background. (See `docs/eink.md`.)
-6. **Pressed feedback is an inversion** (black↔white swap of the touched region), nothing else.
+6. **Pressed feedback is an inversion** (black↔white swap of the touched region), nothing else —
+   **shown once a touch has been held ≥ the press delay** (120 ms, `PlayInput.PRESS_DELAY_MS`; Sam,
+   2026-11-14, T57). A quick tap shows only its result, in one update; actions still fire on release.
+   States that are themselves information (a confirm, an armed REVIVE?, a toggle's on look) are not
+   press feedback and are never delayed. (Why: the Nomad's panel keeps a region busy ~450 ms after
+   drawing the inversion, so an inverted quick tap took ~0.7–0.8 s to show its result; `docs/eink.md`.)
 
 ## Stack
 
