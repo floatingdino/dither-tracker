@@ -637,4 +637,37 @@ class SaveCodecTest {
         assertTrue(!a.shows(Tracker.DAY_NIGHT) && !a.shows(Tracker.MONARCH))
         assertTrue(a.shows(Tracker.COMMANDER_TAX) && a.shows(Tracker.INITIATIVE))
     }
+
+    // ---- v5 (T53): remembered card facings ---------------------------------------------------------------
+
+    @Test fun cardFacingsRoundTrip() {
+        val g = clockedGame()
+        for (sf in AppSettings.FACINGS) for (hf in AppSettings.FACINGS) {
+            val save = SaveFile(g, richSettings().copy(settingsFacing = sf, historyFacing = hf, hiddenTrackers = setOf(Tracker.DAY_NIGHT)))
+            assertEquals(save, roundTrip(save))
+        }
+    }
+
+    @Test fun olderSavesOpenTheCardsFacingTheAsker() {
+        val g = clockedGame()
+        val settings = richSettings().copy(playerCount = 4, settingsFacing = 90, historyFacing = 270, hiddenTrackers = setOf(Tracker.MONARCH))
+        for (v in 1..4) {
+            val r = SaveCodec.decode(SaveCodec.encodeAs(v, SaveFile(g, settings)))
+            assertIs<DecodeResult.Success>(r, "v$v decode failed: $r")
+            assertEquals(AppSettings.FACING_NONE, r.save.settings.settingsFacing, "v$v")
+            assertEquals(AppSettings.FACING_NONE, r.save.settings.historyFacing, "v$v")
+        }
+        // v4 keeps its hidden trackers.
+        assertEquals(setOf(Tracker.MONARCH), SaveCodec.decodeOrNull(SaveCodec.encodeAs(4, SaveFile(g, settings)))!!.settings.hiddenTrackers)
+    }
+
+    @Test fun unknownFacingCodeReadsAsNeverTurned() {
+        val save = SaveFile(Game(GameState.create(4)), richSettings().copy(playerCount = 4, settingsFacing = 180))
+        val bytes = SaveCodec.encode(save)
+        val at = 6 + settingsSize(richSettings()) + 3 // after the v2 count, the v3 turn byte, v4's empty tracker list
+        assertEquals(3, bytes[at].toInt(), "180 -> code 3")
+        bytes[at] = 9
+        fixCrc(bytes)
+        assertEquals(AppSettings.FACING_NONE, SaveCodec.decodeOrNull(bytes)?.settings?.settingsFacing)
+    }
 }

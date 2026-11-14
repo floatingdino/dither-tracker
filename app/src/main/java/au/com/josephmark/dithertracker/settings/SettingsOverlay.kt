@@ -116,9 +116,14 @@ class SettingsOverlay private constructor(b: Built) :
     /** [MenuDestination]: opens facing the facet's side (180 → N; 0 and the two-faced fold → S). */
     override fun open(item: MenuItem, facing: Int) = open(if (facing == 180) 180 else 0)
 
+    /**
+     * Opens facing [rotation] — unless the card was turned before (T53, Sam: "setup menu orientation
+     * is remembered"): then it faces the side it last faced, `AppSettings.settingsFacing`, every page.
+     */
     fun open(rotation: Int) {
         if (isOpen) return
-        this.rotation = rotation
+        val remembered = stage.settings.current.settingsFacing
+        this.rotation = if (remembered >= 0) remembered else rotation
         page = main
         depth = 0
         card.list.setPage(0)
@@ -142,6 +147,8 @@ class SettingsOverlay private constructor(b: Built) :
         if (!isOpen) return
         old.set(card.bounds.left, card.bounds.top, card.bounds.right, card.bounds.bottom)
         rotation = (rotation + 90) % 360
+        val s = stage.settings.current
+        if (s.settingsFacing != rotation) stage.settings.update(s.copy(settingsFacing = rotation)) // remembered (T53)
         refresh()
         invalidate(old)
         invalidate(card.bounds)

@@ -72,7 +72,9 @@ enum class FailureReason {
  * `turnStartedAt`: wall-clock ms, each an optional varint) after the turn's numbers; older saves get
  * the defaults (tracker on, timer off) and an unstamped clock. v4 (T53) appends the hidden trackers
  * (`AppSettings.hiddenTrackers`: a count, then [Codes.tracker] codes) after the turn settings; older
- * saves show every tracker. (`AppSettings.layout` has been in the body since v1: an opaque string, so
+ * saves show every tracker. v5 (T53) appends the remembered card facings (`settingsFacing`,
+ * `historyFacing`: one varint each, 0 = never turned, else 1 + rotation / 90); older saves open the
+ * cards facing the side that asks. (`AppSettings.layout` has been in the body since v1: an opaque string, so
  * T53's per-count layout choices needed no format change.) Integers are
  * LEB128 varints, signed ones zigzag-encoded; strings are varint length + UTF-8; enums use the
  * explicit codes in [Codes]; booleans of a player/settings are packed into flag bytes. Log entries
@@ -89,7 +91,7 @@ enum class FailureReason {
  * the current model. Older readers reject newer versions with [FailureReason.UNSUPPORTED_VERSION].
  */
 object SaveCodec {
-    const val CURRENT_VERSION = 4
+    const val CURRENT_VERSION = 5
 
     /** Log entries kept by default when encoding (the most recent ones). */
     const val DEFAULT_MAX_LOG_ENTRIES = 500
@@ -118,6 +120,7 @@ object SaveCodec {
         if (version >= 2) w.uvar(save.settings.playerCount)
         if (version >= 3) writeTurnSettings(w, save.settings)
         if (version >= 4) writeTrackers(w, save.settings)
+        if (version >= 5) writeFacings(w, save.settings)
         writeGame(w, save.game, maxLogEntries.coerceAtLeast(0), clock = version >= 3)
         val crc = CRC32().apply { update(w.toByteArray()) }.value.toInt()
         w.u32(crc)
@@ -166,7 +169,8 @@ object SaveCodec {
         2 -> readBodyV2(r, ctx)
         3 -> readBodyV3(r, ctx)
         4 -> readBodyV4(r, ctx)
-        // 5 -> readBodyV5(r, ctx); the older readers stay and map their layouts into the current model.
+        5 -> readBodyV5(r, ctx)
+        // 6 -> readBodyV6(r, ctx); the older readers stay and map their layouts into the current model.
         else -> corrupt("no reader for version $version")
     }
 
@@ -207,6 +211,30 @@ object SaveCodec {
         val settings = readTrackers(r, readTurnSettings(r, readSettingsV2(r)))
         val game = readGame(r, ctx, clock = true)
         return SaveFile(game, settings)
+    }
+
+    // ---- v5 (T53): v4 + the cards' remembered facings -------------------------------------------------
+
+    private fun readBodyV5(r: ByteReader, ctx: DecodeContext): SaveFile {
+        val settings = readFacings(r, readTrackers(r, readTurnSettings(r, readSettingsV2(r))))
+        val game = readGame(r, ctx, clock = true)
+        return SaveFile(game, settings)
+    }
+
+    private fun facingCode(f: Int): Int = if (f < 0) 0 else 1 + f / 90
+
+    /** Unknown codes read as "never turned". */
+    private fun facingOf(code: Int): Int = if (code in 1..4) (code - 1) * 90 else AppSettings.FACING_NONE
+
+    private fun writeFacings(w: ByteWriter, s: AppSettings) {
+        w.uvar(facingCode(s.settingsFacing))
+        w.uvar(facingCode(s.historyFacing))
+    }
+
+    private fun readFacings(r: ByteReader, s: AppSettings): AppSettings {
+        val settings = facingOf(r.uvar())
+        val history = facingOf(r.uvar())
+        return s.copy(settingsFacing = settings, historyFacing = history)
     }
 
     private fun writeTrackers(w: ByteWriter, s: AppSettings) {

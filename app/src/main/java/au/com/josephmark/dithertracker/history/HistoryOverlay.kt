@@ -68,7 +68,9 @@ class HistoryOverlay(
     // ---- MenuDestination -------------------------------------------------------------------------
 
     override fun open(item: MenuItem, facing: Int) {
-        rotation = when (facing) {
+        // T53: once turned, the card reopens facing the side it last faced (`AppSettings.historyFacing`).
+        val remembered = stage.settings.current.historyFacing
+        rotation = if (remembered >= 0) remembered else when (facing) {
             90, 180, 270 -> facing
             else -> 0 // S, or the gem's two-faced fold
         }
@@ -90,6 +92,8 @@ class HistoryOverlay(
     /** Turns the card a quarter clockwise (to the next side). */
     fun rotateNext() {
         rotation = (rotation + 90) % 360
+        val s = stage.settings.current
+        if (s.historyFacing != rotation) stage.settings.update(s.copy(historyFacing = rotation)) // remembered (T53)
         relayout()
         invalidate(screen)
     }

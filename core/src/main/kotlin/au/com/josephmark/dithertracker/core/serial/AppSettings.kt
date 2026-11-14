@@ -62,6 +62,14 @@ data class AppSettings(
      * hidden ones (not the shown ones) so a tracker added later starts shown on an old save.
      */
     val hiddenTrackers: Set<Tracker> = emptySet(),
+    /**
+     * The side the settings card last faced (T53, Sam: "setup menu orientation is remembered"): 0, 90,
+     * 180 or 270 (its clockwise rotation), or [FACING_NONE] before it was ever turned — then it opens
+     * facing the side that asked. Set by the card's rotate button; every page of the card shares it.
+     */
+    val settingsFacing: Int = FACING_NONE,
+    /** The same for the history card (T53), remembered separately. */
+    val historyFacing: Int = FACING_NONE,
 ) {
     /** [hiddenTrackers] as a bit mask (`1 shl Tracker.ordinal`), for allocation-free checks on draw paths. */
     val hiddenTrackerMask: Int = hiddenTrackers.fold(0) { m, t -> m or (1 shl t.ordinal) }
@@ -75,6 +83,8 @@ data class AppSettings(
         require(fullRefreshEvery in FULL_REFRESH_RANGE) { "fullRefreshEvery out of range: $fullRefreshEvery" }
         require(drawerCounters.size == drawerCounters.toSet().size) { "drawerCounters must be distinct" }
         require(playerCount in PLAYER_COUNT_RANGE) { "playerCount out of range: $playerCount" }
+        require(settingsFacing in FACINGS) { "settingsFacing: $settingsFacing" }
+        require(historyFacing in FACINGS) { "historyFacing: $historyFacing" }
     }
 
     companion object {
@@ -82,6 +92,10 @@ data class AppSettings(
         const val SCALE_MIN = 2
         const val SCALE_MAX = 6
         const val DEFAULT_LAYOUT = ""
+
+        /** A card's facing before it was ever turned; the valid facings. */
+        const val FACING_NONE = -1
+        val FACINGS = intArrayOf(FACING_NONE, 0, 90, 180, 270)
         const val DEFAULT_PLAYER_COUNT = 4
         val PLAYER_COUNT_RANGE = 2..6
         val HOLD_STEP_RANGE = 1..100
