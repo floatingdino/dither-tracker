@@ -24,10 +24,12 @@ import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.layout.Arrangements
 import au.com.josephmark.dithertracker.eink.EinkConfig
+import au.com.josephmark.dithertracker.eink.DisplaySpeed
 import au.com.josephmark.dithertracker.eink.EinkDisplay
 import au.com.josephmark.dithertracker.eink.EinkViewMode
 import au.com.josephmark.dithertracker.eink.ScreenCleaner
 import au.com.josephmark.dithertracker.eink.SupernoteFullRefresh
+import au.com.josephmark.dithertracker.eink.VendorRefreshGuard
 import au.com.josephmark.dithertracker.fx.FxDebug
 import au.com.josephmark.dithertracker.play.GameSession
 import au.com.josephmark.dithertracker.play.PlayView
@@ -69,6 +71,8 @@ class MainActivity : Activity() {
         //                       --ei fxLife N (default 37) and plays that effect / cycles them all on
         //                       all four seats, looping until a touch; see fx/README.md
         //   --ef fxHold X       (debuggable builds only) scale every effect hold by X (FxPlayer.holdScale)
+        //   --es displaySpeed fast|slow  (debuggable builds only) force eink/DisplaySpeed (T59): how many
+        //                       keyframes the dice / first-player presentations play
         //   --ef diceHold X     (debuggable builds only) scale every dice / coin / first-player presentation
         //                       hold by X (T52, tools.ToolsDebug), so a screencap lands in each keyframe
         //   --ei cleanEvery N   (debuggable builds only) automatic screen-clean threshold N (overrides the
@@ -188,6 +192,10 @@ class MainActivity : Activity() {
         val d = EinkDisplay(port, override, if (debug || trace) { msg -> Log.d("EinkViewMode", msg) } else null)
         display = d
         d.apply(SettingsHolder.shared.current.fastDisplay, "create")
+        // T59: the display speed features read (eink/DisplaySpeed): FAST off e-ink, or with the fast waveform set.
+        DisplaySpeed.einkPanel = VendorRefreshGuard.isSupernote(Build.MANUFACTURER)
+        DisplaySpeed.fastMode = DisplaySpeed.FastMode { DisplaySpeed.isFastWaveform(d.mode) && EinkViewMode.available }
+        DisplaySpeed.override = if (debug) DisplaySpeed.parse(i?.getStringExtra("displaySpeed")) else DisplaySpeed.NO_OVERRIDE
         EinkConfig.gcClean = if (debug && i?.getBooleanExtra("gcClean", false) == true) d else null
     }
 

@@ -18,8 +18,12 @@ A 1-bit life tracker for MTG Commander, built for E-ink. Primary target: **Super
 4. **Keyframes, not inbetweens.** (Sam, 2026-11-13: the rule is about making the best use of the
    screen, not about banning animation.) No interpolation, easing, fades, smooth scrolling or
    tickers — anything that needs many frames to read. Limited animation designed around the panel is
-   welcome: a few hand-drawn 1-bit keyframes (typically 2–4), each a complete still held long enough
-   for the panel to settle (≥ ~250 ms, tuned on device). Uses: hit/heal effects (swipe, crunch,
+   welcome: a few hand-drawn 1-bit keyframes, each a complete still held long enough for the panel to
+   settle. How many depends on the display (`eink/DisplaySpeed`, T59): on a **slow** display (an e-ink
+   panel on its normal waveform) 2–4 held keyframes, each ≥ ~250 ms (tuned on device); on a **fast**
+   display (the Supernote's fast view mode in effect, or a screen that isn't e-ink) a few more poses
+   are allowed, with shorter holds (≥ ~120 ms) and about the same total time — still held poses, never
+   tweens; still skippable; still cheap. Uses: hit/heal effects (swipe, crunch,
    fizzle), a KO or winner flourish, dice/coin reveals, a drawer or menu arriving in one or two
    beats. Constraints: effects may open up across a player's tile when it earns it (Sam likes
    cut-outs knocked through the numerals and wants options that use more of the tile), but keep ink

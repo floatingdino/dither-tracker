@@ -102,6 +102,20 @@ timer, state change, settings change, layout, cover change) as one device-px `Vi
 every action is one frame. Invalidate exactly what changed: the number slot on a life change, the
 readout slot, one drawer cell, the under row.
 
+## Display speed: `eink.DisplaySpeed` (T59)
+
+Animation length is a property of the display, not of a feature. `DisplaySpeed.current()` answers
+`FAST` or `SLOW` in one place, allocation-free, for any component to read when a sequence **starts**
+(never mid-way): `FAST` when the screen is not an e-ink panel (`einkPanel` false: the emulator, an LCD
+tablet, every JVM test) or when T58's fast waveform is actually in effect on our root view
+(`EinkDisplay.mode` is DU/A2/DUX and `EinkViewMode`'s guard has not disabled itself); `SLOW` for an
+e-ink panel on its normal waveform. `MainActivity` sets the device facts once (`einkPanel`, the
+`fastMode` probe); the Display setting reaches it through `EinkDisplay`, which the settings listener
+re-applies, so no component listens for it. The debug extra `--es displaySpeed fast|slow` (and tests)
+set `override`. SPEC rule 4: slow = 2–4 held keyframes ≥ ~250 ms; fast = a few more held poses with
+shorter holds, the same total time. Users: the dice / coin presentation and the first-player rolls
+(`tools/Presentation`).
+
 ## Shared tile context: `play.TileSlots`
 
 Where a seat's number, ±, readout and life-half feedback are **right now**. A seat is *full*
