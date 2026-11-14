@@ -20,6 +20,8 @@ class Arrangement(
     val left: Boolean,
     val right: Boolean,
     val diamond: DiamondAt,
+    /** Its name under the thumbnail in the settings' layout picker (T53): a word or two, `ui` face. */
+    val label: String = id,
 ) {
     init {
         require(top >= 0 && bottom >= 0) { "negative band" }
@@ -39,6 +41,10 @@ class Arrangement(
         /**
          * On the long divider, at the point where a vertical divider meets it that is nearest the
          * middle of the bands (where tiles meet at their corners); [CENTRE] when there is none.
+         * With only a near band (everyone on one side, T53) there is no long divider: the diamond
+         * sits on that divider at the band's far edge, or further down it when the band reaches the
+         * screen's edge (far enough in for the open table menu), by the far corners of the tiles
+         * either side.
          */
         JUNCTION,
 
@@ -49,22 +55,24 @@ class Arrangement(
 
 /**
  * The arrangement table (T11): every candidate, and the default per player count. Alternates stay
- * one table row away — pick one with `AppSettings.layout` = its id (no UI for that yet).
+ * one table row away. T53: the settings' layout picker (`settings.LayoutPickerRow`) chooses one per
+ * player count, stored in `AppSettings.layout` as a spec ([of], [choose]).
  */
 object Arrangements {
 
+    /** Every arrangement, grouped by count in the layout picker's order (T53 added the one-sided and end-seat ones). */
     val ALL: List<Arrangement> = listOf(
-        // id                  top bottom  left   right  diamond
-        Arrangement("2-across", 1, 1, false, false, Arrangement.DiamondAt.CENTRE),
-        Arrangement("2-ends", 0, 0, true, true, Arrangement.DiamondAt.CENTRE),
-        Arrangement("3-tee", 1, 1, false, true, Arrangement.DiamondAt.JUNCTION),
-        Arrangement("3-pyramid", 1, 2, false, false, Arrangement.DiamondAt.JUNCTION),
-        Arrangement("4-grid", 2, 2, false, false, Arrangement.DiamondAt.JUNCTION),
-        Arrangement("4-dinner", 1, 1, true, true, Arrangement.DiamondAt.CENTRE),
-        Arrangement("5-three-two", 3, 2, false, false, Arrangement.DiamondAt.JUNCTION),
-        Arrangement("5-end", 2, 2, false, true, Arrangement.DiamondAt.JUNCTION),
-        Arrangement("6-three-three", 3, 3, false, false, Arrangement.DiamondAt.CENTRE),
-        Arrangement("6-dinner", 2, 2, true, true, Arrangement.DiamondAt.CENTRE),
+        // id                  top bottom  left   right  diamond                              picker label
+        Arrangement("2-across", 1, 1, false, false, Arrangement.DiamondAt.CENTRE, "Across"),
+        Arrangement("2-ends", 0, 0, true, true, Arrangement.DiamondAt.CENTRE, "Ends"),
+        Arrangement("3-tee", 1, 1, false, true, Arrangement.DiamondAt.JUNCTION, "Tee"),
+        Arrangement("3-pyramid", 1, 2, false, false, Arrangement.DiamondAt.JUNCTION, "Pyramid"),
+        Arrangement("4-grid", 2, 2, false, false, Arrangement.DiamondAt.JUNCTION, "Grid"),
+        Arrangement("4-dinner", 1, 1, true, true, Arrangement.DiamondAt.CENTRE, "Dinner"),
+        Arrangement("5-three-two", 3, 2, false, false, Arrangement.DiamondAt.JUNCTION, "Three and two"),
+        Arrangement("5-end", 2, 2, false, true, Arrangement.DiamondAt.JUNCTION, "Two, two, end"),
+        Arrangement("6-three-three", 3, 3, false, false, Arrangement.DiamondAt.CENTRE, "Three a side"),
+        Arrangement("6-dinner", 2, 2, true, true, Arrangement.DiamondAt.CENTRE, "Dinner"),
     )
 
     /** The shipped pick per player count (reasons in `design/layouts/README.md`). */
@@ -85,15 +93,39 @@ object Arrangements {
     fun default(players: Int): Arrangement = byId(DEFAULTS[players] ?: error("no layout for $players players"))!!
 
     /**
-     * The arrangement for [players]: [id] when it names one with that many seats (an alternate),
-     * otherwise the default.
+     * The arrangement for [players] in a layout [spec] (`AppSettings.layout`): the spec's id with that
+     * many seats (an alternate), otherwise the default. A spec holds one id per player count that is
+     * not on its default, comma-separated ("3-pyramid,5-end", T53; a single id, as T11 stored it, is
+     * a one-entry spec). Unknown ids are ignored. Allocation-free.
      */
-    fun of(players: Int, id: String = ""): Arrangement {
-        val a = byId(id)
-        return if (a != null && a.players == players) a else default(players)
+    fun of(players: Int, spec: String = ""): Arrangement {
+        var start = 0
+        while (start < spec.length) {
+            var end = spec.indexOf(SEP, start)
+            if (end < 0) end = spec.length
+            for (a in ALL) if (a.players == players && a.id.length == end - start && spec.startsWith(a.id, start)) return a
+            start = end + 1
+        }
+        return default(players)
     }
 
-    /** Every arrangement for [players], the default first. */
+    /** [spec] with [players]' arrangement set to [id] (dropped from the spec when it is the default), in count order. */
+    fun choose(spec: String, players: Int, id: String): String {
+        val a = byId(id)
+        require(a != null && a.players == players) { "$id does not seat $players" }
+        val sb = StringBuilder()
+        for (n in MIN_PLAYERS..MAX_PLAYERS) {
+            val pick = if (n == players) a else of(n, spec)
+            if (pick.id == DEFAULTS[n]) continue
+            if (sb.isNotEmpty()) sb.append(SEP)
+            sb.append(pick.id)
+        }
+        return sb.toString()
+    }
+
+    /** Every arrangement for [players], the default first, then in table order (the picker's order). */
     fun candidates(players: Int): List<Arrangement> =
         listOf(default(players)) + ALL.filter { it.players == players && it.id != DEFAULTS[players] }
+
+    private const val SEP = ','
 }

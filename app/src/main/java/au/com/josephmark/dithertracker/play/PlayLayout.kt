@@ -5,6 +5,7 @@ import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.layout.Arrangement
 import au.com.josephmark.dithertracker.layout.Arrangements
 import au.com.josephmark.dithertracker.layout.Seating
+import au.com.josephmark.dithertracker.menu.GemLayout
 import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.type.Fonts
 import au.com.josephmark.dithertracker.type.TextLayout
@@ -277,8 +278,16 @@ class PlayLayout private constructor(
             underH = 0; underY = 0; underX = 0; underW = 0
         }
         // The under row is required too: the partner slot icons live there.
+        // T53: a diamond pushed down a one-sided table's divider must still clear the ± and the number
+        // (on a short tile it cannot; such a layout is not offered at this S).
+        var clash = false
+        for (d in diamondFrame) {
+            if (d.isEmpty) continue
+            if (overlapsXywh(d, side, slotY, slotW, slotH)) clash = true
+            if (pmVisible && (overlapsXywh(d, pmX, pmY, pmW, pmH) || overlapsXywh(d, panelW - pmX - pmW, pmY, pmW, pmH))) clash = true
+        }
         tier = when {
-            underH <= 0 || blocked -> TIER_NONE
+            underH <= 0 || blocked || clash -> TIER_NONE
             fits(font, pmFont, kMax, panelW, panelH, c.tabH) -> TIER_FULL
             fitsNarrow(font, kMax, panelW, panelH, c.tabH) -> TIER_NARROW
             else -> TIER_NONE
@@ -329,6 +338,9 @@ class PlayLayout private constructor(
         for (d in diamondFrame) if (!d.isEmpty && d.left < x1 && x0 < d.right) r = maxOf(r, d.bottom)
         return r
     }
+
+    private fun overlapsXywh(r: IRect, x: Int, y: Int, w: Int, h: Int): Boolean =
+        r.left < x + w && x < r.right && r.top < y + h && y < r.bottom
 
     /**
      * Player-frame top of the readout box at readout scale [rk] above a number at [k] whose slot top
@@ -623,7 +635,8 @@ class PlayLayout private constructor(
 
         /**
          * The layout for [players] seats (2..6) on [grid]: [layoutId] picks an alternate arrangement
-         * ([Arrangements.of]; empty = the default for the count). Portrait grids get the table turned.
+         * ([Arrangements.of]: a spec of one id per count, T53; empty = the default for the count).
+         * Portrait grids get the table turned.
          */
         fun compute(
             grid: DitherGrid,
@@ -635,9 +648,17 @@ class PlayLayout private constructor(
         ): PlayLayout {
             val chrome = Chrome.forScale(grid.scale)
             val a = Arrangements.of(players, layoutId)
-            val seating = Seating(a, grid.width, grid.height) { fw, fh -> tierOf(font, pmFont, chrome, grid.scale, fw, fh) }
+            val seating = Seating(a, grid.width, grid.height, menuReach(grid.scale, chrome)) { fw, fh -> tierOf(font, pmFont, chrome, grid.scale, fw, fh) }
             return PlayLayout(grid, font, seating, pmFont, chrome, readoutFont)
         }
+
+        /**
+         * How far from the diamond's centre the centre control reaches once open: the table menu's gem
+         * (`menu.GemLayout`: three lattice steps plus its rim), at least the diamond itself. A one-sided
+         * arrangement (T53) keeps the diamond this far from the grid's edges so the gem opens whole.
+         */
+        fun menuReach(s: Int, chrome: Chrome): Int =
+            maxOf(chrome.diamondR - chrome.diamondCut, 3 * Chrome.size(GemLayout.UNIT, s, 4) + Chrome.size(GemLayout.RIM, s))
 
         /**
          * The scale S for the Play screen: [DitherGrid.chooseScale] (the user's override wins), then

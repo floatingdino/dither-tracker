@@ -36,6 +36,13 @@ class Seating(
     val arrangement: Arrangement,
     val gridW: Int,
     val gridH: Int,
+    /**
+     * How far the centre control reaches from its centre once open (the table menu's gem,
+     * `PlayLayout.menuReach`): a one-sided arrangement (T53) keeps the diamond at least this far from
+     * the far edge of the grid, so the gem opens whole. The other arrangements put it on a long
+     * divider or the middle of the table, which is always far enough in.
+     */
+    diamondReach: Int = 0,
     rank: (fw: Int, fh: Int) -> Int = { _, _ -> 0 },
 ) {
     val players: Int = arrangement.players
@@ -162,7 +169,21 @@ class Seating(
         // ---- diamond --------------------------------------------------------------------------------
         var dx: Int
         var dy: Int
-        if (rows == 2) {
+        if (rows == 1 && a.top == 0 && a.bottom > 0) {
+            // Everyone on the near side (T53): no long divider. The diamond sits on the band's far
+            // edge — pushed down the divider until the open menu fits the grid — at the divider
+            // nearest the middle (the far corners of the tiles either side).
+            dx = bandX + g / 2
+            dy = maxOf(bandY, diamondReach)
+            if (a.diamond == Arrangement.DiamondAt.JUNCTION) {
+                val mid2 = 2 * bandX + g
+                var best = Int.MAX_VALUE
+                for (x in nearXs + endDivs.toIntArray()) {
+                    val d = Math.abs(2 * x - mid2)
+                    if (d < best || (d == best && x < dx)) { best = d; dx = x }
+                }
+            }
+        } else if (rows == 2) {
             dx = bandX + g / 2
             dy = longY
             if (a.diamond == Arrangement.DiamondAt.JUNCTION) {

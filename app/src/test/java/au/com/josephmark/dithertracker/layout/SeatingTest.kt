@@ -285,5 +285,6 @@ class SeatingTest {
         }
         assertEquals(Arrangements.default(3), Arrangements.of(3, "4-grid")) // an alternate for another count is ignored
         assertEquals(Arrangements.ALL.size, Arrangements.ALL.map { it.id }.toSet().size)
+        assertTrue("ids are spec-safe (T53)", Arrangements.ALL.none { ',' in it.id })
     }
 }

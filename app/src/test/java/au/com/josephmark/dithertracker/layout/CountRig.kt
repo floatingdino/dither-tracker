@@ -30,11 +30,11 @@ import kotlin.random.Random
  * `ScreenRig` with a player count. The stage is sized for six seats like the app's, so the count can
  * change in place ([session] `NewGameFor`) and the stage re-lays itself out.
  */
-class CountRig(val w: Int, val h: Int, val s: Int, players: Int, seed: Long = 7) {
+class CountRig(val w: Int, val h: Int, val s: Int, players: Int, seed: Long = 7, val layout: String = "") {
     val platform = StageTest.FakePlatform()
     val grid = DitherGrid(w, h, s)
     val session: GameSession = GameSession.newGame(players)
-    val stage: Stage = PlayScreen.build(Stage(session, SettingsHolder(), platform), Random(seed))
+    val stage: Stage = PlayScreen.build(Stage(session, SettingsHolder().also { it.update(it.current.copy(layout = layout)) }, platform), Random(seed))
     val r = RasterRenderer(grid)
 
     val l: PlayLayout get() = stage.layout!!
@@ -60,7 +60,7 @@ class CountRig(val w: Int, val h: Int, val s: Int, players: Int, seed: Long = 7)
 
     init {
         platform.clock.target = stage
-        stage.layout(PlayLayout.compute(grid, players))
+        stage.layout(PlayLayout.compute(grid, players, layout))
         stage.attach()
         prewarm()
     }
@@ -127,5 +127,5 @@ class CountRig(val w: Int, val h: Int, val s: Int, players: Int, seed: Long = 7)
         return errs.map { "$tag $name: $it" }
     }
 
-    val tag: String get() = "${session.state.players.size}p-${w}x$h-S$s"
+    val tag: String get() = "${session.state.players.size}p${if (layout.isEmpty()) "" else "-$layout"}-${w}x$h-S$s"
 }

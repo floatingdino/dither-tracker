@@ -15,24 +15,25 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
 /**
- * T11: the whole Play screen at every player count, landscape and portrait, S = 2..6 — every zone
+ * T11: the whole Play screen at every player count (T53: every arrangement), landscape and portrait, S = 2..6 — every zone
  * reachable, each seat's changes confined to its own tile, and every state pixel-pure (1-bit, global
  * phase, complement in dark mode, nothing off the grid on comfortable layouts).
  */
 @RunWith(Parameterized::class)
-class CountsScreenTest(private val players: Int, private val w: Int, private val h: Int, private val s: Int) {
+class CountsScreenTest(private val players: Int, private val layout: String, private val w: Int, private val h: Int, private val s: Int) {
 
     companion object {
+        /** T53: every arrangement in the table, not just the default per count. */
         @JvmStatic
-        @Parameterized.Parameters(name = "{0}p {1}x{2} S={3}")
+        @Parameterized.Parameters(name = "{0}p {1} {2}x{3} S={4}")
         fun configs(): List<Array<Any>> {
             val out = ArrayList<Array<Any>>()
-            for (n in 2..6) for ((w, h) in listOf(1872 to 1404, 1404 to 1872)) for (s in 2..6) out += arrayOf<Any>(n, w, h, s)
+            for (a in Arrangements.ALL) for ((w, h) in listOf(1872 to 1404, 1404 to 1872)) for (s in 2..6) out += arrayOf<Any>(a.players, a.id, w, h, s)
             return out
         }
     }
 
-    private fun rig() = CountRig(w, h, s, players)
+    private fun rig() = CountRig(w, h, s, players, layout = layout)
 
     private fun assertNoErrors(errs: List<String>) = assertTrue(errs.joinToString("\n"), errs.isEmpty())
 
@@ -83,7 +84,8 @@ class CountsScreenTest(private val players: Int, private val w: Int, private val
                 if (slot < 2) rig.tapAt(p[0], p[1])
                 cells++
             }
-            assertTrue("${rig.tag} seat $seat: $cells cells", cells >= 2)
+            // Two cells a page at least; an alternate on a cramped scale may hold one (6-dinner at S = 2), still paged.
+            assertTrue("${rig.tag} seat $seat: $cells cells", cells >= if (layout == Arrangements.default(players).id) 2 else 1)
             val after = rig.render().px.copyOf()
             assertNull("${rig.tag} drawer $seat", PurityChecks.diffOutside(base, after, rig.r.width, arrayOf(rig.l.panels[seat])))
             errs += rig.check("drawer$seat")
@@ -141,7 +143,8 @@ class CountsScreenTest(private val players: Int, private val w: Int, private val
 
     @Test fun panelsAreTheLayoutsPanels() {
         val rig = rig()
-        val want = PlayLayout.compute(rig.grid, players)
+        val want = PlayLayout.compute(rig.grid, players, layout)
+        assertEquals(layout, rig.l.arrangement.id)
         for (i in 0 until players) assertEquals(want.panels[i], rig.l.panels[i])
     }
 }
