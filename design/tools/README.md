@@ -87,14 +87,21 @@ charge". Code: `tools/FirstRoll` (state), `tools/TileRollLayout` (geometry), `to
 ## Partner tab (commander-damage mode)
 
 "Unclear how to set a player to have partners." In commander mode every tile's drawer-tab spot (the
-near edge, facing its player — tabs are hidden in the mode) becomes that player's **PARTNER** tab: the
-`partner` icon and the word, outlined when off, solid ink when on (the selected convention of the
-dice fold). One control per player rather than per quarter: it is the same spot at every count (2–6),
-every tier (the narrow 155-px tiles still hold icon + word at S ≤ 4; icon only where the word does not
-fit, word only where the tab is shorter than the icon, S = 6) and on sideways seats, and a player can
-set their own partner even while they are the target. Press = inversion, action on release.
+near edge, facing its player — tabs are hidden in the mode) becomes that player's **PARTNER** tab. One
+control per player rather than per quarter: it is the same spot at every count (2–6), every tier and
+on sideways seats, and a player can set their own partner even while they are the target. Press =
+inversion, action on release.
+
+Look (T59, "use the dither ground … a halo/tape … the little partner and a plus or minus"): the drawer
+tab's dither ground (`Role.TAB`); the sidekick icon on its 1-px contour halo — `partner-add` (+) when
+the seat has no partner, `partner-remove` (−) when it has one — and the word PARTNER on a **tape**
+(the SPEC's paper strip for title words on the tab checker). On vs off at a glance beyond the sign:
+the tape is paper with ink letters when off, **ink with paper letters when on**. Icon options (A
+built: the sidekick with a sign at its shoulder; B: the sign knocked out of a solid badge) in
+`design/captures/t59-partner-icons.png`; B's files are in `design/icons/candidates/t59/`. The word is
+dropped where it does not fit beside the icon, the icon where the tab is shorter than it (S = 6).
 
 Turning partner **off** zeroes the partner's damage dealt and its tax in core (life is not refunded).
-With nothing recorded a tap does it; with something recorded a tap only says **HOLD** on the tab for
-2.5 s and holding it (500 ms, the first hold repeat) drops it. Every change is one `SetPartner`: one
-undo step, logged in the game history (`LogEvent.PartnerChanged`).
+With nothing recorded a tap does it; with something recorded a tap only says **HOLD** on the tape for
+2.5 s and holding the tab (500 ms, the first hold repeat) drops it. Every change is one `SetPartner`:
+one undo step, logged in the game history (`LogEvent.PartnerChanged`).

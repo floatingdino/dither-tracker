@@ -40,7 +40,12 @@ class PartnerTabTest {
                 for (text in listOf(CommanderLayout.PARTNER_LABEL, CommanderLayout.HOLD_LABEL)) {
                     c.partnerContent(seat, text.length, icon, label)
                     if (c.partnerIconShown) assertTrue("$tag seat $seat icon $icon in $tab", icon.inside(tab))
-                    if (c.partnerLabelShown) assertTrue("$tag seat $seat '$text' $label in $tab", label.inside(tab))
+                    if (c.partnerLabelShown) {
+                        val t = c.tapePad
+                        val tape = IRect().set(label.left - t, label.top - t, label.right + t, label.bottom + t)
+                        assertTrue("$tag seat $seat '$text' tape $tape in $tab", tape.inside(tab))
+                        if (!icon.empty) assertFalse("$tag tape clear of the icon's halo", tape.meets(IRect().set(icon.left - c.tk, icon.top - c.tk, icon.right + c.tk, icon.bottom + c.tk)))
+                    }
                     if (!icon.empty && !label.empty) assertFalse(icon.meets(label))
                 }
                 // Clear of what the mode shows: the number slot, the partner icons, the target block.

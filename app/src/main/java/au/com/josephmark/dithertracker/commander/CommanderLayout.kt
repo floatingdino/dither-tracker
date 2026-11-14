@@ -32,10 +32,12 @@ import au.com.josephmark.dithertracker.type.TextLayout
  * - Lethal damage (≥ 21 from one commander) is drawn on a solid ink card ([lethalPad] round the
  *   number) with the number in paper.
  * - The centre diamond shows a close X ([closeIcon]) instead of the menu bars.
- * - **PARTNER tab** (T52) on every tile, exactly where the drawer tab is outside the mode (the near
- *   edge, facing the player; same rect [partnerTab] and hit pad [partnerHit], so it is where each
- *   player already reaches for "my stuff", and it exists at every tier and on sideways seats): the
- *   `partner` icon and the word PARTNER ([partnerContent]), outlined when off, solid ink when on.
+ * - **PARTNER tab** (T52, re-dressed T59) on every tile, exactly where the drawer tab is outside the
+ *   mode (the near edge, facing the player; same rect [partnerTab] and hit pad [partnerHit], so it is
+ *   where each player already reaches for "my stuff", and it exists at every tier and on sideways
+ *   seats): the drawer tab's dither ground (`Role.TAB`), the sidekick icon with a + (`partner-add`,
+ *   no partner yet) or a − (`partner-remove`) on its contour halo, and the word PARTNER on a tape
+ *   ([partnerContent], [tapePad]): paper tape when off, ink tape (paper letters) when on.
  *   The word is dropped where it does not fit beside the icon, the icon where the tab is shorter
  *   than it (S = 6).
  *
@@ -100,7 +102,10 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
     val partnerTab: Array<IRect> = Array(P) { IRect() }
     val partnerHit: Array<IRect> = Array(P) { IRect() }
 
-    /** Whether the tab shows the `partner` icon / the label (at [tk]) — see [partnerContent]. */
+    /** Paper (or, on, ink) "tape" round the tab's word on its dither ground (T59). */
+    val tapePad: Int = tk
+
+    /** Whether the tab shows the `partner-add` / `partner-remove` icon / the label (at [tk]) — see [partnerContent]. */
     val partnerIconShown: Boolean
     val partnerLabelShown: Boolean
 
@@ -157,7 +162,7 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
         val tabH = minOf(play.chrome.tabH, H)
         partnerIconShown = iconSize + 2 <= tabH
         val room = tabW - 2 * PARTNER_PAD - (if (partnerIconShown) iconSize + iconGap else 0)
-        partnerLabelShown = ui.widthOf(PARTNER_LABEL.length, tk) <= room && ui.capHeight * tk + 2 <= tabH
+        partnerLabelShown = ui.widthOf(PARTNER_LABEL.length, tk) + 2 * tapePad <= room && ui.height(tk) + 2 * tapePad + 2 <= tabH
         val cx = play.diamondCx
         val cy = play.diamondCy
         closeIcon.setXywh(cx - iconSize / 2, cy - iconSize / 2, iconSize, iconSize)
@@ -177,12 +182,11 @@ class CommanderLayout(val play: PlayLayout, val lifeFont: Font = Fonts.NUM_M) {
         val tabY = H - tabH
         val iw = if (partnerIconShown) iconSize else 0
         val lw = if (partnerLabelShown) ui.widthOf(labelLen, tk) else 0
-        val unit = iw + (if (iw > 0 && lw > 0) iconGap else 0) + lw
+        val unit = iw + (if (iw > 0 && lw > 0) iconGap else 0) + (if (lw > 0) lw + 2 * tapePad else 0)
         val x = tabX + (tabW - unit) / 2
         if (iw > 0) play.mapRect(seat, x, tabY + (tabH - iconSize) / 2, iconSize, iconSize, icon) else icon.set(0, 0, 0, 0)
         if (lw > 0) {
-            val capTop = tabY + (tabH - ui.capHeight * tk + 1) / 2
-            play.mapRect(seat, x + unit - lw, capTop - ui.capTop * tk, lw, ui.height(tk), label)
+            play.mapRect(seat, x + unit - tapePad - lw, (tabY + (tabH - ui.height(tk)) / 2), lw, ui.height(tk), label)
         } else {
             label.set(0, 0, 0, 0)
         }

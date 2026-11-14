@@ -7,6 +7,7 @@ import au.com.josephmark.dithertracker.core.Limits
 import au.com.josephmark.dithertracker.core.coalesceKey
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.Icon
+import au.com.josephmark.dithertracker.dither.Role
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.TileSlots
 import au.com.josephmark.dithertracker.stage.Component
@@ -248,18 +249,26 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
     }
 
     /**
-     * [seat]'s PARTNER tab: outlined paper when off, solid ink when on (content in paper), the
-     * `partner` icon and PARTNER — or HOLD while [CommanderMode.hint] is this seat.
+     * [seat]'s PARTNER tab (T59 look): the drawer tab's dither ground, `partner-add` (+, off) or
+     * `partner-remove` (−, on) on its halo, and PARTNER — or HOLD while [CommanderMode.hint] is this
+     * seat — on a paper tape when off, an ink tape when on.
      */
     private fun partnerTab(f: Frame, c: CommanderLayout, seat: Int, on: Boolean, rot: Int) {
         val tab = c.partnerTab[seat]
         if (!f.hit(tab)) return
         val r = f.r
-        if (on) r.rect(tab, ink = true) else { r.rect(tab, ink = false); r.frame(tab, 1, ink = true) }
+        r.fill(Role.TAB, tab)
         val text = if (mode.hint == seat) CommanderLayout.HOLD_LABEL else CommanderLayout.PARTNER_LABEL
         c.partnerContent(seat, text.length, pIcon, pLabel)
-        if (c.partnerIconShown) f.icons.icon(c.tk, Icon.PARTNER, pIcon, rot, invert = on, opaque = false)
-        if (c.partnerLabelShown) f.text.draw(c.ui, text, pLabel.left, pLabel.top, c.tk, rot, invert = on)
+        if (c.partnerIconShown) {
+            f.icons.icon(c.tk, if (on) Icon.PARTNER_REMOVE else Icon.PARTNER_ADD, pIcon, rot, invert = false, opaque = false, halo = true)
+        }
+        if (c.partnerLabelShown) {
+            // The word on a tape (SPEC: title text on the tab checker keeps a strip): paper off, ink on.
+            val t = c.tapePad
+            r.rect(pLabel.left - t, pLabel.top - t, pLabel.width + 2 * t, pLabel.height + 2 * t, ink = on)
+            f.text.draw(c.ui, text, pLabel.left, pLabel.top, c.tk, rot, invert = on)
+        }
     }
 
     /** A damage number at footprint [fp]: lethal (≥ 21) on a solid ink card, in paper. */
@@ -276,6 +285,6 @@ class CommanderTile(private val random: Random = Random(System.nanoTime())) :
         private const val MINUS = "-"
         private const val PLUS = "+"
         private const val WARM_UI = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '.,-&"
-        private val WARM_ICONS = arrayOf(Icon.LIFE, Icon.COMMANDER, Icon.PARTNER, Icon.CLOSE)
+        private val WARM_ICONS = arrayOf(Icon.LIFE, Icon.COMMANDER, Icon.PARTNER, Icon.CLOSE, Icon.PARTNER_ADD, Icon.PARTNER_REMOVE)
     }
 }
