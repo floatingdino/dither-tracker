@@ -10,6 +10,8 @@ It covers four players around one device: life totals, commander damage, command
 other counters, a game log with undo and redo, dice and a coin, and a first-player pick. Saves are
 kept on the device and survive the app being killed.
 
+Which other devices it works on: [docs/compatibility.md](docs/compatibility.md).
+
 ![The play screen: four seats, each player's life facing them](design/captures/t27-play.png)
 
 ![The centre menu open over the play screen](design/captures/t09-gem-open.png)
