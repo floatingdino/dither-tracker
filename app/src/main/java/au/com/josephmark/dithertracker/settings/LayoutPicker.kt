@@ -235,8 +235,16 @@ class LayoutThumbPainter(private val p: SettingsPainter) {
             val box = g.boxes[i]
             val sel = i == g.selected
             f.map(box, s)
-            val ox = s.left + (s.width - map.width) / 2
-            val oy = s.top + (s.height - map.height) / 2
+            // The miniature sits against the box's edge nearest its label (the reader's "down"), so
+            // the label stays under the picture whichever way it lies in the square box.
+            var ox = s.left + (s.width - map.width) / 2
+            var oy = s.top + (s.height - map.height) / 2
+            when (f.rotation) {
+                0 -> oy = s.bottom - map.height
+                90 -> ox = s.left
+                180 -> oy = s.top
+                else -> ox = s.right - map.width
+            }
             // The current choice: an ink frame hugging the miniature, a paper px between.
             if (sel) p.canvas.frame(ox - SEL_OUT, oy - SEL_OUT, map.width + 2 * SEL_OUT, map.height + 2 * SEL_OUT, LayoutGrid.SEL, ink = true)
             thumb(map, l, ox, oy, g.enabledAt[i])
