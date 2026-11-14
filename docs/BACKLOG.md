@@ -765,3 +765,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   Combined build installed on the Nomad over the experiment build (save kept; fast mode reads back
   DU at create/resume/focus). `docs/eink.md` lever 1 still says "decision pending" — fix next doc
   touch. Running: T59.
+- 2026-11-14 — Tick 76: Sam: effects must not trigger while a hold is in progress on that tile →
+  T55 agent resumed (quiet timer starts from release; one effect for the whole held readout).
+  Running: T59, T55 (fix).
