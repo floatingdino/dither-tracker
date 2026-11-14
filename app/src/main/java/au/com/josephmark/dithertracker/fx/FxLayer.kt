@@ -37,6 +37,44 @@ class FxLayer(
     /** True when nothing is set: the renderer skips the draw (and never builds a mask for it). */
     val isEmpty: Boolean get() = inkCount == 0
 
+    private var rectCache: IntArray? = null
+
+    /**
+     * This layer as solid rectangles, `x, y, w, h` per rect in layer coordinates (T55): each row's
+     * runs, merged downwards while a run repeats exactly on the next row. The renderer draws `#`, `o`,
+     * `x` and `fill` tile layers from these instead of a scaled mask, so they hold no bitmap (masks are
+     * ALPHA_8 at S² — the round-three set would have tripled the effect memory). Built on first call
+     * ([FxRenderer.prewarm] makes it) and kept; empty for an empty layer.
+     */
+    fun rects(): IntArray {
+        rectCache?.let { return it }
+        val out = ArrayList<Int>()
+        if (!isEmpty) {
+            // Open rects by run (x0, x1): index into out of their h.
+            var open = HashMap<Long, Int>()
+            for (y in 0 until height) {
+                val next = HashMap<Long, Int>()
+                var x = 0
+                while (x < width) {
+                    if (!isInk(x, y)) { x++; continue }
+                    val x0 = x
+                    while (x < width && isInk(x, y)) x++
+                    val key = (x0.toLong() shl 32) or x.toLong()
+                    val at = open[key]
+                    if (at != null) {
+                        out[at] = out[at] + 1
+                        next[key] = at
+                    } else {
+                        out += x0; out += y; out += x - x0; out += 1
+                        next[key] = out.size - 1
+                    }
+                }
+                open = next
+            }
+        }
+        return out.toIntArray().also { rectCache = it }
+    }
+
     // Turned views for rotation 90/180/270, created on first use and then kept (identity-stable).
     private val turned = arrayOfNulls<MonoImage>(3)
 

@@ -35,6 +35,11 @@ class FxRenderer internal constructor(private val target: Target) {
 
     constructor(renderer: DitherRenderer) : this(RendererTarget(renderer))
 
+    /** Tests: draw every layer through masks (the reference) instead of rects. */
+    internal var spans: Boolean
+        get() = (target as? RendererTarget)?.spans ?: false
+        set(v) { (target as? RendererTarget)?.spans = v }
+
     /**
      * What [FxRenderer] needs from a renderer; [DitherRenderer] in the app, a software raster in the
      * JVM tests. Masks given to [invert] and [tile] are already turned (no rotation applied).
@@ -51,6 +56,19 @@ class FxRenderer internal constructor(private val target: Target) {
         fun clip(rect: IRect) {}
 
         fun unclip() {}
+
+        // T55: the layers a renderer can draw from rectangles ([FxLayer.rects]) instead of a mask. The
+        // defaults go through the mask calls above (the reference the JVM composite tests check).
+
+        /** A `#` / `o` layer, turned by [rotation] about its frame at (x, y): ink, or paper when [paper]. */
+        fun solid(layer: FxLayer, x: Int, y: Int, rotation: Int, paper: Boolean) = blit(layer, x, y, rotation, paper)
+
+        /** An `x` layer: invert what is under it. */
+        fun invert(layer: FxLayer, x: Int, y: Int, rotation: Int, underlay: Runnable?) = invert(layer.rotated(rotation), x, y, underlay)
+
+        /** A `fill` tile layer: [tile] opaque at global phase. [warm]: both colour modes (prewarm). */
+        fun fill(layer: FxLayer, x: Int, y: Int, rotation: Int, tile: Tile, warm: Boolean) =
+            if (warm) warmTile(layer.rotated(rotation), x, y, tile, FxTileMode.FILL) else tile(layer.rotated(rotation), x, y, tile, FxTileMode.FILL)
     }
 
     /**
@@ -109,19 +127,20 @@ class FxRenderer internal constructor(private val target: Target) {
     /** [drawAt] for an [FxSpec]. */
     fun drawAt(fx: FxSpec, frame: Int, x: Int, y: Int, rotation: Int) {
         val cut = fx.cut(frame)
-        if (!cut.isEmpty) target.invert(cut.rotated(rotation), x, y, cutUnderlay)
+        if (!cut.isEmpty) target.invert(cut, x, y, rotation, cutUnderlay)
         val tiles = fx.tiles
         for (i in 0 until tiles.size) {
             val layer = fx.tileLayer(i, frame)
             if (layer.isEmpty) continue
             val t = tiles[i]
-            if (warming) target.warmTile(layer.rotated(rotation), x, y, t.tile, t.mode)
+            if (t.mode == FxTileMode.FILL) target.fill(layer, x, y, rotation, t.tile, warming)
+            else if (warming) target.warmTile(layer.rotated(rotation), x, y, t.tile, t.mode)
             else target.tile(layer.rotated(rotation), x, y, t.tile, t.mode)
         }
         val ko = fx.knockout(frame)
-        if (!ko.isEmpty) target.blit(ko, x, y, rotation, paper = true)
+        if (!ko.isEmpty) target.solid(ko, x, y, rotation, paper = true)
         val ink = fx.ink(frame)
-        if (!ink.isEmpty) target.blit(ink, x, y, rotation, paper = false)
+        if (!ink.isEmpty) target.solid(ink, x, y, rotation, paper = false)
     }
 
     /** Draws whatever [player] is showing for [seat] (nothing when it is clean). Not for `anchor tile` effects. */
@@ -158,7 +177,14 @@ class FxRenderer internal constructor(private val target: Target) {
         }
     }
 
-    private class RendererTarget(private val r: DitherRenderer) : Target {
+    /**
+     * The device target. `#`, `o`, `x` (where the renderer inverts in place) and `fill` tile layers are
+     * drawn as their [FxLayer.rects] — solid rects, in-place inverts and tile fills at global phase —
+     * so they need no scaled mask (T55: masks are ALPHA_8 at S² and the round-three set would have
+     * taken the effect masks from ~9 to ~24 MB at S = 4). `ink`/`paper` tile layers keep their masks
+     * (a sparse tile through a shape has no rect form). [spans] false: everything through masks (tests).
+     */
+    internal class RendererTarget(private val r: DitherRenderer, var spans: Boolean = true) : Target {
         override fun blit(img: MonoImage, x: Int, y: Int, rotation: Int, paper: Boolean) =
             r.blit(img, x, y, rotation, invert = paper, opaque = false)
 
@@ -183,6 +209,61 @@ class FxRenderer internal constructor(private val target: Target) {
         override fun clip(rect: IRect) = r.clipTo(rect)
 
         override fun unclip() = r.unclip()
+
+        override fun solid(layer: FxLayer, x: Int, y: Int, rotation: Int, paper: Boolean) {
+            if (!spans) return blit(layer, x, y, rotation, paper)
+            val rs = layer.rects()
+            var i = 0
+            while (i < rs.size) {
+                r.rect(x + rx(rs, i, layer, rotation), y + ry(rs, i, layer, rotation), rw(rs, i, rotation), rh(rs, i, rotation), ink = !paper)
+                i += 4
+            }
+        }
+
+        override fun invert(layer: FxLayer, x: Int, y: Int, rotation: Int, underlay: Runnable?) {
+            if (!spans || !r.invertsInPlace) return invert(layer.rotated(rotation), x, y, underlay)
+            val rs = layer.rects()
+            var i = 0
+            while (i < rs.size) {
+                r.invertRect(x + rx(rs, i, layer, rotation), y + ry(rs, i, layer, rotation), rw(rs, i, rotation), rh(rs, i, rotation))
+                i += 4
+            }
+        }
+
+        override fun fill(layer: FxLayer, x: Int, y: Int, rotation: Int, tile: Tile, warm: Boolean) {
+            if (!spans) return super.fill(layer, x, y, rotation, tile, warm)
+            val rs = layer.rects()
+            var i = 0
+            while (i < rs.size) {
+                val fx = x + rx(rs, i, layer, rotation)
+                val fy = y + ry(rs, i, layer, rotation)
+                val w = rw(rs, i, rotation)
+                val h = rh(rs, i, rotation)
+                r.fill(tile, fx, fy, w, h)
+                if (warm) r.withInverted { r.fill(tile, fx, fy, w, h) }
+                i += 4
+            }
+        }
+
+        // Rect i of a layer (W×H), turned clockwise like DitherRenderer.blit: 90 (u,v)→(H−1−v, u),
+        // 180 (W−1−u, H−1−v), 270 (v, W−1−u).
+        private fun rx(rs: IntArray, i: Int, l: FxLayer, rot: Int): Int = when (rot) {
+            90 -> l.height - (rs[i + 1] + rs[i + 3])
+            180 -> l.width - (rs[i] + rs[i + 2])
+            270 -> rs[i + 1]
+            else -> rs[i]
+        }
+
+        private fun ry(rs: IntArray, i: Int, l: FxLayer, rot: Int): Int = when (rot) {
+            90 -> rs[i]
+            180 -> l.height - (rs[i + 1] + rs[i + 3])
+            270 -> l.width - (rs[i] + rs[i + 2])
+            else -> rs[i + 1]
+        }
+
+        private fun rw(rs: IntArray, i: Int, rot: Int): Int = if (rot == 90 || rot == 270) rs[i + 3] else rs[i + 2]
+
+        private fun rh(rs: IntArray, i: Int, rot: Int): Int = if (rot == 90 || rot == 270) rs[i + 2] else rs[i + 3]
     }
 
     companion object {
