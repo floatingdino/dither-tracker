@@ -5,6 +5,7 @@ import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.PlayLayout.Chrome
 import au.com.josephmark.dithertracker.type.Font
 import au.com.josephmark.dithertracker.type.Fonts
+import au.com.josephmark.dithertracker.type.TextLayout
 
 /**
  * Where the turn tab goes (T17). Pure maths, JVM-tested; laid out in each seat's player frame and
@@ -12,7 +13,8 @@ import au.com.josephmark.dithertracker.type.Fonts
  *
  * ```
  *   far edge (towards the middle of the table; the centre diamond touches it somewhere)
- *  ┌──────────[▶| 12]──────────┐   the tab: the drawer tab's size, solid ink, flush with the far edge
+ *  ┌───────────[ ▶| ]───────────┐   the tab: the drawer tab's size, solid ink, flush with the far edge
+ *                [2:07]                for 5 s after a pass (a timer mode on): the report instead
  *  │          readout           │
  *  │  −       number         +  │
  *  │ [peek]  [badges]   [peek]  │
@@ -32,18 +34,21 @@ import au.com.josephmark.dithertracker.type.Fonts
  * - **On a knocked-out seat** ([NEAR]): the dead tile's emblem takes the far edge's middle, so the tab
  *   drops to the near edge, exactly where the drawer tab was (the KO tile hides that one): the
  *   drawer tab's own rect and hit ([PlayLayout.tab] / [PlayLayout.tabHit]).
- * - **Content** ([content]): the `turn` icon (▶|) in paper; with the timer on, the minutes in paper
- *   `num-m` beside it. Where the tab is too narrow for both (the 45 px runs), the minutes alone; the
- *   choice is made for three digits, so it never flips as the minutes grow. The group is centred.
+ * - **Content**: the `turn` icon (▶|) in paper, centred ([icon]). For [TurnTab.REPORT_MS] after a
+ *   pass with a timer mode on (T66), the report instead — `m:ss` / `h:mm:ss` ([TimeFormat]) alone on
+ *   the tab, centred, in `num-m` where it fits and the `ui` face where it does not (the 45 px tabs)
+ *   ([reportFont], [report]).
  */
 class TurnLayout(val play: PlayLayout) {
 
     val font: Font = Fonts.NUM_M
+
+    /** The report's face where `num-m` does not fit (T66). */
+    val small: Font = Fonts.UI
     val tk: Int = play.tk
     val iconSize: Int = PlayLayout.ICON * tk
     private val s = play.grid.scale
     val pad: Int = Chrome.size(PAD, s)
-    val gap: Int = Chrome.size(GAP, s)
 
     private val P = play.playerCount
     private val W = play.panelW
@@ -60,11 +65,14 @@ class TurnLayout(val play: PlayLayout) {
     val tab: Array<IRect> = Array(P) { IRect() }
     val hit: Array<IRect> = Array(P) { IRect() }
 
-    /** The [NEAR] placement (a knocked-out seat): the drawer tab's rects, player-frame x / y / w / h. */
-    val nearTab: Array<IRect> get() = play.tab
-    val nearHit: Array<IRect> get() = play.tabHit
+    /**
+     * The [NEAR] placement (a knocked-out seat): the drawer tab's place and touch area — its rect, made
+     * at least the icon's height (S = 5, 6: the chrome tab is shorter than a 16 px icon).
+     */
     private val nearW = minOf(play.chrome.tabW, W)
-    private val nearH = minOf(play.chrome.tabH, play.panelH)
+    private val nearH = minOf(maxOf(play.chrome.tabH, iconSize), play.panelH)
+    val nearTab: Array<IRect> = Array(P) { IRect() }
+    val nearHit: Array<IRect> get() = play.tabHit
     private val nearX = (W - nearW) / 2
     private val nearY = play.panelH - nearH
 
@@ -78,9 +86,11 @@ class TurnLayout(val play: PlayLayout) {
     init {
         val c = play.chrome
         val strip = play.readoutY - PlayLayout.V_MIN // the far strip's depth, readout excluded
-        hitPad = minOf(c.tabHitPad, maxOf(0, strip - c.tabH))
-        tabH = minOf(c.tabH, strip - hitPad)
-        var ok = tabH >= iconSize + 2 && tabH >= font.height(tk) + 2
+        // The drawer tab's height, at least the icon's (S = 5, 6 make the chrome tab shorter than a
+        // 16 px icon), and its hit pad from what the strip has left.
+        tabH = minOf(maxOf(c.tabH, iconSize), strip)
+        hitPad = minOf(c.tabHitPad, maxOf(0, strip - tabH))
+        var ok = tabH >= iconSize && tabH >= font.height(tk)
         for (seat in 0 until P) {
             placeX(seat, minOf(c.tabW, W - 2 * EDGE))
             if (tabW[seat] < minContent()) ok = false
@@ -89,11 +99,12 @@ class TurnLayout(val play: PlayLayout) {
             val hr = minOf(W, tabX[seat] + tabW[seat] + hitPad)
             play.mapRect(seat, hl, 0, hr - hl, tabH + hitPad, hit[seat])
         }
+        for (seat in 0 until P) play.mapRect(seat, nearX, nearY, nearW, nearH, nearTab[seat])
         enabled = ok && tabH > 0
     }
 
-    /** Narrowest tab worth drawing: the icon, or three digits, with their pads. */
-    private fun minContent(): Int = 2 * pad + minOf(iconSize, font.widthOf(MAX_DIGITS, tk))
+    /** Narrowest tab worth drawing: the icon, and the longest report ([TimeFormat.MAX_CHARS]) in the small face, with their pads. */
+    private fun minContent(): Int = 2 * pad + maxOf(iconSize, small.widthOf(TimeFormat.MAX_CHARS, tk))
 
     /** Centred when clear of the diamond; else against the diamond in the wider free run. */
     private fun placeX(seat: Int, want: Int) {
@@ -114,42 +125,33 @@ class TurnLayout(val play: PlayLayout) {
         }
     }
 
-    /** Width of [digits] minutes digits. */
-    fun digitsWidth(digits: Int): Int = font.widthOf(digits, tk)
-
     private fun widthAt(place: Int, seat: Int) = if (place == NEAR) nearW else tabW[seat]
 
-    /** Whether seat [seat]'s tab shows the icon when the timer is on (else the minutes alone). */
-    fun iconWithTimer(seat: Int, place: Int = FAR): Boolean = 2 * pad + iconSize + gap + digitsWidth(MAX_DIGITS) <= widthAt(place, seat)
-
-    /** Whether seat [seat]'s tab has room for the minutes at all (three digits). */
-    fun timerFits(seat: Int, place: Int = FAR): Boolean = 2 * pad + digitsWidth(MAX_DIGITS) <= widthAt(place, seat)
-
-    /**
-     * Lays out [seat]'s content at [place]: the icon, and [digits] (1..3; 0 = timer off) minutes digits.
-     * Writes the screen footprints into [icon] / [num] (top-left = where to draw) and returns [ICON] /
-     * [NUM] bits.
-     */
-    fun content(seat: Int, digits: Int, icon: IRect, num: IRect, place: Int = FAR): Int {
-        val timer = digits > 0 && timerFits(seat, place)
-        val showIcon = !timer || iconWithTimer(seat, place)
-        val nw = if (timer) digitsWidth(digits) else 0
-        val group = (if (showIcon) iconSize else 0) + (if (showIcon && timer) gap else 0) + nw
+    /** The icon's footprint on [seat]'s tab at [place] (screen), centred. */
+    fun icon(seat: Int, place: Int, out: IRect): IRect {
         val near = place == NEAR
         val h = if (near) nearH else tabH
-        val y0 = if (near) nearY else 0
-        var x = (if (near) nearX else tabX[seat]) + (widthAt(place, seat) - group) / 2
-        var out = 0
-        if (showIcon) {
-            play.mapRect(seat, x, y0 + (h - iconSize) / 2, iconSize, iconSize, icon)
-            x += iconSize + gap
-            out = out or ICON
-        } else icon.set(0, 0, 0, 0)
-        if (timer) {
-            val nh = font.height(tk)
-            play.mapRect(seat, x, y0 + (h - nh) / 2, nw, nh, num)
-            out = out or NUM
-        } else num.set(0, 0, 0, 0)
+        val x = (if (near) nearX else tabX[seat]) + (widthAt(place, seat) - iconSize) / 2
+        play.mapRect(seat, x, (if (near) nearY else 0) + (h - iconSize) / 2, iconSize, iconSize, out)
+        return out
+    }
+
+    /**
+     * The face a [chars]-glyph time report uses on [seat]'s tab at [place] (T66): `num-m`, the
+     * readout's numerals, when it fits with its pads; else the small `ui` face (the 45 px tabs beside a
+     * mid-edge diamond). The report replaces the icon for its few seconds, so it has the whole tab.
+     */
+    fun reportFont(seat: Int, place: Int, chars: Int): Font =
+        if (2 * pad + font.widthOf(chars, tk) <= widthAt(place, seat)) font else small
+
+    /** Writes the footprint of a [chars]-glyph report in [f] on [seat]'s tab at [place] (screen), centred. */
+    fun report(seat: Int, place: Int, chars: Int, f: Font, out: IRect): IRect {
+        val near = place == NEAR
+        val h = if (near) nearH else tabH
+        val w = f.widthOf(chars, tk)
+        val x = (if (near) nearX else tabX[seat]) + (widthAt(place, seat) - w) / 2
+        val y = (if (near) nearY else 0) + TextLayout.centre(h, f.capHeight * tk) - f.capTop * tk
+        play.mapRect(seat, x, y, w, f.height(tk), out)
         return out
     }
 
@@ -157,23 +159,15 @@ class TurnLayout(val play: PlayLayout) {
         "TurnLayout(S=$s ${if (enabled) "" else "DISABLED "}tab h $tabH +$hitPad, x/w ${(0 until P).joinToString { "${tabX[it]}/${tabW[it]}" }})"
 
     companion object {
-        /** Paper inside the tab's ends, and between the icon and the minutes (design px at S = 4). */
+        /** Paper inside the tab's ends (design px at S = 4). */
         const val PAD = 2
-        const val GAP = 3
 
         /** Paper between a tab pushed aside by the diamond and the tile's side edge. */
         const val EDGE = PlayLayout.V_MIN
-
-        /** Most minutes digits shown (999; the clock stops counting there). */
-        const val MAX_DIGITS = 3
-        const val MAX_MINUTES = 999
 
         /** Placements: the far edge (normal), the near edge (a knocked-out seat). */
         const val FAR = 0
         const val NEAR = 1
 
-        /** [content] bits. */
-        const val ICON = 1
-        const val NUM = 2
     }
 }

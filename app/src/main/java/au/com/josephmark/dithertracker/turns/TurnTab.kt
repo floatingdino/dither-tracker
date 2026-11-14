@@ -17,36 +17,36 @@ import au.com.josephmark.dithertracker.stage.Layer
 import au.com.josephmark.dithertracker.stage.Origin
 import au.com.josephmark.dithertracker.stage.Stage
 import au.com.josephmark.dithertracker.stage.ZoneSink
+import au.com.josephmark.dithertracker.widgets.CharBuf
 
 /**
- * The turn tracker (T17): whose turn it is, passing it, and the optional minutes.
+ * The turn tracker (T17; T66 reports): whose turn it is, passing it, and — with a timer mode on — a
+ * short report of the time after each pass. Nothing about it ever ticks.
  *
- * - **Starts** when a starting player is picked (the menu's FIRST tool dispatches
- *   `Action.SetStartingPlayer`); nothing shows before that, nor with the "Turns" setting OFF
- *   (`AppSettings.turnTracker`), nor once one player is left standing (the game is over).
+ * - **Starts** when a starting player is picked (`Action.SetStartingPlayer`); nothing shows before
+ *   that, nor with the "Turns" setting OFF (`AppSettings.turnTracker`), nor once one player is left.
  * - **Shows** as the *turn tab* on the active seat only: a solid ink tab the drawer tab's size on the
- *   tile's **far** edge — the side facing the middle of the table, where everyone looks — with the
- *   `turn` icon (▶|) in paper ([TurnLayout]). The other seats show nothing, so tables that ignore it
- *   see one small tab. Calm: no animation, no fill change on the tile, the numerals untouched.
- * - **Passes** with a tap on the tab (release-to-fire like every zone; a press inverts it):
- *   `Action.NextTurn`, which skips knocked-out seats and counts the turn. One redraw: the old tab's
- *   rect and the new one's, nothing else. Undo (the gem) takes a pass back.
- * - **Corrects** by holding the tab: after [CORRECT_AFTER] hold steps (1.5 s), and every second while
- *   held, the turn moves on one live seat **without counting** (`Action.SetActivePlayer`) — for a mark
- *   on the wrong seat. Letting go between 0.5 and 1.5 s does nothing (a held tap is never a pass).
- * - **Timer** (`AppSettings.turnTimer`, off by default): the minutes since tracking started (GAME) or
- *   since this turn began (TURN), beside the icon, from the stamps core keeps in `TurnState` (wall
- *   clock, persisted, so a restart or process death resumes the count). ONE timer, armed only while
- *   the timer is on, a tab is showing and the app is in the foreground ([Events.RESUME] /
- *   [Events.PAUSE]); it fires once at each minute boundary and redraws only the digits (the tab when
- *   the digit count changes). Re-synced from the wall clock on resume, attach, every state, settings
- *   and cover change. Minutes only, capped at [TurnLayout.MAX_MINUTES].
+ *   tile's **far** edge (the side facing the middle of the table) with the `turn` icon (▶|) in paper
+ *   ([TurnLayout]). Calm: no animation, the numerals untouched.
+ * - **Passes** with a tap on the tab: `Action.NextTurn` (skips knocked-out seats, counts the turn).
+ *   One redraw: the old tab's rect and the new one's. Undo (the gem) takes a pass back.
+ * - **Corrects** by holding the tab: from [CORRECT_AFTER] hold steps (1.5 s), and every second while
+ *   held, the turn moves on one live seat **without counting** (`Action.SetActivePlayer`).
+ * - **Reports** (T66, `AppSettings.turnTimer` GAME / TURN): right after a pass the new tab shows, in
+ *   place of its icon, how long the turn that just ended took (TURN: `TurnState.lastTurnMillis`) or
+ *   the game's time so far (GAME: `gameMillisAtLastPass`), as `m:ss` / `h:mm:ss` ([TimeFormat]),
+ *   active time only (core's active clock), for [REPORT_MS]; then the icon returns. The value is
+ *   frozen at the pass. It sits on the only tab on screen, but it appears **at the moment the
+ *   previous player hands over** and goes again: it reads as "that turn took 2:07", not as a clock
+ *   for the new player (nothing counts on it). One one-shot timer ([CLEAR]) armed only by a pass,
+ *   replaced by the next pass, cancelled on pause (the report is simply cleared: on resume the tab
+ *   shows its icon), on a settings change and on undo (an undone pass never re-shows an old report:
+ *   the state is restored, the tab shows its icon). The clear redraws only the tab. A tap during
+ *   the report passes as ever (and shows the next report).
  *
- * [Layer.TILE_CHROME] (over the life halves' press inversion, winning their touches) and [Kind.STATUS]
- * so a knocked-out active seat keeps its tab (the KO tile's cover hides `CHROME`; someone still has to
- * pass): on the dead field, at the near edge where the hidden drawer tab was ([TurnLayout.NEAR]),
- * clear of the tombstone. Hidden by full overlays (they cover `STATUS`), in commander mode
- * (any cover over the screen's chrome) and while the active seat's drawer is open ([TileSlots.compact]).
+ * [Layer.TILE_CHROME] and [Kind.STATUS] so a knocked-out active seat keeps its tab: on the dead field,
+ * at the near edge where the hidden drawer tab was ([TurnLayout.NEAR]). Hidden by full overlays, in
+ * commander mode and while the active seat's drawer is open ([TileSlots.compact]).
  */
 class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, timerCount = TIMERS) {
 
@@ -62,17 +62,15 @@ class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, time
     var place = TurnLayout.FAR
         private set
 
-    /** Minutes on the tab ([sync]), or −1 when the timer shows nothing. */
-    var minutes = -1
+    /** The report on the tab now ([REPORT_MS] after a pass), or empty. */
+    val report = CharBuf(TimeFormat.MAX_CHARS)
+
+    /** Whether the report's clear is armed (tests). */
+    var reportArmed = false
         private set
 
-    /** Whether the tick is armed (tests). */
-    var ticking = false
-        private set
-
-    private var paused = false
     private val icon = IRect()
-    private val num = IRect()
+    private val text = IRect()
 
     override fun onLayout(play: PlayLayout, tiles: TileSlots) {
         val l = TurnLayout(play)
@@ -85,7 +83,10 @@ class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, time
     override fun prewarm(f: Frame) {
         val l = layout ?: return
         f.icons.prewarm(ICONS, l.tk)
-        for (rot in l.play.rotations) f.text.draw(l.font, DIGITS, 0, 0, l.tk, rot, invert = true)
+        for (rot in l.play.rotations) {
+            f.text.draw(l.font, WARM, 0, 0, l.tk, rot, invert = true)
+            f.text.draw(l.small, WARM, 0, 0, l.tk, rot, invert = true)
+        }
     }
 
     // ---- what shows ---------------------------------------------------------------------------------
@@ -102,14 +103,14 @@ class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, time
         return seat
     }
 
-    /** Seat of player [id], or −1 (an index loop: `GameState.indexOf` walks an iterator, 32 bytes a call). */
+    /** Seat of player [id], or −1 (an index loop: `GameState.indexOf` walks an iterator). */
     private fun seatOf(s: GameState, id: Int): Int {
         val ps = s.players
         for (i in ps.indices) if (ps[i].id == id) return i
         return -1
     }
 
-    /** One player (or none) left standing; cached per player list (a minute tick asks again, core's `isKo` allocates). */
+    /** One player (or none) left standing; cached per player list (core's `isKo` allocates). */
     private fun gameOver(s: GameState): Boolean {
         if (s.players === overFor && s.settings === overRules) return over
         var alive = 0
@@ -125,70 +126,38 @@ class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, time
     private var overRules: Any? = null
     private var over = false
 
-    /** Minutes for [s]'s clock under the settings at [now], or −1 when the timer shows none. */
-    private fun minutesFor(s: GameState, now: Long): Int {
-        val start = when (stage.settings.current.turnTimer) {
-            TurnTimer.OFF -> return -1
-            TurnTimer.GAME -> s.turn.startedAt
-            TurnTimer.TURN -> s.turn.turnStartedAt
-        }
-        if (start == TurnState.NO_TIME) return -1 // a save from before the clock: nothing to count from
-        val m = (now - start) / MINUTE
-        return if (m < 0) 0 else if (m > TurnLayout.MAX_MINUTES) TurnLayout.MAX_MINUTES else m.toInt()
+    /** The report a pass to [s] makes under the settings, in ms, or [TurnState.NO_TIME] for none. */
+    private fun reportFor(s: GameState): Long = when (stage.settings.current.turnTimer) {
+        TurnTimer.OFF -> TurnState.NO_TIME
+        TurnTimer.TURN -> s.turn.lastTurnMillis
+        TurnTimer.GAME -> s.turn.gameMillisAtLastPass
     }
 
-    private fun digits(m: Int): Int = if (m < 0) 0 else if (m < 10) 1 else if (m < 100) 2 else 3
-
-    /**
-     * Re-reads what shows (seat, minutes) from the state, settings, covers and the wall clock;
-     * redraws what changed ([invalidate]) and arms or drops the one tick.
-     */
+    /** Re-reads what shows (seat, placement) from the state, settings and covers; redraws what changed. */
     private fun sync(invalidate: Boolean = true) {
         val l = layout ?: return
         val s = stage.session.state
         val seat = seatFor(s)
-        val now = stage.now()
-        val m = if (seat >= 0) minutesFor(s, now) else -1
         // A seat whose chrome a cover hides while the screen's is not (the KO tile): the near edge.
         val pl = if (seat >= 0 && stage.covered(Kind.CHROME, seat)) TurnLayout.NEAR else TurnLayout.FAR
-        if (invalidate) {
-            if (seat != shownSeat || pl != place) {
-                if (shownSeat in 0 until l.play.playerCount) invalidate(l.tabAt(place, shownSeat))
-                if (seat >= 0) invalidate(l.tabAt(pl, seat))
-            } else if (seat >= 0 && m != minutes) {
-                if (digits(m) == digits(minutes) && l.content(seat, digits(m), icon, num, pl) and TurnLayout.NUM != 0) invalidate(num)
-                else invalidate(l.tabAt(pl, seat))
-            }
+        if (invalidate && (seat != shownSeat || pl != place)) {
+            if (shownSeat in 0 until l.play.playerCount) invalidate(l.tabAt(place, shownSeat))
+            if (seat >= 0) invalidate(l.tabAt(pl, seat))
         }
         shownSeat = seat
         place = pl
-        minutes = m
-        arm(s, now)
+        if (seat < 0) clearReport(invalidate = false)
     }
 
-    /**
-     * The one timer: armed for the next minute boundary while the minutes show and can still change;
-     * left alone when it is already armed for that boundary (a life tap does not re-arm it).
-     */
-    private fun arm(s: GameState, now: Long) {
-        val want = !paused && shownSeat >= 0 && minutes in 0 until TurnLayout.MAX_MINUTES &&
-            layout?.timerFits(shownSeat, place) == true
-        if (!want) {
-            if (ticking) timers.cancel(TICK)
-            ticking = false
-            return
-        }
-        val start = if (stage.settings.current.turnTimer == TurnTimer.GAME) s.turn.startedAt else s.turn.turnStartedAt
-        // A start in the future (the clock was set back) shows 0 until a minute after it.
-        val boundary = start + ((now - start).coerceAtLeast(0) / MINUTE + 1) * MINUTE
-        if (ticking && boundary == armedFor) return
-        timers.schedule(TICK, boundary - now)
-        armedFor = boundary
-        ticking = true
+    /** Takes the report down ([redraw]: the tab, if it shows). */
+    private fun clearReport(invalidate: Boolean = true) {
+        if (reportArmed) timers.cancel(CLEAR)
+        reportArmed = false
+        if (report.length == 0) return
+        report.clear()
+        val l = layout ?: return
+        if (invalidate && shownSeat in 0 until l.play.playerCount) invalidate(l.tabAt(place, shownSeat))
     }
-
-    /** Wall-clock ms the armed tick is for. */
-    private var armedFor = 0L
 
     // ---- drawing ------------------------------------------------------------------------------------
 
@@ -201,11 +170,15 @@ class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, time
         val tab = l.tabAt(place, seat)
         if (!f.hit(tab)) return
         f.r.rect(tab, ink = true)
-        val m = minutes
-        val bits = l.content(seat, digits(m), icon, num, place)
         val rot = l.play.rotation[seat]
-        if (bits and TurnLayout.ICON != 0) f.icons.icon(l.tk, Icon.TURN, icon, rot, invert = true, opaque = false)
-        if (bits and TurnLayout.NUM != 0) f.text.drawInt(l.font, m, num.left, num.top, l.tk, rot, invert = true)
+        val n = report.length
+        if (n > 0) {
+            val font = l.reportFont(seat, place, n)
+            l.report(seat, place, n, font, text)
+            f.text.draw(font, report, text.left, text.top, l.tk, rot, invert = true)
+        } else {
+            f.icons.icon(l.tk, Icon.TURN, l.icon(seat, place, icon), rot, invert = true, opaque = false)
+        }
     }
 
     // ---- touch --------------------------------------------------------------------------------------
@@ -252,58 +225,76 @@ class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, time
     // ---- notifications ------------------------------------------------------------------------------
 
     override fun onStateChanged(old: GameState, new: GameState, origin: Int) {
-        // The turn, or a player (a KO can end the game); [arm] keeps an already armed tick.
-        if (old.turn !== new.turn || old.players !== new.players) sync()
+        if (old.turn === new.turn && old.players === new.players) return
+        val o = old.turn
+        val n = new.turn
+        sync()
+        when {
+            // A pass (the same tracking, one more turn): the report for it, for REPORT_MS.
+            n.started && o.started && n.number == o.number + 1 && n.startedAt == o.startedAt -> showReport(new)
+            // Undo of a pass, a restart, a new game: never an old report.
+            n.number != o.number || n.startedAt != o.startedAt -> clearReport()
+        }
     }
 
-    override fun onPlayersChanged() = sync(invalidate = false) // the stage redraws everything
+    private fun showReport(s: GameState) {
+        val ms = reportFor(s)
+        val l = layout
+        if (ms == TurnState.NO_TIME || shownSeat < 0 || l == null) {
+            clearReport()
+            return
+        }
+        TimeFormat.format(ms, report)
+        invalidate(l.tabAt(place, shownSeat)) // (already in this pass's redraw: the new tab)
+        timers.schedule(CLEAR, REPORT_MS)
+        reportArmed = true
+    }
+
+    override fun onPlayersChanged() {
+        clearReport(invalidate = false)
+        sync(invalidate = false) // the stage redraws everything
+    }
 
     override fun onSettingsChanged(old: AppSettings, new: AppSettings) {
         if (old.turnTracker == new.turnTracker && old.turnTimer == new.turnTimer) return
-        val was = shownSeat
+        clearReport()
         sync()
-        // Same seat, timer switched: the content changed shape (icon alone ↔ icon + minutes).
-        val l = layout
-        if (l != null && was >= 0 && was == shownSeat) invalidate(l.tabAt(place, was))
     }
 
     override fun onCoversChanged() = sync()
 
     override fun onEvent(event: Int, seat: Int) {
-        when (event) {
-            Events.PAUSE -> {
-                paused = true
-                if (ticking) timers.cancel(TICK)
-                ticking = false
-            }
-            Events.RESUME -> {
-                paused = false
-                sync()
-            }
-        }
+        // Paused: the report is simply dropped (no remainder on resume; the tab shows its icon).
+        if (event == Events.PAUSE) clearReport()
     }
 
     override fun onTimer(id: Int) {
-        ticking = false
-        if (id == TICK) sync()
+        if (id != CLEAR) return
+        reportArmed = false
+        clearReport()
     }
 
     override fun onAttach() = sync()
 
     override fun onDetach() {
-        ticking = false // the stage cancels every timer after this
+        reportArmed = false // the stage cancels every timer after this
+        report.clear()
     }
 
     companion object {
         const val PASS = 0
-        const val TICK = 0
+
+        /** The one timer: takes a pass's report down. */
+        const val CLEAR = 0
         const val TIMERS = 1
-        const val MINUTE = 60_000L
+
+        /** How long a pass's report shows on the new tab (Sam, T66: "can disappear after 5 seconds"). */
+        const val REPORT_MS = 5_000L
 
         /** Hold steps (500 ms, then one a second) before a hold starts correcting: 1.5 s. */
         const val CORRECT_AFTER = 2
 
         private val ICONS = arrayOf(Icon.TURN)
-        private const val DIGITS = "0123456789"
+        private const val WARM = "0123456789:"
     }
 }

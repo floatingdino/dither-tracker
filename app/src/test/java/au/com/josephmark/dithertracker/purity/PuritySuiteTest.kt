@@ -484,19 +484,27 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         rig.tap(rig.life, 1, PlayLayout.MINUS) // the active seat's readout under its tab
         shot("82_passed_with_readout")
         rig.advance(10_000)
+        // T66: reports for REPORT_MS after a pass — the game so far, the turn that just ended.
         rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.GAME))
-        rig.advance(7 * 60_000L)
-        shot("83_game_clock_7")
-        rig.advance(100 * 60_000L)
-        shot("84_game_clock_107")
-        rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.TURN))
+        rig.advance(7 * 60_000L + 4_000)
         rig.tap(turn, 1, TurnTab.PASS)
-        shot("85_turn_timer_0")
-        rig.dispatch(Action.SetLife(rig.id(2), 0)) // the active seat goes out on its own turn
+        shot("83_game_report")
+        rig.advance(TurnTab.REPORT_MS)
+        shot("84_report_cleared")
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.TURN))
+        rig.advance(65 * 60_000L + 12_000)
+        rig.tap(turn, 2, TurnTab.PASS)
+        shot("85_turn_report_hours")
+        rig.press(turn, 3, TurnTab.PASS)
+        shot("85b_report_pressed")
+        rig.cancel()
+        rig.advance(TurnTab.REPORT_MS)
+        rig.tap(turn, 3, TurnTab.PASS)
+        rig.dispatch(Action.SetLife(rig.id(0), 0)) // the active seat goes out on its own turn
         rig.advance(10_000)
         shot("86_ko_active_near_edge")
-        rig.tap(turn, 2, TurnTab.PASS)
-        shot("87_passed_on_from_ko")
+        rig.tap(turn, 0, TurnTab.PASS)
+        shot("87_passed_on_from_ko_with_report")
         // (2, 3, 5 and 6 seats, the narrow tier and sideways seats: turns/TurnTabTest on CountRig.)
     }
 

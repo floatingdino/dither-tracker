@@ -262,28 +262,29 @@ class AllocationBudgetTest {
     }
 
     /**
-     * T17: the turn tab draws allocation-free (far edge with minutes, pressed, on a KO tile at the near
-     * edge), and a minute tick (timer callback, re-sync, digits invalidation, re-arm) allocates nothing.
+     * T17 / T66: the turn tab draws allocation-free (icon, a pass's report in num-m, pressed, on a KO
+     * tile at the near edge), and the report's clear (timer callback, redraw) allocates nothing.
      */
-    @Test fun turnTabDrawAndMinuteTickAllocateNothing() {
+    @Test fun turnTabDrawAndReportClearAllocateNothing() {
         val rig = rig()
         val turn = rig.stage.components.filterIsInstance<TurnTab>().single()
         rig.dispatch(Action.SetStartingPlayer(rig.id(3)))
         assertDrawFree(rig, "turn tab")
         rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.GAME))
-        rig.advance(12 * 60_000L)
-        assertEquals(12, turn.minutes)
-        assertDrawFree(rig, "turn tab with minutes")
-        rig.press(turn, 3, TurnTab.PASS)
+        rig.advance(12 * 60_000L + 34_000)
+        rig.tap(turn, 3, TurnTab.PASS)
+        assertEquals("12:34", turn.report.toString())
+        assertDrawFree(rig, "turn tab with a report")
+        rig.press(turn, 0, TurnTab.PASS)
         assertDrawFree(rig, "turn tab pressed")
         rig.cancel()
-        assertEquals("a minute tick", 0L, bytes { rig.advance(60_000) })
-        val tab = rig.pointOf(turn, 3, TurnTab.PASS)!!
+        assertEquals("the report's clear", 0L, bytes(warm = 0, runs = 1) { rig.advance(TurnTab.REPORT_MS) })
+        val tab = rig.pointOf(turn, 0, TurnTab.PASS)!!
         assertEquals("press + cancel on the turn tab", 0L, bytes {
             rig.stage.down(0, tab[0], tab[1], rig.now)
             rig.stage.cancel()
         })
-        rig.dispatch(Action.SetLife(rig.id(3), 0))
+        rig.dispatch(Action.SetLife(rig.id(0), 0))
         rig.advance(6_000)
         assertEquals(TurnLayout.NEAR, turn.place)
         assertDrawFree(rig, "turn tab on a KO tile")
