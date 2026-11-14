@@ -152,6 +152,11 @@ enum class Role(val tile: Tile) {
     DEAD(Patterns.D[2]),
     /** Dotted divider lines (a 1-px slice of a checkerboard = 1 on / 1 off, globally phased). */
     DOTTED(Patterns.CHECKER),
+    /**
+     * An empty cell of the table (T60: part of a lattice arrangement with nobody at it): chunky 2×2 dots
+     * at 25 % — a ground of its own, not paper (so it reads as "not a seat") and nothing a seat shows.
+     */
+    EMPTY(Patterns.DOTS),
     /** Drop shadow of the hero numerals (T27): a 50% checker filled through each glyph's shadow mask. */
     SHADOW(Patterns.CHECKER),
 }

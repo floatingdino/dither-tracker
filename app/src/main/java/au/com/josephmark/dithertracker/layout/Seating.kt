@@ -50,11 +50,15 @@ class Seating(
     /** True when the table is turned 90° to fit a portrait grid. */
     val portrait: Boolean = gridH > gridW
 
-    /** The player-frame tile, identical for every seat. */
+    /**
+     * The player-frame content tile, identical for every seat: every component lays its content out in
+     * it once (T60: on a lattice arrangement with seats of several sizes, the largest frame every seat
+     * holds — see [LatticeSeating]).
+     */
     val frameW: Int
     val frameH: Int
 
-    /** Screen rect of each seat's tile (the frame, turned for sideways seats). */
+    /** Screen rect of each seat's content frame (turned for sideways seats); the seat's whole tile is [seats]. */
     val panels: Array<IRect> = Array(players) { IRect() }
 
     /** Clockwise rotation of each seat's content: 0 near band, 180 far band, 90 left end, 270 right end (+ 90 in portrait). */
@@ -76,145 +80,175 @@ class Seating(
     /** Region of the bands (table frame, then mapped): for tests and documentation. */
     val bandsWidth: Int
 
+    /**
+     * The whole rect of each seat's tile (screen, T60). With equal tiles it is [panels]; on a lattice
+     * arrangement a bigger seat's tile holds the game's content frame ([panels]) against its near edge,
+     * centred along it, with paper round it. Touch (the life halves) and the seat glyph use this.
+     */
+    val seats: Array<IRect> = Array(players) { IRect() }
+
+    /** Empty cells of a lattice arrangement (screen, T60): part of the table with no seat. */
+    val empties: Array<IRect>
+
     init {
-        val a = arrangement
-        val tw = maxOf(gridW, gridH)
-        val th = minOf(gridW, gridH)
-        val eL = if (a.left) 1 else 0
-        val eR = if (a.right) 1 else 0
-        val ends = eL + eR
-        val rows = a.rows
-        require(a.players >= 1) { "no seats" }
-
-        // ---- tile size ------------------------------------------------------------------------------
-        var bestW = 1
-        var bestH = 1
-        var bestRank = Int.MIN_VALUE
-        var bestArea = -1L
-        val fhMax = if (rows > 0) maxOf(1, (th - (rows - 1)) / rows) else maxOf(1, (tw - (ends - 1)) / ends)
-        for (fh in fhMax downTo 1) {
-            val fw = widthFor(a, tw, th, fh)
-            if (fw < 1) continue
-            val r = rank(fw, fh)
-            val area = fw.toLong() * fh
-            if (r > bestRank || (r == bestRank && area > bestArea)) {
-                bestRank = r; bestArea = area; bestW = fw; bestH = fh
+        val lat = arrangement.lattice
+        if (lat != null) {
+            // T60: a lattice arrangement (seats of their own sizes, empty cells): see [LatticeSeating].
+            val r = LatticeSeating(lat, arrangement.diamond, gridW, gridH, diamondReach)
+            frameW = r.frameW
+            frameH = r.frameH
+            for (s in 0 until players) {
+                r.panels[s].let { panels[s].set(it.left, it.top, it.right, it.bottom) }
+                r.seats[s].let { seats[s].set(it.left, it.top, it.right, it.bottom); cells[s].set(it.left, it.top, it.right, it.bottom) }
+                rotation[s] = r.rotation[s]
             }
-        }
-        frameW = bestW
-        frameH = bestH
-        val fw = frameW
-        val fh = frameH
+            dividers = r.dividers
+            empties = r.empties
+            diamondX = r.diamondX
+            diamondY = r.diamondY
+            bandsWidth = 0
+        } else {
+            val a = arrangement
+            val tw = maxOf(gridW, gridH)
+            val th = minOf(gridW, gridH)
+            val eL = if (a.left) 1 else 0
+            val eR = if (a.right) 1 else 0
+            val ends = eL + eR
+            val rows = a.rows
+            require(a.players >= 1) { "no seats" }
 
-        // ---- placement in the table frame -----------------------------------------------------------
-        fun group(c: Int) = if (c > 0) c * fw + (c - 1) else 0
-        val g = maxOf(group(a.top), group(a.bottom))
-        bandsWidth = g
-        val bandsH = if (rows > 0) rows * fh + (rows - 1) else 0
-        val usedW = if (rows > 0) eL * (fh + 1) + g + eR * (fh + 1) else ends * fh + (ends - 1)
-        val usedH = maxOf(bandsH, if (ends > 0) fw else 0)
-        val ox = maxOf(0, (tw - usedW) / 2)
-        val oy = maxOf(0, (th - usedH) / 2)
-        val bandX = ox + eL * (fh + 1)
-        val bandY = oy + (usedH - bandsH) / 2
-
-        val tp = Array(players) { IRect() } // panels, table frame
-        val tc = Array(players) { IRect() } // cells, table frame
-        val rot = IntArray(players)
-        var seat = 0
-        val farY = bandY
-        val nearY = bandY + if (a.top > 0) fh + 1 else 0
-        // Far band, left to right.
-        val farX = bandX + (g - group(a.top)) / 2
-        for (i in 0 until a.top) {
-            tp[seat].setXywh(farX + i * (fw + 1), farY, fw, fh); rot[seat] = 180; seat++
-        }
-        val endY = oy + (usedH - fw) / 2
-        if (a.right) {
-            val x = if (rows > 0) bandX + g + 1 else ox + eL * (fh + 1)
-            tp[seat].setXywh(x, endY, fh, fw); rot[seat] = 270
-            tc[seat].setXywh(x, oy, fh, usedH); seat++
-        }
-        // Near band, right to left.
-        val nearX = bandX + (g - group(a.bottom)) / 2
-        for (i in a.bottom - 1 downTo 0) {
-            tp[seat].setXywh(nearX + i * (fw + 1), nearY, fw, fh); rot[seat] = 0; seat++
-        }
-        if (a.left) {
-            tp[seat].setXywh(ox, endY, fh, fw); rot[seat] = 90
-            tc[seat].setXywh(ox, oy, fh, usedH); seat++
-        }
-        for (s in 0 until players) if (tc[s].isEmpty) tc[s].set(tp[s].left, tp[s].top, tp[s].right, tp[s].bottom)
-
-        // ---- dividers -------------------------------------------------------------------------------
-        val divs = ArrayList<IRect>()
-        val farXs = IntArray(maxOf(0, a.top - 1)) { farX + (it + 1) * (fw + 1) - 1 }
-        val nearXs = IntArray(maxOf(0, a.bottom - 1)) { nearX + (it + 1) * (fw + 1) - 1 }
-        for (x in farXs) {
-            if (rows == 2 && x in nearXs) divs += IRect().setXywh(x, bandY, 1, bandsH) // one line through the crossing
-            else divs += IRect().setXywh(x, farY, 1, fh)
-        }
-        for (x in nearXs) if (rows < 2 || x !in farXs) divs += IRect().setXywh(x, nearY, 1, fh)
-        val endDivs = ArrayList<Int>()
-        if (rows > 0) {
-            if (a.left) endDivs += bandX - 1
-            if (a.right) endDivs += bandX + g
-        } else if (ends == 2) {
-            endDivs += ox + fh
-        }
-        for (x in endDivs) divs += IRect().setXywh(x, oy, 1, usedH)
-        val longY = bandY + fh
-        if (rows == 2) divs += IRect().setXywh(bandX, longY, g, 1)
-
-        // ---- diamond --------------------------------------------------------------------------------
-        var dx: Int
-        var dy: Int
-        if (rows == 1 && a.top == 0 && a.bottom > 0) {
-            // Everyone on the near side (T53): no long divider. The diamond sits on the band's far
-            // edge — pushed down the divider until the open menu fits the grid — at the divider
-            // nearest the middle (the far corners of the tiles either side).
-            dx = bandX + g / 2
-            dy = maxOf(bandY, diamondReach)
-            if (a.diamond == Arrangement.DiamondAt.JUNCTION) {
-                val mid2 = 2 * bandX + g
-                var best = Int.MAX_VALUE
-                for (x in nearXs + endDivs.toIntArray()) {
-                    val d = Math.abs(2 * x - mid2)
-                    if (d < best || (d == best && x < dx)) { best = d; dx = x }
+            // ---- tile size ------------------------------------------------------------------------------
+            var bestW = 1
+            var bestH = 1
+            var bestRank = Int.MIN_VALUE
+            var bestArea = -1L
+            val fhMax = if (rows > 0) maxOf(1, (th - (rows - 1)) / rows) else maxOf(1, (tw - (ends - 1)) / ends)
+            for (fh in fhMax downTo 1) {
+                val fw = widthFor(a, tw, th, fh)
+                if (fw < 1) continue
+                val r = rank(fw, fh)
+                val area = fw.toLong() * fh
+                if (r > bestRank || (r == bestRank && area > bestArea)) {
+                    bestRank = r; bestArea = area; bestW = fw; bestH = fh
                 }
             }
-        } else if (rows == 2) {
-            dx = bandX + g / 2
-            dy = longY
-            if (a.diamond == Arrangement.DiamondAt.JUNCTION) {
-                val mid2 = 2 * bandX + g // twice the middle, to compare half-px exactly
-                var best = Int.MAX_VALUE
-                fun consider(x: Int) {
-                    val d = Math.abs(2 * x - mid2)
-                    if (d < best || (d == best && x < dx)) { best = d; dx = x }
-                }
-                for (x in farXs) consider(x)
-                for (x in nearXs) consider(x)
-                for (x in endDivs) consider(x)
-            }
-        } else {
-            dx = ox + usedW / 2
-            dy = oy + usedH / 2
-        }
+            frameW = bestW
+            frameH = bestH
+            val fw = frameW
+            val fh = frameH
 
-        // ---- to the screen --------------------------------------------------------------------------
-        for (s in 0 until players) {
-            toScreen(tp[s], th, panels[s])
-            toScreen(tc[s], th, cells[s])
-            rotation[s] = if (portrait) (rot[s] + 90) % 360 else rot[s]
-        }
-        dividers = Array(divs.size) { toScreen(divs[it], th, IRect()) }
-        if (portrait) {
-            diamondX = th - 1 - dy
-            diamondY = dx
-        } else {
-            diamondX = dx
-            diamondY = dy
+            // ---- placement in the table frame -----------------------------------------------------------
+            fun group(c: Int) = if (c > 0) c * fw + (c - 1) else 0
+            val g = maxOf(group(a.top), group(a.bottom))
+            bandsWidth = g
+            val bandsH = if (rows > 0) rows * fh + (rows - 1) else 0
+            val usedW = if (rows > 0) eL * (fh + 1) + g + eR * (fh + 1) else ends * fh + (ends - 1)
+            val usedH = maxOf(bandsH, if (ends > 0) fw else 0)
+            val ox = maxOf(0, (tw - usedW) / 2)
+            val oy = maxOf(0, (th - usedH) / 2)
+            val bandX = ox + eL * (fh + 1)
+            val bandY = oy + (usedH - bandsH) / 2
+
+            val tp = Array(players) { IRect() } // panels, table frame
+            val tc = Array(players) { IRect() } // cells, table frame
+            val rot = IntArray(players)
+            var seat = 0
+            val farY = bandY
+            val nearY = bandY + if (a.top > 0) fh + 1 else 0
+            // Far band, left to right.
+            val farX = bandX + (g - group(a.top)) / 2
+            for (i in 0 until a.top) {
+                tp[seat].setXywh(farX + i * (fw + 1), farY, fw, fh); rot[seat] = 180; seat++
+            }
+            val endY = oy + (usedH - fw) / 2
+            if (a.right) {
+                val x = if (rows > 0) bandX + g + 1 else ox + eL * (fh + 1)
+                tp[seat].setXywh(x, endY, fh, fw); rot[seat] = 270
+                tc[seat].setXywh(x, oy, fh, usedH); seat++
+            }
+            // Near band, right to left.
+            val nearX = bandX + (g - group(a.bottom)) / 2
+            for (i in a.bottom - 1 downTo 0) {
+                tp[seat].setXywh(nearX + i * (fw + 1), nearY, fw, fh); rot[seat] = 0; seat++
+            }
+            if (a.left) {
+                tp[seat].setXywh(ox, endY, fh, fw); rot[seat] = 90
+                tc[seat].setXywh(ox, oy, fh, usedH); seat++
+            }
+            for (s in 0 until players) if (tc[s].isEmpty) tc[s].set(tp[s].left, tp[s].top, tp[s].right, tp[s].bottom)
+
+            // ---- dividers -------------------------------------------------------------------------------
+            val divs = ArrayList<IRect>()
+            val farXs = IntArray(maxOf(0, a.top - 1)) { farX + (it + 1) * (fw + 1) - 1 }
+            val nearXs = IntArray(maxOf(0, a.bottom - 1)) { nearX + (it + 1) * (fw + 1) - 1 }
+            for (x in farXs) {
+                if (rows == 2 && x in nearXs) divs += IRect().setXywh(x, bandY, 1, bandsH) // one line through the crossing
+                else divs += IRect().setXywh(x, farY, 1, fh)
+            }
+            for (x in nearXs) if (rows < 2 || x !in farXs) divs += IRect().setXywh(x, nearY, 1, fh)
+            val endDivs = ArrayList<Int>()
+            if (rows > 0) {
+                if (a.left) endDivs += bandX - 1
+                if (a.right) endDivs += bandX + g
+            } else if (ends == 2) {
+                endDivs += ox + fh
+            }
+            for (x in endDivs) divs += IRect().setXywh(x, oy, 1, usedH)
+            val longY = bandY + fh
+            if (rows == 2) divs += IRect().setXywh(bandX, longY, g, 1)
+
+            // ---- diamond --------------------------------------------------------------------------------
+            var dx: Int
+            var dy: Int
+            if (rows == 1 && a.top == 0 && a.bottom > 0) {
+                // Everyone on the near side (T53): no long divider. The diamond sits on the band's far
+                // edge — pushed down the divider until the open menu fits the grid — at the divider
+                // nearest the middle (the far corners of the tiles either side).
+                dx = bandX + g / 2
+                dy = maxOf(bandY, diamondReach)
+                if (a.diamond == Arrangement.DiamondAt.JUNCTION) {
+                    val mid2 = 2 * bandX + g
+                    var best = Int.MAX_VALUE
+                    for (x in nearXs + endDivs.toIntArray()) {
+                        val d = Math.abs(2 * x - mid2)
+                        if (d < best || (d == best && x < dx)) { best = d; dx = x }
+                    }
+                }
+            } else if (rows == 2) {
+                dx = bandX + g / 2
+                dy = longY
+                if (a.diamond == Arrangement.DiamondAt.JUNCTION) {
+                    val mid2 = 2 * bandX + g // twice the middle, to compare half-px exactly
+                    var best = Int.MAX_VALUE
+                    fun consider(x: Int) {
+                        val d = Math.abs(2 * x - mid2)
+                        if (d < best || (d == best && x < dx)) { best = d; dx = x }
+                    }
+                    for (x in farXs) consider(x)
+                    for (x in nearXs) consider(x)
+                    for (x in endDivs) consider(x)
+                }
+            } else {
+                dx = ox + usedW / 2
+                dy = oy + usedH / 2
+            }
+
+            // ---- to the screen --------------------------------------------------------------------------
+            for (s in 0 until players) {
+                toScreen(tp[s], th, panels[s])
+                toScreen(tc[s], th, cells[s])
+                rotation[s] = if (portrait) (rot[s] + 90) % 360 else rot[s]
+            }
+            dividers = Array(divs.size) { toScreen(divs[it], th, IRect()) }
+            if (portrait) {
+                diamondX = th - 1 - dy
+                diamondY = dx
+            } else {
+                diamondX = dx
+                diamondY = dy
+            }
+            for (s in 0 until players) panels[s].let { seats[s].set(it.left, it.top, it.right, it.bottom) }
+            empties = arrayOf()
         }
     }
 

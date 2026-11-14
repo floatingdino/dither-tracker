@@ -114,6 +114,16 @@ class PlayLayout private constructor(
     /** Rotations in use on this layout (distinct, ascending): what components prewarm their rotated glyphs for. */
     val rotations: IntArray = rotation.distinct().sorted().toIntArray()
 
+    /**
+     * Each seat's whole tile (T60). With equal tiles it is the seat's [panels]; on a lattice
+     * arrangement a bigger seat's tile holds the shared content frame ([panels]) against its near edge
+     * with paper round it. The life halves ([zones]) cover it all.
+     */
+    val seats: Array<IRect> = Array(P) { IRect().apply { val p = seating.seats[it]; set(p.left, p.top, p.right, p.bottom) } }
+
+    /** Empty cells (T60): table with nobody at it — a quiet `Role.EMPTY` ground, no input (`chrome.Dividers`). */
+    val empties: Array<IRect> = Array(seating.empties.size) { val e = seating.empties[it]; IRect(e.left, e.top, e.right, e.bottom) }
+
     /** The table area each seat owns (an end seat's runs the bands' full height): the seat glyph's lattice (`seat/`). */
     val cells: Array<IRect> = Array(P) { IRect().apply { val p = seating.cells[it]; set(p.left, p.top, p.right, p.bottom) } }
 
@@ -306,8 +316,13 @@ class PlayLayout private constructor(
             map(s, hitL, tabY - c.tabHitPad, hitR - hitL, tabH + c.tabHitPad, tabHit[s])
             for (i in 0 until 3) map(s, dotX + i * (c.dot + c.dotGap), dotY, c.dot, c.dot, tabDots[s * 3 + i])
             map(s, dotX - c.dotHalo, dotY - c.dotHalo, dotsW + 2 * c.dotHalo, c.dot + 2 * c.dotHalo, tabDotsBacking[s])
-            map(s, 0, 0, half, panelH, zones[zone(s, MINUS)])
-            map(s, half, 0, panelW - half, panelH, zones[zone(s, PLUS)])
+            // The life halves cover the seat's whole tile (T60: a bigger seat's paper round the frame too).
+            val st = seats[s]
+            val sw = TextLayout.footprintW(rotation[s], st.width, st.height)
+            val sh = TextLayout.footprintH(rotation[s], st.width, st.height)
+            val sHalf = sw / 2
+            mapIn(st, rotation[s], sw, sh, 0, 0, sHalf, sh, zones[zone(s, MINUS)])
+            mapIn(st, rotation[s], sw, sh, sHalf, 0, sw - sHalf, sh, zones[zone(s, PLUS)])
             map(s, underX, underY, underW, underH, underRow[s])
         }
 
@@ -419,6 +434,16 @@ class PlayLayout private constructor(
 
     /** Maps a player-frame rect of seat [s] to the screen (also used by the drawer layout, T08). */
     fun mapRect(s: Int, lx: Int, ly: Int, w: Int, h: Int, out: IRect) = map(s, lx, ly, w, h, out)
+
+    /** Maps a rect in the player frame ([bw] × [bh]) of screen box [box] turned [r] to the screen. */
+    private fun mapIn(box: IRect, r: Int, bw: Int, bh: Int, lx: Int, ly: Int, w: Int, h: Int, out: IRect) {
+        out.setXywh(
+            box.left + TextLayout.mapX(r, bw, bh, lx, ly, w, h),
+            box.top + TextLayout.mapY(r, bw, bh, lx, ly, w, h),
+            TextLayout.footprintW(r, w, h),
+            TextLayout.footprintH(r, w, h),
+        )
+    }
 
     /** Maps a player-frame rect of seat [s] to the screen. */
     private fun map(s: Int, lx: Int, ly: Int, w: Int, h: Int, out: IRect) {

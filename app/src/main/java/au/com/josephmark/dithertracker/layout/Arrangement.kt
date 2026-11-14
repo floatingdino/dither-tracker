@@ -20,8 +20,13 @@ class Arrangement(
     val left: Boolean,
     val right: Boolean,
     val diamond: DiamondAt,
-    /** Its name under the thumbnail in the settings' layout picker (T53): a word or two, `ui` face. */
+    /** Its name (T53's picker label; T60's picker shows no names, the README and tests still use it). */
     val label: String = id,
+    /**
+     * T60: a lattice of cells instead of bands — seats of their own sizes and empty cells ([Lattice],
+     * placed by [LatticeSeating]). When set, [top]/[bottom]/[left]/[right] are unused (0 / false).
+     */
+    val lattice: Lattice? = null,
 ) {
     init {
         require(top >= 0 && bottom >= 0) { "negative band" }
@@ -32,9 +37,12 @@ class Arrangement(
     /** Long-edge bands in use (0..2). */
     val rows: Int get() = (if (top > 0) 1 else 0) + (if (bottom > 0) 1 else 0)
 
-    val players: Int get() = top + bottom + ends
+    val players: Int get() = lattice?.seats ?: (top + bottom + ends)
 
-    override fun toString(): String = "Arrangement($id: top $top, bottom $bottom${if (left) ", left end" else ""}${if (right) ", right end" else ""}, diamond $diamond)"
+    /** Empty cells (T60 lattices; band arrangements have none). */
+    val emptyCells: Int get() = lattice?.emptyCells ?: 0
+
+    override fun toString(): String = if (lattice != null) "Arrangement($id: lattice $lattice, diamond $diamond)" else "Arrangement($id: top $top, bottom $bottom${if (left) ", left end" else ""}${if (right) ", right end" else ""}, diamond $diamond)"
 
     /** Where the centre control (the diamond / the gem) sits. */
     enum class DiamondAt {
