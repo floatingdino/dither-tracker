@@ -129,19 +129,20 @@ so it favours nobody.
 
 ## T53 — the layout picker and the exploration
 
-### The picker
+### The picker (T60 redesign)
 
 `Players [2][3][4][5][6] ›`: the chevron opens **LAYOUT: N PLAYERS** for the count chosen on that row.
-Under a back row, a 2 × 2 grid of thumbnails (`settings/LayoutPicker.kt`), one per arrangement for the
-count, default first. Each thumbnail is a pixel miniature of the real play layout on this screen at
-this S — the `SeatMap` lattice of its panels plus the screen's own rect, so equal tiles get equal cells
-and the paper margins show — with a solid **notch on each tile's near edge** (where the drawer tab is:
-where that player sits, so the miniature says which way everyone faces) and a small ink diamond where
-the menu diamond is. Like the seat glyphs it lies in **screen orientation**, whichever side the card
-faces (the map matches the tablet as the reader sees it). Selected = an ink frame round the miniature
-and its label as an ink chip (our "the black one is the current choice"); press = inversion; a tap
-chooses. An arrangement not comfortable at the table's S is hatched (`DISABLED`), untappable, and its
-label names the scale it would need (`Dinner (scale 3)`).
+Under a back row, **wordless thumbnails, four columns of three a page** (`settings/LayoutPicker.kt`),
+default first; a count with more than 12 pages with a `‹ n/m ›` footer (none does today: 3 players has
+exactly 12). Each thumbnail is the real play layout in miniature, in **screen orientation** (whichever
+side the card faces, it lies the way the tablet does): every seat's whole tile as an **inset ground of
+the tab dither** with a paper gap round it — no outlines, no names, no drawer-tab notch; an **empty
+cell** is a dotted outline on paper; margins are paper. Only the **selected** thumbnail says which way
+people face: an ink frame round it, its seats in solid ink, each with a small paper arrow pointing at
+the edge its player sits at — the others stay plain grounds. A layout **not available** at the table's
+scale is hatched (`DISABLED`); tapping it does not choose it but writes why on the page's **hint
+line**: "Needs scale 3 (Settings > Scale)" or "Too small at any scale". The card's remembered facing
+applies to this page as to every other.
 
 **When a choice applies.** For the count the table is playing: **at once**. A layout change is
 non-destructive — the same players keep the same seats in the same clockwise order (seat i stays seat
@@ -231,9 +232,100 @@ no sideways seat (or, at 3, one per side) and the diamond at a crossing. The new
 tables the defaults do not fit (a wall table, a corner, a pair and an end); 2-side is the best of
 them (full tier, the tallest tile in the app).
 
+## T60 — tiles of their own sizes, and empty cells
+
+### The tile model
+
+An arrangement is either a **band** arrangement (T11/T53: far band, near band, end seats, every tile the
+same size, `Seating`) or a **lattice** (`layout/Lattice.kt`, placed by `LatticeSeating`): the table cut
+into equal cells, each owned by a seat or **empty**; a seat is a rectangle of cells facing one edge, so
+seats can differ in size (a full-width seat over two halves, a tall end seat beside two). Per seat the
+layout gives:
+
+| `PlayLayout` | what |
+|---|---|
+| `seats[s]` | the seat's **whole tile** (screen) — touch (the life halves cover all of it), the KO field and zone, the stage's per-seat draw, the seat glyph |
+| `panels[s]` | the seat's **content frame** (screen): where every component draws |
+| `rotation[s]` | 0 / 90 / 180 / 270 as before |
+| `panelW × panelH`, `tier`, `kMax` | the content frame and its tier — **one per game** |
+| `empties` | the empty cells |
+
+**One content frame per game.** Every component (numerals, ±, readout, drawer tray, peeks, badges,
+turn tab, KO tile, commander quarters, effects, first player, partner tab) keeps laying its content out
+once, in one player-frame tile: the largest frame **every** seat holds (the smallest seat width × the
+smallest seat depth, each in its own player's frame). A bigger seat holds it **against its near edge,
+centred along it** (the drawer, turn and partner tabs stay on the edge the player sits at) with paper
+round it. Decision: same numeral scale everywhere, more air for the bigger seat — not a bigger integer
+k. A bigger k needs 392 px of frame width (k = 2), which only a full-width seat has; one player's life
+total twice the size of everyone else's reads as more important, and every component and effect would
+need a second layout per game. The comfort tier of an arrangement is the frame's tier.
+
+**Empty cells** show a quiet `Role.EMPTY` ground (chunky 2×2 dots at 25 %, not paper — "not a seat",
+and unlike anything a seat shows), drawn with the dividers (backdrop: never covered, never
+invalidated by play), with **no zone**: a tap does nothing and redraws nothing. Dividers run between a
+seat and anything else (another seat or a hole), never between two holes. The centre diamond keeps its
+place at the crossing nearest the middle; it and the open gem **may sit over a hole's corner** (the
+crossing of an L is still where three seats meet).
+
+### Lattice arrangements (S = 4, Nomad landscape; frame and tier; all offered)
+
+Text form: one row per lattice row, a letter per cell, `.` empty; facings `n` far, `s` near, `w`/`e` ends.
+
+```
+2-diagonal      2-diagonal-flip   3-wide-far       3-wide-near      3-tall-left      3-tall-right
+┌──────┬──────┐ ┌──────┬──────┐   ┌─────────────┐  ┌──────┬──────┐  ┌─────┬───────┐  ┌───────┬─────┐
+│ P0 n │::::::│ │::::::│ P0 n │   │    P0 n     │  │ P0 n │ P1 n │  │     │ P0 n  │  │ P0 n  │     │
+├──────┼──────┤ ├──────┼──────┤   ├──────┬──────┤  ├──────┴──────┤  │P2 w ├───────┤  ├───────┤P1 e │
+│::::::│ P1 s │ │ P1 s │::::::│   │ P2 s │ P1 s │  │    P2 s     │  │     │ P1 s  │  │ P2 s  │     │
+└──────┴──────┘ └──────┴──────┘   └──────┴──────┘  └─────────────┘  └─────┴───────┘  └───────┴─────┘
+ 233×175 full    233×175 full      frame 233×175    frame 233×175    frame 233×175    frame 233×175
+
+3-l-<empty corner> (×4: far-left, far-right, near-left, near-right)       4-wide-far        4-wide-near
+┌──────┬──────┐ ┌──────┬──────┐ ┌──────┬──────┐ ┌──────┬──────┐       ┌───────────────┐ ┌────┬────┬────┐
+│::::::│ P0 n │ │ P0 n │::::::│ │ P0 n │ P1 n │ │ P0 n │ P1 n │       │     P0 n      │ │P0 n│P1 n│P2 n│
+├──────┼──────┤ ├──────┼──────┤ ├──────┼──────┤ ├──────┼──────┤       ├────┬────┬─────┤ ├────┴────┴────┤
+│ P2 s │ P1 s │ │ P2 s │ P1 s │ │::::::│ P2 s │ │ P2 s │::::::│       │P3 s│P2 s│P1 s │ │     P3 s      │
+└──────┴──────┘ └──────┴──────┘ └──────┴──────┘ └──────┴──────┘       └────┴────┴─────┘ └───────────────┘
+ 233×175 full each                                                     frame 155×175 narrow (both)
+
+5-wide-near                5-wide-far                 5-hole-<empty cell> (×6: far/near × left/mid/right)
+┌────┬────┬────┐           ┌───────┬───────┐          ┌────┬────┬────┐
+│P0 n│P1 n│P2 n│           │ P0 n  │ P1 n  │          │::::│P0 n│P1 n│   e.g. 5-hole-far-left
+├────┴──┬─┴────┤           ├────┬──┴─┬─────┤          ├────┼────┼────┤
+│ P4 s  │ P3 s │           │P4 s│P3 s│P2 s │          │P4 s│P3 s│P2 s│
+└───────┴──────┘           └────┴────┴─────┘          └────┴────┴────┘
+ frame 155×175 narrow (the near pair 233 wide: the T53 question, now built)   155×175 narrow
+```
+
+| count | arrangement | seats (tile at S = 4) | frame / tier | notes |
+|---|---|---|---|---|
+| 2 | 2-diagonal, -flip | 233×175 ×2, two holes | 233×175 full | sitting kitty-corner across a square table |
+| 3 | 3-wide-far / -near | 467×175 + 233×175 ×2 | 233×175 full | the reference's "full-width seat over two halves", both ways up |
+| 3 | 3-tall-left / -right | end seat 233×351 (turned) + 233×175 ×2 | 233×175 full | "a tall seat beside two" |
+| 3 | 3-l-* (×4) | 233×175 ×3, a corner empty | 233×175 full | the owner's L shapes, every corner; generated |
+| 4 | 4-wide-far / -near | 467×175 + 155×175 ×3 | 155×175 narrow | "three across + one long" |
+| 5 | 5-wide-near | 155×175 ×3 + 233×175 ×2 | 155×175 narrow | the near pair fills the width (deferred in T53) |
+| 5 | 5-wide-far | 233×175 ×2 + 155×175 ×3 | 155×175 narrow | its twin |
+| 5 | 5-hole-* (×6) | 155×175 ×5, a cell empty | 155×175 narrow | a 2×3 with one seat empty; generated |
+
+**Rejected in T60:** 4 with two tall ends and two in the middle (the end seats' depth 155 < the 166 the
+stack needs: `4-dinner` again); 4 on a 2×3 with two holes (smaller tiles than 4-grid for no reason a
+tablet needs); 3 as one-sided-plus-hole and 6 on anything but 3 + 3 (no tile ≥ 148 × 166 fits); a
+bigger numeral scale for bigger seats (see the tile model).
+
+**Defaults unchanged** (2-across, 3-tee, 4-grid, 5-three-two, 6-three-three): each is still the largest
+frame with no hole. Recommendation to consider: **5-wide-near** for 5 players — same frame and tier as
+5-three-two, but the near pair get the full width instead of 78 px of paper either side; I have not
+changed it (the owner's call).
+
 ### Captures
 
-`design/captures/t53-layout-picker-<n>p.png` (2–6; at 3 the pyramid is chosen),
+T60: `design/captures/t60-layout-picker-<n>p.png` (2–6, every page; at 3 players an L is chosen, at 5
+the wide near pair) and `t60-layout-picker-4p-hint.png` (the hatched dinner tapped), `t60-play-<id>.png`
+for each new arrangement (seat 0 KO'd, toggles, peeks, the turn on seat 1, the smallest seat's drawer
+open), `t60-play-3-l-near-left-gem.png` (the gem open over the hole's corner) and
+`t60-arrangements.png` (every arrangement idle, 1 px per dither px, labelled), from
+`tools/capture_t60.sh`. T53: `design/captures/t53-layout-picker-<n>p.png` (2–6; at 3 the pyramid is chosen),
 `t53-play-<id>.png` for each new arrangement (busy: toggles, peeks, a KO, day/night) and
 `t53-play-2-side-gem.png` / `t53-play-3-end-gem.png` (the gem open where the diamond moved),
 `t53-arrangements.png` (every arrangement's play screen, 1 px per dither px, labelled), and for the
