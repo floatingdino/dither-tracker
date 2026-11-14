@@ -917,3 +917,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   Untested: any real device but the Nomad; API 26–36. **Needs Sam:** density-aware chrome (tabs/icons
   are sized for 300 dpi; ~84 call sites); a compact tier for phone-shaped e-ink; a display-speed
   override for non-Supernote e-ink; Onyx `EpdController` if a Boox can be tested. No agents running.
+- 2026-11-14 — Tick 98: Sam: tied low rolls should not re-roll. Bug found and fixed by the
+  coordinator: after a tie at the top, `FirstRoll.judge()` compared the tie-break re-rolls with every
+  seat's old roll, so low re-rolls could tie with seats already out (a low tie re-rolled, and a
+  loser could even win). It now judges only the seats that rolled this round; three regression
+  tests. 176 core + 8957 app; on the Nomad.
