@@ -102,6 +102,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T61 | wip | T59 | Sam: heads / tails coin icons. Today the coin result is shown by the coin sprite's face and the word; draw a distinct heads icon and tails icon in the icon family's style (2–3 options each), use them on the dice panel's coin result (and the coin sprite's two faces if they differ), keep them readable from both faces of the panel. | `design/icons/`, `tools` |
 | T62 | wip | T60 T58 | Screen size validation (Sam: "pay particular attention to any android based e-ink devices"): run the app at the real resolutions/densities of Android e-ink devices (Supernote, Boox by size incl. Palma, Bigme, Meebook, Hisense) and then phones and LCD tablets; AUTO scale vs physical size; cutouts, gesture edges, multi-window; `DisplaySpeed` on non-Supernote e-ink; `docs/compatibility.md`. Nomad must stay pixel-identical. | `play/PlayLayout`, `eink/`, docs |
 | T63 | done | T23 | GitHub release workflow: tag `v*` → tests, signed release APK, GitHub Release with the APK and its SHA-256; manual run builds an artifact only. Needs four signing secrets (README "Releases on GitHub"). | `.github/workflows/release.yml`, gradle, README |
+| T64 | todo | no agents in the source tree | Rename the code to match the application id: namespace, Kotlin packages and source directories `au.com.josephmark.dithertracker` → `com.floatingdino.dithertracker` (app and core), generated-source package names in `app/build.gradle.kts` and `design/*/author*.py`, docs; then scripts can use `$P/.MainActivity` again. Purely mechanical; every file moves, so run it alone. | whole tree |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -847,3 +848,13 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   tag (publishing refuses to run without them). Note: a release-key APK cannot install over the
   debug build on the Nomad without an uninstall (save lost). Dispatched T61 (coin faces, emulator
   5562) and T62 (screen sizes, e-ink first, emulator 5564). Running: T61, T62.
+- 2026-11-14 — Tick 87: the release workflow's manual run on GitHub passed every step (tests, release
+  APK, artifact; publish skipped) — T63 proven except for real signing. Sam: application id is
+  `com.floatingdino.dithertracker` — changed in the build file, all `tools/*.sh` and the docs
+  (commit "Application id is com.floatingdino.dithertracker"); clean build 176 core + 3826 app; the
+  namespace and Kotlin packages keep the old name (→ T64), so the launch component is
+  `com.floatingdino.dithertracker/au.com.josephmark.dithertracker.MainActivity`. On the Nomad the new
+  id is a separate app: installed beside the old one, the old app's save copied across byte for byte
+  (backup in `local/nomad-save-backup/migrate-*`), new app launched (device was asleep). The old
+  `au.com.josephmark.dithertracker` install is still there until Sam says to remove it. Both running
+  agents told. Running: T61, T62.
