@@ -115,6 +115,11 @@ class PlayView(
         get() = stage.holdStep
         set(value) { stage.holdStep = value }
 
+    /** How long a touch must be down before its zone inverts (T57; debug builds: `--ei pressDelay <ms>`, 0 = on touch-down). */
+    var pressDelayMillis: Long
+        get() = stage.pressDelayMillis
+        set(value) { stage.pressDelayMillis = value }
+
     /** Debug (`--ez trace true`): logs every onDraw's clip, duration and allocation count, touches (with their allocation count), taps, layout. Allocates; off by default. */
     var trace = false
         set(value) {

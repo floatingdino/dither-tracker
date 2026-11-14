@@ -12,8 +12,7 @@ import au.com.josephmark.dithertracker.play.Scheduler
  * on a crowded table a finger that slides should not press a neighbour's zone). A zone stays pressed
  * while at least one pointer holds it.
  *
- * **Press model (T08, designer feedback on T07).** Touch-down only shows the press inversion
- * ([Sink.onZonePressed]). Nothing is applied until:
+ * **Press model (T08, designer feedback on T07).** Touch-down applies nothing. Nothing is applied until:
  * - **tap**: a pointer lifts before its zone started repeating → [Sink.onZoneTap] (then
  *   [Sink.onZoneReleased] if it was the zone's last pointer), in the same event, so the change and
  *   the restore land in one frame;
@@ -24,6 +23,18 @@ import au.com.josephmark.dithertracker.play.Scheduler
  *
  * Multi-touch: a second finger in an already-pressed zone shares the zone's timer (no faster
  * repeat); each pointer's own lift is its tap, unless the zone is already repeating.
+ *
+ * **Delayed press feedback (T57).** The Nomad's panel keeps a region busy ~450 ms after drawing the
+ * press inversion and will not show the release frame until then, so an inverted quick tap took
+ * ~0.7–0.8 s to show its result. A zone is therefore *down* as soon as a pointer binds to it
+ * ([isDown]) but only *pressed* — inverted, [Sink.onZonePressed] — once it has been down for
+ * [pressDelayMillis] (its show timer), or at its first hold repeat if that comes sooner. A pointer
+ * that lifts before then taps without the zone ever being pressed: no [Sink.onZonePressed], no
+ * [Sink.onZoneReleased], so the tap's own invalidation is the only frame. [pressDelayMillis] = 0 is
+ * the old behaviour (pressed on touch-down). Hold timing is unchanged and counts from touch-down.
+ *
+ * Timer ids: zone `z`'s hold timer is `z`, its show timer is `zoneCount + z` ([TIMER_IDS_PER_ZONE]
+ * per zone in all). Both are armed only while the zone is down and cancelled with its last pointer.
  */
 class PlayInput(
     private val sink: Sink,
@@ -48,10 +59,10 @@ class PlayInput(
         /** The zone is being held: apply one repeat step now. */
         fun onZoneRepeat(zone: Int)
 
-        /** The zone went from unpressed to pressed (invert it). */
+        /** The zone became pressed: down for [pressDelayMillis] (invert it). */
         fun onZonePressed(zone: Int)
 
-        /** The last pointer holding the zone lifted or was cancelled (restore it). */
+        /** The last pointer holding a pressed zone lifted or was cancelled (restore it). Not called for a zone that never became pressed. */
         fun onZoneReleased(zone: Int)
     }
 
@@ -60,6 +71,9 @@ class PlayInput(
 
     /** Time between repeats: slow enough that the e-ink panel shows each value before the next. */
     var repeatMillis: Long = REPEAT_MS
+
+    /** How long a zone must be down before it shows as pressed (T57); ≤ 0 = at once (the old model). */
+    var pressDelayMillis: Long = PRESS_DELAY_MS
 
     /** Current zone map; touches are ignored while null. Replacing it cancels every touch. */
     var zones: ZoneMap? = null
@@ -75,10 +89,21 @@ class PlayInput(
     /** Repeats fired in the zone's current press (0 = not repeating yet). */
     private val repeats = IntArray(zoneCount)
 
-    fun isPressed(zone: Int): Boolean = zone in 0 until zoneCount && zonePointers[zone] > 0
+    /** Whether the zone shows as pressed (inverted): down for at least [pressDelayMillis]. */
+    private val shown = BooleanArray(zoneCount)
 
-    /** Number of zones pressed right now (0 = nothing to invert). */
+    /** Whether [zone] shows as pressed (draw its inversion). A zone that is only [isDown] does not. */
+    fun isPressed(zone: Int): Boolean = zone in 0 until zoneCount && shown[zone]
+
+    /** Whether at least one pointer holds [zone], pressed or not yet. */
+    fun isDown(zone: Int): Boolean = zone in 0 until zoneCount && zonePointers[zone] > 0
+
+    /** Number of zones pressed (inverted) right now (0 = nothing to invert). */
     var pressedCount: Int = 0
+        private set
+
+    /** Number of zones held by at least one pointer right now (pressed or not yet). */
+    var downCount: Int = 0
         private set
 
     /** Number of repeats applied so far in [zone]'s current press. */
@@ -99,11 +124,18 @@ class PlayInput(
         pointerZone[pointerId] = zone
         pointerDown[pointerId] = eventTimeMillis
         if (zonePointers[zone]++ == 0) {
-            pressedCount++
+            downCount++
             repeats[zone] = 0
             if (map.repeats(zone)) scheduler.schedule(zone, holdDelayMillis)
-            sink.onZonePressed(zone)
+            if (pressDelayMillis <= 0) show(zone) else scheduler.schedule(zoneCount + zone, pressDelayMillis)
         }
+    }
+
+    private fun show(zone: Int) {
+        if (shown[zone]) return
+        shown[zone] = true
+        pressedCount++
+        sink.onZonePressed(zone)
     }
 
     /** The pointer lifted: a tap unless its zone is already repeating. */
@@ -129,20 +161,36 @@ class PlayInput(
         pointerZone[pointerId] = PlayLayout.NONE
         val tap = apply && repeats[zone] == 0
         val last = --zonePointers[zone] == 0
+        var wasShown = false
         if (last) {
-            pressedCount--
+            downCount--
             scheduler.cancel(zone)
+            scheduler.cancel(zoneCount + zone)
+            wasShown = shown[zone]
+            if (wasShown) {
+                shown[zone] = false
+                pressedCount--
+            }
         }
         if (tap) sink.onZoneTap(zone)
-        if (last) sink.onZoneReleased(zone)
+        if (wasShown) sink.onZoneReleased(zone)
     }
 
-    /** Hold timer for [id] (a zone) fired. */
+    /** Hold timer (id `zone`) or show timer (id `zoneCount + zone`) fired. */
     override fun onTimer(id: Int) {
-        if (!isPressed(id)) return // stale: released in the meantime
+        if (id >= zoneCount) {
+            val zone = id - zoneCount
+            if (isDown(zone)) show(zone) // else stale: released in the meantime
+            return
+        }
+        if (!isDown(id)) return // stale: released in the meantime
         if (zones?.repeats(id) != true) return
         repeats[id]++
         scheduler.schedule(id, repeatMillis)
+        if (!shown[id]) { // a press delay longer than the hold delay: invert with the first step
+            scheduler.cancel(zoneCount + id)
+            show(id)
+        }
         sink.onZoneRepeat(id)
     }
 
@@ -164,5 +212,15 @@ class PlayInput(
         const val REPEAT_MS = 1000L
 
         const val DEFAULT_HOLD_STEP = 10
+
+        /**
+         * T57: a touch shows its press inversion only once it has been down this long. Longer than a
+         * quick tap on glass (≈60–110 ms), well short of the first hold repeat ([HOLD_DELAY_MS]).
+         * Tunable on a debug build with `--ei pressDelay <ms>` (0 = invert on touch-down).
+         */
+        const val PRESS_DELAY_MS = 120L
+
+        /** Timer ids a [PlayInput] uses per zone: the hold timer and the show timer. */
+        const val TIMER_IDS_PER_ZONE = 2
     }
 }

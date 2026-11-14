@@ -94,7 +94,10 @@ abstract class Component(
     /** Optional shape test inside a declared rect (local -1 = a blocking rect). Default: the whole rect. */
     open fun contains(seat: Int, local: Int, gx: Int, gy: Int): Boolean = true
 
-    /** The rect a press on [local] inverts (SPEC rule 6), computed from the *current* state. */
+    /**
+     * The rect a press on [local] inverts (SPEC rule 6), computed from the *current* state. Inverted
+     * only once the touch has been down for the press delay (T57); a quick tap never shows it.
+     */
     open fun feedback(seat: Int, local: Int, out: IRect): Boolean = false
 
     /** Whether holding [local] repeats ([onRepeat] at 500 ms, then every 1000 ms). */

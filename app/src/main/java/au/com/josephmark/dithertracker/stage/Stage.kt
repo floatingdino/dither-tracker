@@ -21,7 +21,8 @@ import au.com.josephmark.dithertracker.play.TileSlots
  *   (seats × zonesPerSeat)` (tile) or `+ zonesPerSeat` (screen); a global id is
  *   `base + seat × zonesPerSeat + local`. Components only ever see `(seat, local)`.
  * - **Touch** goes through one hit-test over every visible component's declared zones, topmost first
- *   ([hitTest]), into one [PlayInput] (release-to-fire, hold-repeat, multi-pointer).
+ *   ([hitTest]), into one [PlayInput] (release-to-fire, hold-repeat, multi-pointer). A zone inverts
+ *   only once held for [pressDelayMillis] (T57): a quick tap draws just its result, one frame.
  * - **Drawing** ([draw]): layer by layer, tile layers seat by seat; after each layer the pressed zones
  *   owned by that layer are inverted.
  * - **Invalidation** from components is unioned and flushed once per entry point (touch, timer, state,
@@ -74,7 +75,10 @@ class Stage(
     var zoneCount = 0
         private set
 
-    /** Size of the global timer id space: hold timers (one per zone), then each component's block. */
+    /**
+     * Size of the global timer id space: the press tracker's timers ([PlayInput.TIMER_IDS_PER_ZONE] per
+     * zone: hold `0 until zoneCount`, press-show `zoneCount until 2 × zoneCount`), then each component's block.
+     */
     var timerCount = 0
         private set
 
@@ -83,7 +87,7 @@ class Stage(
     private var idSeat = IntArray(0)
     private var idLocal = IntArray(0)
 
-    /** The press tracker (hold timers are timer ids `0 until zoneCount`). */
+    /** The press tracker (its hold and press-show timers are timer ids `0 until` [inputTimerCount]). */
     lateinit var input: PlayInput
         private set
 
@@ -132,6 +136,8 @@ class Stage(
         const val TIMER = 5
         /** A game change from outside the stage's own entry points (restore, debug hooks). */
         const val STATE = 6
+        /** A touch has been down for the press delay: its zone inverts (T57). Not an action. */
+        const val PRESS = 7
     }
 
     var observer: Observer? = null
@@ -181,18 +187,31 @@ class Stage(
             }
         }
         timerBase = IntArray(comps.size)
-        var t = zoneCount
+        var t = inputTimerCount
         for (c in comps) {
             timerBase[c.index] = t
             t += c.timerCount
         }
         timerCount = t
         armed = BooleanArray(t)
-        input = PlayInput(this, holdTimers, zoneCount)
+        input = PlayInput(this, holdTimers, zoneCount).also { it.pressDelayMillis = pressDelayMillis }
         val cap = 2 * zoneCount + EXTRA_RECTS
         zRect = Array(cap) { IRect() }
         zId = IntArray(cap); zComp = IntArray(cap); zSeat = IntArray(cap); zLocal = IntArray(cap)
     }
+
+    /** Timer ids `0 until inputTimerCount` belong to [input] (hold and press-show, per zone). */
+    val inputTimerCount: Int get() = zoneCount * PlayInput.TIMER_IDS_PER_ZONE
+
+    /**
+     * How long a touch must be down before its zone inverts (T57, [PlayInput.pressDelayMillis]); a
+     * quicker tap shows only its result. 0 = invert on touch-down. Settable before or after [seal].
+     */
+    var pressDelayMillis: Long = PlayInput.PRESS_DELAY_MS
+        set(value) {
+            field = value
+            if (sealed) input.pressDelayMillis = value
+        }
 
     private fun zoneSpan(c: Component): Int = if (c.isTile) seats * c.zonesPerSeat else c.zonesPerSeat
 
@@ -354,8 +373,14 @@ class Stage(
 
     fun cancelAllTouches() = input.cancelAll()
 
-    /** Whether [c]'s [local] on [seat] is pressed. */
+    /**
+     * Whether [c]'s [local] on [seat] shows as pressed (inverted): held past the press delay (T57).
+     * Draw press-only details (shape compensation) from this, never from [isDown].
+     */
     fun isPressed(c: Component, seat: Int, local: Int): Boolean = input.isPressed(zoneId(c, seat, local))
+
+    /** Whether a finger is on [c]'s [local] on [seat], pressed or not yet. */
+    fun isDown(c: Component, seat: Int, local: Int): Boolean = input.isDown(zoneId(c, seat, local))
 
     /** Sends [event] ([Events]) about [seat] to every component, in registration order. */
     fun send(event: Int, seat: Int) {
@@ -431,9 +456,9 @@ class Stage(
     override fun onTimer(id: Int) {
         log?.invoke("timer $id")
         if (id in armed.indices) armed[id] = false
-        enter(if (id < zoneCount) Cause.HOLD else Cause.TIMER)
+        enter(if (id < zoneCount) Cause.HOLD else if (id < inputTimerCount) Cause.PRESS else Cause.TIMER)
         try {
-            if (id < zoneCount) {
+            if (id < inputTimerCount) {
                 input.onTimer(id)
             } else {
                 // Component timer: find the owning block (few components; no allocation).
@@ -505,10 +530,12 @@ class Stage(
     }
 
     override fun onZonePressed(zone: Int) {
+        log?.invoke("press zone $zone")
         if (feedback(zone, fb)) invalidate(fb)
     }
 
     override fun onZoneReleased(zone: Int) {
+        log?.invoke("release zone $zone")
         if (feedback(zone, fb)) invalidate(fb)
     }
 
