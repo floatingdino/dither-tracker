@@ -103,6 +103,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T62 | wip | T60 T58 | Screen size validation (Sam: "pay particular attention to any android based e-ink devices"): run the app at the real resolutions/densities of Android e-ink devices (Supernote, Boox by size incl. Palma, Bigme, Meebook, Hisense) and then phones and LCD tablets; AUTO scale vs physical size; cutouts, gesture edges, multi-window; `DisplaySpeed` on non-Supernote e-ink; `docs/compatibility.md`. Nomad must stay pixel-identical. | `play/PlayLayout`, `eink/`, docs |
 | T63 | done | T23 | GitHub release workflow: tag `v*` → tests, signed release APK, GitHub Release with the APK and its SHA-256; manual run builds an artifact only. Needs four signing secrets (README "Releases on GitHub"). | `.github/workflows/release.yml`, gradle, README |
 | T64 | todo | no agents in the source tree | Rename the code to match the application id: namespace, Kotlin packages and source directories `au.com.josephmark.dithertracker` → `com.floatingdino.dithertracker` (app and core), generated-source package names in `app/build.gradle.kts` and `design/*/author*.py`, docs; then scripts can use `$P/.MainActivity` again. Purely mechanical; every file moves, so run it alone. | whole tree |
+| T65 | wip | T59 T55 | Sam: animations feel "a bit linear/sauceless", especially the first roll and dice rolls — more time on the final pose to land, push/pull on frame timings for a slow-in/slow-out feel and readability, dice and the first-roll number sit a bit longer. Timing pass over dice, coin, first player and every effect's holds; FAST/SLOW hold sets; SPEC timing note. | `tools`, `fx/`, `design/fx/*/meta.txt` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -871,3 +872,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   secrets. Running: T62.
 - 2026-11-14 — Decision (Sam): coin faces are option a, the imp's face and its tail (already built).
   Goes onto the Nomad with the next verified build, after T62 lands.
+- 2026-11-14 — Tick 90: Sam's animation feedback → T65 to the dice/first-player agent (resumed;
+  emulator 5562): uneven holds (anticipate, move fast, settle, hold the read), longer landings.
+  Running: T62, T65.
