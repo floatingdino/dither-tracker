@@ -70,6 +70,7 @@ class FirstPlayer(
         recent = p.recent
         results.onStartingPlayer(id)
         stage.dispatch(Origin.EXTERNAL, Action.SetStartingPlayer(id))
+        stage.send(Events.FIRST_PLAYER, s) // T55: `start-flag` on their tile
         show(s, p.value.uppercase())
     }
 

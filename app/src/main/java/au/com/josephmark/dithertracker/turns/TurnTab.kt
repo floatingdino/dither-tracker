@@ -229,6 +229,7 @@ class TurnTab : Component(Layer.TILE_CHROME, Kind.STATUS, zonesPerSeat = 1, time
     override fun onTap(seat: Int, local: Int) {
         if (seat != shownSeat) return
         stage.dispatch(Origin.EXTERNAL, Action.NextTurn)
+        stage.send(Events.TURN_PASSED, Stage.SCREEN) // T55: `your-turn` on the new active seat
     }
 
     /** Hold step: from the [CORRECT_AFTER]th on, move the turn to the next live seat without counting it. */

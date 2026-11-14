@@ -194,4 +194,10 @@ object Events {
     /** The activity paused / resumed (seat = [Stage.SCREEN]): drop optional timers / re-arm them. */
     const val PAUSE = 8
     const val RESUME = 9
+
+    /** The turn tab passed the turn (T55: effects play `your-turn` on the new active seat; seat = [Stage.SCREEN]). */
+    const val TURN_PASSED = 10
+
+    /** [seat] was picked to start (T55: effects play `start-flag` there). */
+    const val FIRST_PLAYER = 11
 }
