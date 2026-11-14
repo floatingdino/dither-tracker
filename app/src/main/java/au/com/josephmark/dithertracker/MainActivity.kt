@@ -28,6 +28,7 @@ import au.com.josephmark.dithertracker.eink.SupernoteFullRefresh
 import au.com.josephmark.dithertracker.fx.FxDebug
 import au.com.josephmark.dithertracker.play.GameSession
 import au.com.josephmark.dithertracker.play.PlayView
+import au.com.josephmark.dithertracker.tools.ToolsDebug
 import kotlin.random.Random
 
 class MainActivity : Activity() {
@@ -65,6 +66,8 @@ class MainActivity : Activity() {
         //                       --ei fxLife N (default 37) and plays that effect / cycles them all on
         //                       all four seats, looping until a touch; see fx/README.md
         //   --ef fxHold X       (debuggable builds only) scale every effect hold by X (FxPlayer.holdScale)
+        //   --ef diceHold X     (debuggable builds only) scale every dice / coin / first-player presentation
+        //                       hold by X (T52, tools.ToolsDebug), so a screencap lands in each keyframe
         //   --ei cleanEvery N   (debuggable builds only) automatic screen-clean threshold N (overrides the
         //                       "Screen clean" setting; 0 = off), to trigger it with a few taps (T19b)
         //   --ez vendorRefresh true  (debuggable builds only) full cleans use the Supernote vendor refresh
@@ -136,6 +139,7 @@ class MainActivity : Activity() {
         FxDebug.gallery = i.getStringExtra("fx")
         FxDebug.life = i.getIntExtra("fxLife", 37)
         FxDebug.holdScale = if (i.hasExtra("fxHold")) i.getFloatExtra("fxHold", 1f).coerceAtLeast(0f) else 1f
+        ToolsDebug.holdScale = if (i.hasExtra("diceHold")) i.getFloatExtra("diceHold", 1f).coerceAtLeast(0f) else 1f
     }
 
     /** E-ink cleanup switches (T19b): the vendor refresh (constant, or the debug extra) and the debug threshold. */
