@@ -29,7 +29,6 @@ import au.com.josephmark.dithertracker.eink.EinkDisplay
 import au.com.josephmark.dithertracker.eink.EinkViewMode
 import au.com.josephmark.dithertracker.eink.ScreenCleaner
 import au.com.josephmark.dithertracker.eink.SupernoteFullRefresh
-import au.com.josephmark.dithertracker.eink.VendorRefreshGuard
 import au.com.josephmark.dithertracker.fx.FxDebug
 import au.com.josephmark.dithertracker.play.GameSession
 import au.com.josephmark.dithertracker.play.PlayView
@@ -193,7 +192,7 @@ class MainActivity : Activity() {
         display = d
         d.apply(SettingsHolder.shared.current.fastDisplay, "create")
         // T59: the display speed features read (eink/DisplaySpeed): FAST off e-ink, or with the fast waveform set.
-        DisplaySpeed.einkPanel = VendorRefreshGuard.isSupernote(Build.MANUFACTURER)
+        DisplaySpeed.einkPanel = DisplaySpeed.isEinkDevice(Build.MANUFACTURER, Build.BRAND, Build.MODEL)
         DisplaySpeed.fastMode = DisplaySpeed.FastMode { DisplaySpeed.isFastWaveform(d.mode) && EinkViewMode.available }
         DisplaySpeed.override = if (debug) DisplaySpeed.parse(i?.getStringExtra("displaySpeed")) else DisplaySpeed.NO_OVERRIDE
         EinkConfig.gcClean = if (debug && i?.getBooleanExtra("gcClean", false) == true) d else null

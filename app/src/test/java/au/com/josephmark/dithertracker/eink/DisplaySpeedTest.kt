@@ -33,6 +33,23 @@ class DisplaySpeedTest {
         for (m in intArrayOf(EinkViewMode.DU, EinkViewMode.A2, EinkViewMode.DUX)) { mode = m; assertEquals(DisplaySpeed.FAST, DisplaySpeed.current()) }
     }
 
+    /** T62: known e-ink vendors are e-ink panels (SLOW on their normal waveform); LCD phones and the emulator are not. */
+    @Test fun einkVendors() {
+        fun eink(man: String?, brand: String? = man, model: String? = null) = DisplaySpeed.isEinkDevice(man, brand, model)
+        assertEquals(true, eink("Supernote"))
+        assertEquals(true, eink("ONYX", "Onyx", "NoteAir3C"))
+        assertEquals(true, eink("unknown", "BOOX"))
+        assertEquals(true, eink("Bigme", "Bigme", "HiBreak Pro"))
+        assertEquals(true, eink("Boyue", "Meebook"))
+        assertEquals(true, eink("Hisense", "Hisense", "A9"))
+        assertEquals(true, eink("Hisense", "Hisense", "A7 CC"))
+        assertEquals(false, eink("Hisense", "Hisense", "A90"))
+        assertEquals(false, eink("Hisense", "Hisense", "E50"))
+        assertEquals(false, eink("Google", "google", "sdk_gphone64_arm64"))
+        assertEquals(false, eink("samsung", "samsung", "SM-X910"))
+        assertEquals(false, eink(null, null, null))
+    }
+
     @Test fun overrideWins() {
         DisplaySpeed.override = DisplaySpeed.parse("slow")
         assertEquals(DisplaySpeed.SLOW, DisplaySpeed.current())

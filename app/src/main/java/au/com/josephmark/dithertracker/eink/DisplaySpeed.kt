@@ -22,8 +22,31 @@ object DisplaySpeed {
     const val SLOW = 1
     const val NO_OVERRIDE = -1
 
-    /** Whether the screen is an e-ink panel (on a Supernote; another vendor's panel is not recognised). */
+    /** Whether the screen is an e-ink panel ([isEinkDevice]: a Supernote or another known e-ink vendor, T62). */
     @JvmField var einkPanel: Boolean = false
+
+    /**
+     * Whether a device is (very likely) an e-ink panel, from its `Build.MANUFACTURER`, `Build.BRAND` and
+     * `Build.MODEL` (T62; `docs/compatibility.md`). Vendors that only make e-ink devices match by name:
+     * Supernote / Ratta, Onyx (Boox), Bigme, Boyue (Likebook, Meebook), Meebook. Hisense also sells LCD
+     * phones, so only its e-ink models (A5, A7, A9 families) match. A miss costs extra keyframes on a slow
+     * panel; a false match only fewer poses on a fast screen — so the list errs towards matching. Only
+     * the Supernote's fast view mode can make an e-ink panel [FAST] (no other vendor call is used).
+     */
+    fun isEinkDevice(manufacturer: String?, brand: String?, model: String?): Boolean {
+        for (name in arrayOf(manufacturer, brand)) {
+            val n = name?.trim()?.lowercase() ?: continue
+            if (n in EINK_VENDORS) return true
+            if (n == "hisense") {
+                val m = model?.trim()?.uppercase() ?: return false
+                return HISENSE_EINK.any { m.startsWith(it) && (m.length == it.length || !m[it.length].isDigit()) }
+            }
+        }
+        return false
+    }
+
+    private val EINK_VENDORS = setOf("supernote", "ratta", "onyx", "boox", "bigme", "boyue", "likebook", "meebook")
+    private val HISENSE_EINK = arrayOf("A5", "A7", "A9")
 
     /**
      * Whether a fast waveform (DU, A2, DUX) is what our root view asks for and T58's guard still works
