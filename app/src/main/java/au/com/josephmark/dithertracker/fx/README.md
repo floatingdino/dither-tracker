@@ -144,6 +144,66 @@ before the KO tile. Timers: one per seat for `FxPlayer` (ids = seats) plus one f
   `FxSpansTest` draws every frame of every effect at every rotation in both colour modes both ways.
 - **No allocation** per keyframe or draw (`FxComponentTest` measures it).
 
+## Timing (T65)
+
+Owner: "a bit more push/pull on frame timings to give a slow-in/slow-out feel and improve
+readability." Every shipped effect is timed as a curve, not a beat: the frame that carries the read
+(the impact, the landed crown, the closed wreath) holds longest; the frames into and out of it are
+shorter. `hold_ms` in each `meta.txt` is the **slow-display** curve (every hold ≥ 250 ms, SPEC rule
+4); on a **fast display** (`eink/DisplaySpeed`) `FxPlayer.fastHold` derives the fast curve from it:
+the read frame (the longest hold) keeps its hold, every other frame × `FAST_IN_OUT` (0.6), never
+below `FAST_FLOOR_MS` (120). The speed is read when an effect starts. Chosen over a second authored
+hold set per effect: one curve to tune per effect, and the push/pull grows automatically on a display
+that can show it. `--ef fxHold X` still scales everything. `FxPlayerTest` pins the rule (one longest
+read frame, nothing under 250 ms slow, the derivation). Totals stay within 50 ms of before. The
+frames themselves are untouched (only `hold_ms` lines changed; the purity suite's effect keyframes are
+the same pictures).
+
+ms per drawn frame (total incl. the clean step's 0):
+
+| effect | before (slow = fast) | after, slow | after, fast | the read frame |
+|---|---|---|---|---|
+| `chomp` | 300 / 350 / 300 (950) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | jaws shut through the total |
+| `claw-cut` | 350 / 300 (650) | 400 / 250 (650) | 400 / 150 (550) | the slashes |
+| `crack` | 350 / 300 / 250 (900) | 400 / 250 / 250 (900) | 400 / 150 / 150 (700) | the cut zig-zags through |
+| `fault` | 350 / 300 / 250 (900) | 400 / 250 / 250 (900) | 400 / 150 / 150 (700) | the edge-to-edge crack |
+| `pow` | 350 / 300 (650) | 400 / 250 (650) | 400 / 150 (550) | the burst lands |
+| `quake` | 300 / 300 / 250 (850) | 350 / 250 / 250 (850) | 350 / 150 / 150 (650) | the jolt |
+| `slash` | 350 / 350 (700) | 400 / 300 (700) | 400 / 180 (580) | the stroke |
+| `crit` | 350 / 350 / 250 (950) | 450 / 250 / 250 (950) | 450 / 150 / 150 (750) | the burst |
+| `focus` | 400 / 300 (700) | 450 / 250 (700) | 450 / 150 (600) | the focus lines |
+| `stomp` | 250 / 400 / 300 / 250 (1200) | 250 / 450 / 250 / 250 (1200) | 150 / 450 / 150 / 150 (900) | the stomp |
+| `chime` | 300 / 350 / 250 (900) | 250 / 400 / 250 (900) | 150 / 400 / 150 (700) | the two notes |
+| `heart` | 300 / 350 / 250 (900) | 250 / 400 / 250 (900) | 150 / 400 / 150 (700) | the big heart with its shine |
+| `heart-burst` | 350 / 350 / 250 (950) | 400 / 300 / 250 (950) | 400 / 180 / 150 (730) | the heart wrapping the total |
+| `rise` | 300 / 300 / 250 (850) | 250 / 350 / 250 (850) | 150 / 350 / 150 (650) | the risen twinkles |
+| `sprout` | 300 / 350 / 250 (900) | 250 / 400 / 250 (900) | 150 / 400 / 150 (700) | the two leaves |
+| `sunrise` | 300 / 350 (650) | 250 / 400 (650) | 150 / 400 (550) | the rays at the top |
+| `twinkle` | 300 / 300 / 250 (850) | 250 / 350 / 250 (850) | 150 / 350 / 150 (650) | the twinkle and gloss |
+| `vines` | 300 / 350 / 250 (900) | 250 / 400 / 250 (900) | 150 / 400 / 150 (700) | the vines across the tile |
+| `brand` | 350 / 300 / 250 (900) | 400 / 250 / 250 (900) | 400 / 150 / 150 (700) | the mark slapped on |
+| `charge` | 300 / 300 / 250 (850) | 250 / 350 / 250 (850) | 150 / 350 / 150 (650) | the crack into the total |
+| `ooze` | 300 / 350 / 250 (900) | 250 / 400 / 250 (900) | 150 / 400 / 150 (700) | the drip through the total |
+| `level-up` | 300 / 350 / 250 (900) | 250 / 400 / 250 (900) | 150 / 400 / 150 (700) | the pillar and chevrons |
+| `rad-glow` | 300 / 300 / 250 (850) | 250 / 350 / 250 (850) | 150 / 350 / 150 (650) | the scanline glitch |
+| `storm-copy` | 300 / 350 / 250 (900) | 250 / 400 / 250 (900) | 150 / 400 / 150 (700) | the copies |
+| `imp-poke` | 300 / 350 / 300 (950) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | the holes |
+| `imp-raspberry` | 300 / 400 / 250 (950) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | the raspberry |
+| `crown-drop` | 250 / 400 / 250 (900) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | the landing |
+| `crown-drop-narrow` | 250 / 400 / 250 (900) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | the landing |
+| `torch` | 300 / 350 / 250 (900) | 250 / 400 / 250 (900) | 150 / 400 / 150 (700) | the firelight disc |
+| `torch-narrow` | 300 / 350 / 250 (900) | 250 / 400 / 250 (900) | 150 / 400 / 150 (700) | the firelight disc |
+| `ring-tempt` | 300 / 450 / 250 (1000) | 250 / 500 / 250 (1000) | 150 / 500 / 150 (800) | the total fading |
+| `dawn` | 300 / 400 / 250 (950) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | the sun up |
+| `dusk` | 300 / 400 / 250 (950) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | the night sky |
+| `your-turn` | 300 / 350 (650) | 250 / 400 (650) | 150 / 400 (550) | the brackets lock on |
+| `spotlight` | 350 / 350 (700) | 300 / 400 (700) | 180 / 400 (580) | the lit pool |
+| `ko-shatter` | 350 / 350 (700) | 300 / 450 (750) | 180 / 450 (630) | the shatter |
+| `fizzle` | 300 / 300 / 300 (900) | 250 / 400 / 250 (900) | 150 / 400 / 150 (700) | the dissolve |
+| `winner` | 350 / 400 / 250 (1000) | 300 / 500 / 250 (1050) | 180 / 500 / 150 (830) | the wreath closed |
+| `revive` | 300 / 350 / 300 (950) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | the heartbeat |
+| `start-flag` | 300 / 350 / 250 (900) | 250 / 450 / 250 (950) | 150 / 450 / 150 (750) | the flag waving |
+
 ## Debug gallery (debuggable builds only)
 
 Intent extras, read by `MainActivity` into `FxDebug`; never reachable from the UI:

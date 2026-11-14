@@ -23,7 +23,12 @@ A 1-bit life tracker for MTG Commander, built for E-ink. Primary target: **Super
    panel on its normal waveform) 2–4 held keyframes, each ≥ ~250 ms (tuned on device); on a **fast**
    display (the Supernote's fast view mode in effect, or a screen that isn't e-ink) a few more poses
    are allowed, with shorter holds (≥ ~120 ms) and about the same total time — still held poses, never
-   tweens; still skippable; still cheap. Uses: hit/heal effects (swipe, crunch,
+   tweens; still skippable; still cheap. **Timing (T65):** holds are uneven on purpose — anticipate
+   (a slightly longer first pose), move fast (short middle poses), settle (a longer last pose), then
+   hold the read (the landing, the impact, the result: held clearly longest, and only then the next
+   thing — a caption, a flag). A uniform beat reads as linear and sauceless. Named constants per pose
+   (`tools/Presentation`, `tools/FirstRoll`) and per effect (`hold_ms`); numbers in
+   `design/tools/README.md` and `fx/README.md`. Uses: hit/heal effects (swipe, crunch,
    fizzle), a KO or winner flourish, dice/coin reveals, a drawer or menu arriving in one or two
    beats. Constraints: effects may open up across a player's tile when it earns it (Sam likes
    cut-outs knocked through the numerals and wants options that use more of the tile), but keep ink

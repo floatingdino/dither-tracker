@@ -85,6 +85,10 @@ each meta differs only in its title comment and an explicit `role` line (`FxProm
 
 ## Which effect plays (`FxPolicy`)
 
+**Frame holds (T65).** Every shipped effect's `hold_ms` is a curve — the read frame longest, in and
+out shorter, every hold ≥ 250 ms; a fast display derives shorter in/out frames from it. Before/after
+per effect: `app/.../fx/README.md`, "Timing (T65)".
+
 **Timing (T55).** A seat's life effect starts 300 ms after its last life change (not at the
 readout's commit), alongside the readout; once per band per readout group, again only when the
 running total escalates into a bigger band. Counter and toggle effects play 300 ms after the last
