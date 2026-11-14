@@ -99,6 +99,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T58 | review | T19b | Faster display modes: the Nomad's framework has a per-View e-ink mode (`View.setEinkUpdateMode`, DU/A2/…); the call succeeds from our debug build (`--ei einkMode N`, `eink/EinkViewMode.kt`). To find out: does the panel respond faster, which mode, ghosting cost, per-region modes (fast for taps, GC for cleans), and whether a release build is allowed to call it. | `eink/` |
 | T59 | review | T52 T58 | Sam's review of T52: a global fast/slow display flag, and a couple more in-between poses for die and coin on a fast display; the dice panel opens empty (no automatic d20); first player re-imagined as simultaneous d20 rolls on every live tile, results in the life-total digits, a sting and a "FIRST" flag on the winner, more informative quips ("On the play", "First out the gates"); PARTNER tab on the dither ground with halo/tape, new small-partner + / − icons instead of the big imp. | `tools`, `commander/`, `eink/`, `design/icons/` |
 | T60 | review | T53 | Sam's review of the layout picker ("a good start"): allow different-sized tiles within one game; thumbnails shrink so more options fit a page; each seat drawn as an inset dithered ground rather than outlined; no layout names; no drawer-tab mark in the thumbnails; add layouts with an empty seat (e.g. L shapes with any corner missing). Second reference in untracked `local/reference/`. | `layout/`, `settings/`, every N-seat component |
+| T61 | todo | T59 | Sam: heads / tails coin icons. Today the coin result is shown by the coin sprite's face and the word; draw a distinct heads icon and tails icon in the icon family's style (2–3 options each), use them on the dice panel's coin result (and the coin sprite's two faces if they differ), keep them readable from both faces of the panel. | `design/icons/`, `tools` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -828,3 +829,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   (untracked; contains the private data — delete when no longer wanted). Left to Sam: GitHub keeps
   the old commits reachable by hash until it collects them — ask GitHub Support to purge, or
   recreate the repository; existing clones/forks keep the old data.
+- 2026-11-14 — Tick 85: Sam reviewed the quips: 8 cut, 7 added (see the commit "Quips: Sam's review");
+  applied by the coordinator to `QuipTables.kt` and `design/copy/quips.md`; 176 core + 3826 app pass;
+  on the Nomad. Side effects: the first-player flag falls back to "ON THE PLAY" when a long quip
+  can't fit (the Zelda line is 26 characters; narrow tiles hold ~20); poison list is 9 lines, 4 of
+  them verbatim, so the test minimum and the half-retro rule were loosened by one — one more
+  verbatim poison quote would restore both. The three new quotes' sources are marked "not
+  re-checked". New ticket T61 (heads/tails coin icons). Sam asked about publishing on Google Play —
+  answered in chat; no ticket yet.
