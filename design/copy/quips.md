@@ -1,6 +1,6 @@
 # Quips
 
-Every personality line in Dither Tracker, grouped by where it shows up. Read, mark up, suggest.
+Every personality line in Dither, grouped by where it shows up. Read, mark up, suggest.
 
 **Source of truth:** `core/src/main/kotlin/au/com/josephmark/dithertracker/core/flavour/QuipTables.kt`.
 This file mirrors it. To change a line, edit it in `QuipTables.kt` *and* here, then run

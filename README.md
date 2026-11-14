@@ -1,4 +1,4 @@
-# Dither Tracker
+# Dither
 
 A life tracker for Magic: The Gathering Commander, made for e-ink Android devices. The main target
 is the Supernote Nomad (A6 X2). Everything on screen is pure black and white: no grey, no
@@ -198,10 +198,12 @@ If this doesn't work on your firmware, use adb (2a).
 
 ### Where the app shows up
 
-After install, Dither Tracker appears with its heart icon and "Dither Tracker" label in the Nomad's
-**Settings > Apps > My Apps** list. That list has been checked on a Nomad.
+After install, Dither appears with its heart icon and "Dither" label in the Nomad's
+**Settings > Apps > My Apps** list. That list has been checked on a Nomad (the capture below
+predates the rename and still shows the old "Dither Tracker" label). The package id stays
+`au.com.josephmark.dithertracker`, so an update over an older install keeps its save.
 
-![Dither Tracker in the Nomad's app list](design/captures/t21-nomad-app-list-heart.png)
+![Dither in the Nomad's app list](design/captures/t21-nomad-app-list-heart.png)
 
 Opening it from the home screen or sidebar app launcher is **(unverified)**, as the exact place
 depends on the firmware. The app runs full screen in landscape.
@@ -221,11 +223,11 @@ From the computer:
 adb uninstall au.com.josephmark.dithertracker
 ```
 
-Or on the device: **Settings > Apps > My Apps**, pick Dither Tracker and uninstall it **(the
+Or on the device: **Settings > Apps > My Apps**, pick Dither and uninstall it **(the
 on-device route is unverified)**. Uninstalling deletes the saved game and settings.
 
 ### A note on the e-ink panel
 
-Supernote doesn't promise a good experience with third-party apps on its panel. Dither Tracker is
+Supernote doesn't promise a good experience with third-party apps on its panel. Dither is
 built around this. It only uses black and white and keeps each change's pixel footprint small, and
 a "Screen clean" setting clears ghosting after a number of taps. See [`docs/eink.md`](docs/eink.md).
