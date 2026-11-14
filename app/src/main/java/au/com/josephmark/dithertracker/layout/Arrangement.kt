@@ -65,6 +65,7 @@ object Arrangements {
         // id                  top bottom  left   right  diamond                              picker label
         Arrangement("2-across", 1, 1, false, false, Arrangement.DiamondAt.CENTRE, "Across"),
         Arrangement("2-ends", 0, 0, true, true, Arrangement.DiamondAt.CENTRE, "Ends"),
+        Arrangement("2-side", 0, 2, false, false, Arrangement.DiamondAt.JUNCTION, "Side by side"),
         Arrangement("3-tee", 1, 1, false, true, Arrangement.DiamondAt.JUNCTION, "Tee"),
         Arrangement("3-pyramid", 1, 2, false, false, Arrangement.DiamondAt.JUNCTION, "Pyramid"),
         Arrangement("4-grid", 2, 2, false, false, Arrangement.DiamondAt.JUNCTION, "Grid"),
