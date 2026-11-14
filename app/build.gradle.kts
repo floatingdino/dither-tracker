@@ -562,7 +562,9 @@ abstract class GenerateFxTask : DefaultTask() {
     }
 
     private companion object {
-        val ROLES = listOf("damage", "heal", "big-hit", "ko", "win")
+        // T55: the round-three triggers (counters, toggles, day/night, table moments) join the life roles.
+        val ROLES = listOf("damage", "heal", "big-hit", "ko", "win", "commander", "poison", "energy", "experience", "rad", "storm",
+            "monarch", "initiative", "ring", "night", "day", "turn", "first-player", "revive")
         val REFS = listOf("centre", "tl", "tr", "bl", "br", "top", "bottom", "left", "right", "tile")
         val MODES = listOf("ink", "paper", "fill")
         // design/fx/options/ is the design archive (test-only FxOptions): its metas carry no `role`

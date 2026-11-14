@@ -10,6 +10,30 @@ enum class FxRole(val id: String) {
     KO("ko"),
     /** Last player standing (round two's `winner`). */
     WIN("win"),
+    // T55: round three's triggers beyond life changes (FxPolicy maps each to its trigger).
+    /** Commander damage taken (on the target). */
+    COMMANDER("commander"),
+    POISON("poison"),
+    ENERGY("energy"),
+    EXPERIENCE("experience"),
+    RAD("rad"),
+    STORM("storm"),
+    /** Monarch claimed. */
+    MONARCH("monarch"),
+    /** Initiative taken. */
+    INITIATIVE("initiative"),
+    /** Ring-bearer on: the ring tempts you. */
+    RING("ring"),
+    /** It becomes night (every seat at once). */
+    NIGHT("night"),
+    /** It becomes day (every seat at once). */
+    DAY("day"),
+    /** The turn passes to this seat. */
+    TURN("turn"),
+    /** This seat was picked to start. */
+    FIRST_PLAYER("first-player"),
+    /** A knocked-out seat is revived. */
+    REVIVE("revive"),
 }
 
 /**

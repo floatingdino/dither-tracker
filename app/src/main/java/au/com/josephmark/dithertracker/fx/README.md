@@ -130,7 +130,7 @@ expected set in `FxPromotionTest`. Candidates stay in `design/fx/options/` until
   as `D4`, `HLINES` or `CHECKER`, and the mode is `ink|paper|fill`. An unknown tile name, a bad
   mode, a repeated digit, or a frame digit with no `tile` line fails the build. A declared digit
   that no frame uses only warns.
-- Optional keys: `role damage|heal|big-hit|ko|win`, and `ink_px`/`knockout_px`/`cut_px`/`tile_px`/
+- Optional keys: `role damage|heal|big-hit|ko|win|commander|poison|energy|experience|rad|storm|monarch|initiative|ring|night|day|turn|first-player|revive` (`FxRole`; T55 added the round-three ones), and `ink_px`/`knockout_px`/`cut_px`/`tile_px`/
   `flips` with N values each. The pixel counts are only checked loosely: a stale count prints a
   warning.
 - `role` is required for shipped effects (the built-in fallback table is gone since T28c). In
