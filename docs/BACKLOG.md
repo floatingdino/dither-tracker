@@ -90,7 +90,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T48 | review | T22 | `fizzle` effect breaks rule 3: its D4/D8/D12 dissolve is baked into the frame art at the frame's own phase, one px off the global pattern. Re-author so the dissolve samples the global pattern; then delete the `KNOWN_OFF_PHASE` entry in `PuritySuiteTest`. | `design/fx`, `fx/` |
 | T49 | done | T22 | Re-script T34's 19 base states in `tools/capture_scenarios.sh`: captures 12–19 no longer reach commander mode (taps land on the gem menu). Names must match what is shown. | `tools/` |
 | T50 | done | T20 T41 T22 | Cleanup: swap `ko/Halo.kt` to the shared contour-halo mechanism; retire the unused `CROSSHATCH` pattern; `purity/ScreenRig` pointer ids wrap below 32; regenerate `design/captures/t34/` + README from the re-scripted scenarios; cut layout-before-first-frame cost in `KoComponent.onLayout` (46 ms debug) and `SettingsOverlay` (35 ms). Pixels unchanged. | `ko/`, `settings/`, `dither/`, tests |
-| T51 | wip | T47 T14 T09 | Sam 2026-11-14: app name "Dither" (launcher label, README; applicationId unchanged so the Nomad install and save survive); win/death tiles lose the life total; a new winner icon (not the monarch crown); gem menu press/hover inverts the menu ground only, not a larger square; menu stays open until dismissed; ring icon back to option A. | `ko/`, `menu/`, `design/icons/`, manifest |
+| T51 | review | T47 T14 T09 | Sam 2026-11-14: app name "Dither" (launcher label, README; applicationId unchanged so the Nomad install and save survive); win/death tiles lose the life total; a new winner icon (not the monarch crown); gem menu press/hover inverts the menu ground only, not a larger square; menu stays open until dismissed; ring icon back to option A. | `ko/`, `menu/`, `design/icons/`, manifest |
 | T52 | wip | T16 T30 | Sam: dice and coin need a presentation moment (instant result is anticlimactic) — keyframes, not inbetweens. Partners are undiscoverable: add a partner button on the commander-damage screen. | `tools/`, `commander/` |
 | T53 | wip | T11 T12 | Sam: settings page renamed "Counters and trackers", trackers (monarch, initiative, blessing, ring, day/night) toggleable like counters. Layout exploration à la Lotus (reference in untracked `local/reference/`): a chevron after the Players row opens the layouts for that player count. | `settings/`, `layout/`, `drawer/` |
 | T55 | wip | T28f T20 | Promote Sam's round-three effect approvals into the runtime: chomp, slash, stomp, chime, heart-burst, brand, imp-raspberry, imp-poke, every counter effect (ooze, charge, level-up, rad-glow, storm-copy), dusk, dawn, ring-tempt, your-turn, spotlight, start-flag, revive; crit repurposed as a damage effect; crown-drop with the crown lined up between frames 1 and 2; torch with its firelight circle completed (may pass behind the − glyph). Dropped: coin and die effects (can't tell which player acted). Not approved: bonk, nibble, refill, bunting, crown-cut. Needs effect types/triggers for counters, toggles, turn and first player; hit-size bands; all-seat playback. | `fx/`, `design/fx/` |
@@ -700,3 +700,13 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   Coordinator slip: `fe66228` swept T57's uncommitted `MainActivity` lines in; `7d94d09` took them
   out again (index-only). Rule reminder: `git add -p` on files others have open.
   Running: T51, T52, T53, T55, T57, T58.
+- 2026-11-14 — Tick 70: T51 reported (`02ccbbb` name, `524fc1a` no life on KO/winner, `e3b7442`
+  winner trophy, `6a45754` press inverts the shape only, `f9f23c9` menu stays open, `0f25cd1` ring A,
+  `a914686` scenarios, `d9599d0` captures), verified in a clean worktree at `d9599d0`: 174 core +
+  2046 app (incl. others' commits), 8 captures pure. The "larger square" was the closed centre
+  diamond inverting its bounding box. The gem's idle auto-close is gone. Gem open already invalidates
+  only its bounds (~20 % of the screen) — the 100 % in performance.md came from other frames in the
+  bench window. In `review`. **Needs Sam:** winner icon pick (trophy wired; medal and "#1" finger in
+  `t51-winner-icons.png`); should the gem hide while the dice panel is up (its tips show above and
+  below the tent); the start-flag effect now plays partly under the open gem.
+  Running: T52, T53, T55, T57, T58.
