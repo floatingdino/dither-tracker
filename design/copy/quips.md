@@ -46,11 +46,10 @@ strings at the bottom are used instead.
 - Got got
 - Trusted a handshake deal
 - Poked the wrong bear
-- Deck was 'about a 7'
 - Spectator mode unlocked
-- Thoroughly cooked
 - Lost the table vote
 - Oops. Anyway
+- Brought the wrong bracket
 
 #### Verbatim game quotes *(sources below)*
 - Thou art dead.
@@ -68,7 +67,7 @@ strings at the bottom are used instead.
 - I feel asleep!!
 - You fight like a dairy farmer.
 - Rise from your grave!
-- Barf!
+- Fatality
 
 ### Knocked out: poison (10 counters)
 - Poisoned. Gross
@@ -79,20 +78,19 @@ strings at the bottom are used instead.
 
 #### Verbatim game quotes *(sources below)*
 - The poison was deadly...
-- It's not very effective...
 - Buy medicine before you go.
 - Your life force is running out
-- Time passes...
+- Hurt by poison!
 
 ### Knocked out: commander damage (21 from one commander)
 - One creature. Lots of hats
 - Bonk. Twenty-one
 - Should have chump blocked
-- Ugh, that commander again
 - Was saving the removal
 - Bullied by one commander
 - Killed it. It came back
 - Ignored it for too long
+- Try blackjack next
 
 #### Verbatim game quotes *(sources below)*
 - All your base are belong to us.
@@ -101,13 +99,11 @@ strings at the bottom are used instead.
 - One-hit KO!
 - Excellent move!
 - Toasty!
-- You spoony bard!
 - Son of a submariner!
 - I hunger!
 - It's you !!
 - Can't escape!
 - What you say !!
-- The truck have started to move!
 
 ### Knocked out: marked out by hand (conceded)
 - Scooped with dignity
@@ -137,6 +133,7 @@ strings at the bottom are used instead.
 - Turn one is yours
 - Set the pace
 - Lead the charge
+- It's dangerous to go alone
 
 ### d20: natural 1
 - Yikes
@@ -173,6 +170,7 @@ strings at the bottom are used instead.
 - Tails, as foretold
 - The coin is unmoved
 - Tails, sadly
+- Tails never fails
 
 ### Reset / new game: prompt
 - Start over? Everyone back to full life
@@ -220,6 +218,7 @@ Any pair can follow any prompt, so the confirm label must read as "reset" on its
 - Boy, you're rich!
 - Go home and be a family man!
 - How are you gentlemen !!
+- Flawless victory
 
 ### Commander damage: the targeted player *(drawn large on their tile, at most 16 characters; heckling a little)*
 - Uh oh
@@ -316,25 +315,20 @@ drop rather than "fix" one. The wider bench (with spares for dice, reset and his
 | I feel asleep!! | I FEEL ASLEEP!! | Metal Gear (1988, NES) | Wikipedia: Metal Gear (video game) (case per NES all-caps text) | KO: life |
 | You fight like a dairy farmer. | You fight like a dairy farmer. | The Secret of Monkey Island (1990, PC) | AGS wiki: Insult Swordfighting; Wikiquote | KO: life |
 | Rise from your grave! | (spoken) | Altered Beast (1988 arcade / 1989 MD) | VGMRips sound-test track list; Wikipedia | KO: life |
-| Barf! | BARF! | River City Ransom (1990, NES) | Legends of Localization: River City Ransom's BARF! | KO: life |
 | The poison was deadly... | The poison was deadly... | NetHack (1987, PC) | NetHack source, attrib.c | KO: poison |
-| It's not very effective... | It's not very effective... | Pokemon Red / Blue (Game Boy) | pokered, text_2.asm | KO: poison |
 | Buy medicine before you go. | BUY MEDICINE BEFORE YOU GO. | The Legend of Zelda (1987, NES) | Legends of Localization: Zelda text comparison | KO: poison |
 | Your life force is running out | (spoken) | Gauntlet (1985, arcade) | Wikipedia: Gauntlet (1985 video game) | KO: poison |
-| Time passes... | Time passes... | Zork I (1980, PC) | Zork I source, gverbs.zil | KO: poison |
 | All your base are belong to us. | ALL YOUR BASE ARE BELONG TO US. | Zero Wing (1991, Mega Drive) | Wikiquote: Zero Wing | KO: commander damage |
 | It's super effective! | It's super effective! | Pokemon Red / Blue (Game Boy) | pokered, text_2.asm | KO: commander damage |
 | Welcome to your doom! | (spoken) | Altered Beast (1988 arcade / 1989 MD) | VGMRips track list | KO: commander damage |
 | One-hit KO! | One-hit KO! | Pokemon Red / Blue (Game Boy) | pokered, text_2.asm | KO: commander damage |
 | Excellent move! | Excellent move! | Dragon Warrior (1989, NES) | DW disassembly (critical hit) | KO: commander damage |
 | Toasty! | (spoken) | Mortal Kombat II (1993, arcade) | Mortal Kombat Wiki; PC Gamer | KO: commander damage |
-| You spoony bard! | You spoony bard! | Final Fantasy II US (IV) (1991, SNES) | Legends of Localization: You Spoony Bard | KO: commander damage |
 | Son of a submariner! | Son of a submariner! | Final Fantasy III US (VI) (1994, SNES) | Wikipedia: Ted Woolsey | KO: commander damage |
 | I hunger! | (spoken) | Sinistar (1982, arcade) | Wikipedia: Sinistar | KO: commander damage |
 | It's you !! | It's you !! | Zero Wing (1991, Mega Drive) | Wikiquote: Zero Wing | KO: commander damage |
 | Can't escape! | Can't escape! | Pokemon Red / Blue (Game Boy) | pokered, text_2.asm | KO: commander damage |
 | What you say !! | WHAT YOU SAY !! | Zero Wing (1991, Mega Drive) | Wikiquote: Zero Wing | KO: commander damage |
-| The truck have started to move! | THE TRUCK HAVE STARTED TO MOVE! | Metal Gear (1988, NES) | Wikipedia: Metal Gear (own sentence after "Uh-oh!") | KO: commander damage |
 | Chickening out... already? | Chickening out... already? | Wolfenstein 3D (1992, DOS) | Wolf3D source (id Software), WL_MENU.C | KO: conceded |
 | You run THAT fast? | You run THAT fast? | The Secret of Monkey Island (1990, PC) | AGS wiki: Insult Swordfighting | KO: conceded |
 | Got away safely! | Got away safely! | Pokemon Red / Blue (Game Boy) | pokered, text_2.asm | KO: conceded |
@@ -359,3 +353,6 @@ drop rather than "fix" one. The wider bench (with spares for dice, reset and his
 | Boy, you're rich! | BOY, YOU'RE RICH! | The Legend of Zelda (1987, NES) | Legends of Localization: Zelda text comparison | Winner |
 | Go home and be a family man! | Go home and be a family man! | Street Fighter II (1991, arcade) | Legends of Localization (?p=944) (original casing unconfirmed) | Winner |
 | How are you gentlemen !! | HOW ARE YOU GENTLEMEN !! | Zero Wing (1991, Mega Drive) | Wikiquote: Zero Wing | Winner |
+| Fatality | FATALITY | Mortal Kombat (1992, arcade) | Added by Sam 2026-11-14; announcer line and on-screen text, not re-checked against a source | KO: life |
+| Hurt by poison! | <NAME>'s hurt by poison! | Pokemon Red / Blue (Game Boy) | Added by Sam 2026-11-14 as the tail of the battle message; exact wording not re-checked against pokered | KO: poison |
+| Flawless victory | FLAWLESS VICTORY | Mortal Kombat (1992, arcade) | Added by Sam 2026-11-14; announcer line and on-screen text, not re-checked against a source | Winner |

@@ -237,7 +237,8 @@ class FirstPlayerTest {
             assertFalse(r.first.caption == last)
             last = r.first.caption
         }
-        for (q in Flavour.quippy.lines(QuipKind.STARTING_PLAYER)) assertTrue(q, q.length <= 20)
+        for (q in Flavour.quippy.lines(QuipKind.STARTING_PLAYER)) assertTrue(q, q.length <= 26)
+        assertTrue(Flavour.quippy.lines(QuipKind.STARTING_PLAYER).any { it.uppercase() == FirstPlayer.FALLBACK })
     }
 
     /** Take-over geometry and the flag at every count, every arrangement and S = 2..6, both orientations. */
@@ -268,9 +269,13 @@ class FirstPlayerTest {
                     assertTrue("$tag seat $seat flag", band.inside(t.frameInner[seat]))
                     for (q in Flavour.quippy.lines(QuipKind.STARTING_PLAYER)) {
                         f.arrange(seat, q.uppercase())
-                        if (s <= 4) assertFalse("$tag '$q' truncated", f.truncated)
+                        // Lines up to 20 characters fit everywhere; a longer one may not fit a narrow tile,
+                        // where the component falls back to FirstPlayer.FALLBACK (checked below).
+                        if (s <= 4 && q.length <= 20) assertFalse("$tag '$q' truncated", f.truncated)
                         for (i in 0 until f.lines) assertTrue("$tag '$q'", f.line[i].inside(band))
                     }
+                    f.arrange(seat, FirstPlayer.FALLBACK)
+                    if (s <= 4) assertFalse("$tag fallback truncated", f.truncated)
                     val k = f.shortFootprint(seat, FirstPlayer.TIE.length, fp)
                     if (k > 0) assertTrue(fp.inside(band))
                 }

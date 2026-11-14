@@ -27,11 +27,10 @@ internal object QuipTables {
         "Got got",
         "Trusted a handshake deal",
         "Poked the wrong bear",
-        "Deck was 'about a 7'",
         "Spectator mode unlocked",
-        "Thoroughly cooked",
         "Lost the table vote",
         "Oops. Anyway",
+        "Brought the wrong bracket",
         // verbatim
         "Thou art dead.",
         "You die...",
@@ -48,7 +47,7 @@ internal object QuipTables {
         "I feel asleep!!",
         "You fight like a dairy farmer.",
         "Rise from your grave!",
-        "Barf!",
+        "Fatality",
     )
 
     val koPoison = listOf(
@@ -59,21 +58,20 @@ internal object QuipTables {
         "Died of ten papercuts",
         // verbatim
         "The poison was deadly...",
-        "It's not very effective...",
         "Buy medicine before you go.",
         "Your life force is running out",
-        "Time passes...",
+        "Hurt by poison!",
     )
 
     val koCommanderDamage = listOf(
         "One creature. Lots of hats",
         "Bonk. Twenty-one",
         "Should have chump blocked",
-        "Ugh, that commander again",
         "Was saving the removal",
         "Bullied by one commander",
         "Killed it. It came back",
         "Ignored it for too long",
+        "Try blackjack next",
         // verbatim
         "All your base are belong to us.",
         "It's super effective!",
@@ -81,13 +79,11 @@ internal object QuipTables {
         "One-hit KO!",
         "Excellent move!",
         "Toasty!",
-        "You spoony bard!",
         "Son of a submariner!",
         "I hunger!",
         "It's you !!",
         "Can't escape!",
         "What you say !!",
-        "The truck have started to move!",
     )
 
     val koManual = listOf(
@@ -121,6 +117,7 @@ internal object QuipTables {
         "Turn one is yours",
         "Set the pace",
         "Lead the charge",
+        "It's dangerous to go alone",
     )
 
     val d20Natural1 = listOf(
@@ -163,6 +160,7 @@ internal object QuipTables {
         "Tails, as foretold",
         "The coin is unmoved",
         "Tails, sadly",
+        "Tails never fails",
     )
 
     // --- Reset / new game ----------------------------------------------------------------------
@@ -219,6 +217,7 @@ internal object QuipTables {
         "Boy, you're rich!",
         "Go home and be a family man!",
         "How are you gentlemen !!",
+        "Flawless victory",
     )
 
     /**
@@ -243,25 +242,20 @@ internal object QuipTables {
         "I feel asleep!!",
         "You fight like a dairy farmer.",
         "Rise from your grave!",
-        "Barf!",
         "The poison was deadly...",
-        "It's not very effective...",
         "Buy medicine before you go.",
         "Your life force is running out",
-        "Time passes...",
         "All your base are belong to us.",
         "It's super effective!",
         "Welcome to your doom!",
         "One-hit KO!",
         "Excellent move!",
         "Toasty!",
-        "You spoony bard!",
         "Son of a submariner!",
         "I hunger!",
         "It's you !!",
         "Can't escape!",
         "What you say !!",
-        "The truck have started to move!",
         "Chickening out... already?",
         "You run THAT fast?",
         "Got away safely!",
@@ -286,6 +280,9 @@ internal object QuipTables {
         "Boy, you're rich!",
         "Go home and be a family man!",
         "How are you gentlemen !!",
+        "Fatality",
+        "Hurt by poison!",
+        "Flawless victory",
     )
 
     // --- Commander damage: the targeted player ------------------------------------------------

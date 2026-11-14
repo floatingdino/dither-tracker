@@ -123,8 +123,20 @@ class FirstPlayer(
     private fun changed(done: Boolean) {
         val l = layout ?: return
         invalidateSeats(l, roll.seats)
-        if (roll.phase == FirstRoll.LANDED && roll.winner >= 0) l.arrange(roll.winner, caption)
+        if (roll.phase == FirstRoll.LANDED && roll.winner >= 0) fit(l, roll.winner)
         if (done) land(l)
+    }
+
+    /**
+     * Lays the caption out on [s]'s flag; a line too long for that seat's band (the longest quips on a
+     * narrow tile) gives way to the short [FALLBACK] rather than being cut off.
+     */
+    private fun fit(l: FirstPlayerLayout, s: Int) {
+        l.arrange(s, caption)
+        if (l.truncated && caption != FALLBACK) {
+            caption = FALLBACK
+            l.arrange(s, caption)
+        }
     }
 
     /** The roll-off is over: the table comes back, turn tracking starts from the winner, the sting plays. */
@@ -139,7 +151,7 @@ class FirstPlayer(
         stage.dispatch(Origin.EXTERNAL, Action.SetStartingPlayer(id))
         stage.send(Events.FIRST_PLAYER, s) // T55: `start-flag` on their tile — the winner's sting
         seat = s
-        l.arrange(s, caption)
+        fit(l, s)
         invalidate(l.bandRect(s, band))
         if (!paused) timers.schedule(TIMER_CLEAR, showMillis)
     }
@@ -164,7 +176,7 @@ class FirstPlayer(
         screen.set(0, 0, play.grid.width, play.grid.height)
         if (roll.active) roll.finish()
         if (seat >= play.playerCount) seat = -1
-        if (seat >= 0) l.arrange(seat, caption)
+        if (seat >= 0) fit(l, seat)
     }
 
     override fun prewarm(f: Frame) {
@@ -327,6 +339,9 @@ class FirstPlayer(
         const val TIMERS = 2
 
         const val ZONE_SKIP = 0
+
+        /** Shown when the picked quip cannot fit the winner's flag (see [fit]); it fits every tier. */
+        const val FALLBACK = "ON THE PLAY"
 
         /** How long the FIRST flag stays on the winner's tile after the tiles come back. */
         const val SHOW_MS = 4_000L
