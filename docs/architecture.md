@@ -191,8 +191,8 @@ Two halves; run both before calling a screen change done.
 `purity/RasterRenderer` (one byte per dither px, API 29+ semantics). `purity/ScreenRig` runs the real
 `PlayScreen` component list on a fake clock; `PuritySuiteTest` scripts play (readouts, presses, 3–4
 digit totals), drawers (zero and non-zero cells, page 2, presses), peeks, commander mode (partner
-quarters, presses), KO and winner, the gem (every facet held, NEW confirm, CLEAN), settings (pages,
-rotations), history, dice/coin, first player and every effect keyframe, at S = 2..6 on 1872×1404 and
+quarters, presses; T52: the PARTNER tabs and their HOLD hint), KO and winner, the gem (every facet held, NEW confirm, CLEAN), settings (pages,
+rotations), history, dice/coin (T52: every keyframe of every roll outcome's presentation), first player (and its "ME?" beat) and every effect keyframe, at S = 2..6 on 1872×1404 and
 1404×1872, each shot in both colour modes. Per shot it fails on: a draw outside the dither grid
 (would land in the margin; enforced on `comfortable` layouts — the others are never offered),
 an unbalanced `clipTo`, any 8×8 area that is a dither tile off the global phase (rule 3), a dark-mode

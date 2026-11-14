@@ -170,6 +170,10 @@ effect invalidates its own seat only, at most one panel = 25 %.)
 - `perf/BackgroundTest` — after `Events.PAUSE`: readout committed, no effect playing, no timer armed,
   no redraw over a minute; also mid-effect and mid-KO; and with the turn timer on (T17), nothing armed
   or drawn over three paused hours, one re-synced redraw on resume, nothing armed with the timer off.
+- `perf/BackgroundTest` (T52): pausing mid-roll shows the result and arms nothing (not even the panel's
+  idle timeout) for an hour, resume re-arms only the idle timeout; pausing during the first-player beat
+  lands the pick with nothing armed. `perf/AllocationBudgetTest`: 0 bytes to draw every keyframe of a
+  roll presentation and its result.
 - `perf/AllocationBudgetTest` also pins the turn tab (T17): 0 bytes to draw it (minutes, pressed, on a
   KO tile) and 0 bytes per minute tick.
 - `perf/PrewarmPhaseTest` — the first prewarm phase covers a fresh table, KO tiles and a winner at
@@ -261,6 +265,16 @@ effect invalidates its own seat only, at most one panel = 25 %.)
   persisted start stamps, never a counter). A life tap does not re-arm it. With the timer off nothing
   is ever scheduled. Known slack: while the active seat's drawer is open the tab is hidden but the
   tick stays armed, so the panel is asked once a minute to redraw ~140 unchanged pixels there.
+- **Roll presentation** (T52, `tools/Presentation`, `design/tools/README.md`): a die or coin roll is
+  four held keyframes on the dice panel (250, 250, 250, 300 ms; the naturals' landing 400 ms) then the
+  result — five panel redraws (163×111 dither px at S = 4, mostly unchanged pixels: a 24-px solid moving
+  across each face, then the stamp's plate) instead of two. ONE frame timer, re-armed per keyframe,
+  armed only while a presentation plays; a tap skips to the result; `Events.PAUSE` shows the result and
+  drops it and the panel's 30 s idle timeout (re-armed on `RESUME`). The sprites are built at layout
+  (scaled, both face rotations) and prewarmed after the first frame with the other overlays; drawing a
+  keyframe allocates nothing. The first-player pick holds one "ME?" keyframe (450 ms, dotted bands on the
+  live seats), then lands: two redraws of the bands, one timer, landed on pause (its badge's 5 s clear
+  timer waits for resume).
 - **Keep awake** holds `FLAG_KEEP_SCREEN_ON` on the play window only while resumed and the setting is
   on; no wake locks otherwise (`dumpsys power`: none while idle).
 
