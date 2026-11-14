@@ -22,6 +22,7 @@ import au.com.josephmark.dithertracker.core.Toggle
 import au.com.josephmark.dithertracker.core.serial.AppSettings
 import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.data.SettingsHolder
+import au.com.josephmark.dithertracker.layout.Arrangements
 import au.com.josephmark.dithertracker.eink.EinkConfig
 import au.com.josephmark.dithertracker.eink.ScreenCleaner
 import au.com.josephmark.dithertracker.eink.SupernoteFullRefresh
@@ -79,6 +80,8 @@ class MainActivity : Activity() {
         //                       clock backdated --ei turnAgo M minutes; --ei turnPass N then passes N times,
         //                       the last pass --ei turnPassAgo M minutes ago (default 0)
         //   --es turns off|on|game|turn  (debuggable builds only) the Turns setting (T17)
+        //   --es layout ID      (debuggable builds only) choose arrangement ID (e.g. 3-pyramid) for its
+        //                       player count (T53; with --ei players N for that count it is the table's)
         //   --ei pressDelay MS  (debuggable builds only) how long a touch must be down before its zone shows
         //                       the press inversion (T57; default PlayInput.PRESS_DELAY_MS, 0 = on touch-down)
         val inverted = if (intent?.hasExtra("inverted") == true) {
@@ -165,10 +168,18 @@ class MainActivity : Activity() {
         EinkConfig.vendorFull = if (vendor) ScreenCleaner.FullRefresh { SupernoteFullRefresh.tryFullRefresh(ctx) } else null
     }
 
-    /** Debug-only capture hook (T11): `--ei players N` starts a new game at N seats and selects N in settings. */
+    /**
+     * Debug-only capture hooks (T11, T53): `--es layout ID` chooses arrangement ID for its count (as the
+     * layout picker does); `--ei players N` starts a new game at N seats and selects N in settings.
+     */
     private fun applyDebugPlayers() {
         if (!BuildConfig.DEBUG) return
         val i = intent ?: return
+        val layout = i.getStringExtra("layout")?.let { Arrangements.byId(it) }
+        if (layout != null) {
+            val s = SettingsHolder.shared.current
+            SettingsHolder.shared.update(s.copy(layout = Arrangements.choose(s.layout, layout.players, layout.id)))
+        }
         if (!i.hasExtra("players")) return
         val n = i.getIntExtra("players", 4)
         if (n !in AppSettings.PLAYER_COUNT_RANGE) return
