@@ -39,6 +39,7 @@ class FxComponentTest {
     // ---- helpers ---------------------------------------------------------------------------------
 
     private val window = 3_000L // the core coalesce window = the readout's idle commit
+    private val quiet = FxComponent.QUIET_MS // T55: effects start this long after the last change
 
     private fun rig(): Pair<PlayRig, FxComponent> {
         val rig = PlayRig()
@@ -66,42 +67,73 @@ class FxComponentTest {
 
     // ---- triggers ----------------------------------------------------------------------------------
 
-    @Test fun damageCommitPlaysOneDamageEffectAfterTheIdleCommitNotPerTap() {
+    @Test fun damagePlaysOnceAShortQuietAfterTheLastTapNotPerTapAndNotAtTheCommit() {
         val (rig, fx) = rig()
-        tap(rig.stage, rig.l, 2, PlayLayout.MINUS, times = 3)
+        tap(rig.stage, rig.l, 2, PlayLayout.MINUS)
+        rig.platform.clock.advance(quiet - 100)
+        tap(rig.stage, rig.l, 2, PlayLayout.MINUS) // a burst: the quiet restarts
+        rig.platform.clock.advance(quiet - 100)
+        tap(rig.stage, rig.l, 2, PlayLayout.MINUS)
         assertEquals(37, rig.session.state.players[2].life)
-        assertNull("nothing while the group is open", fx.player.current(2))
-        rig.platform.clock.advance(window - 1)
+        assertNull("nothing while the taps keep coming", fx.player.current(2))
+        rig.platform.clock.advance(quiet - 1)
         assertNull(fx.player.current(2))
         rig.platform.clock.advance(1)
         val f = fx.player.current(2)
-        assertNotNull("plays on commit", f)
+        assertNotNull("plays a short quiet after the last tap", f)
         assertEquals(FxRole.DAMAGE, f!!.role)
         assertEquals(listOf(2), playing(fx))
-        // It runs out to the clean number on its own.
+        val readouts = rig.stage.readouts
+        assertEquals("the readout is still up beside it", -3, readouts.delta(2))
+        // It runs out to the clean number on its own; the commit plays nothing more.
         rig.platform.clock.advance(5_000)
+        assertEquals(0, readouts.delta(2))
         assertEquals(emptyList<Int>(), playing(fx))
+    }
+
+    @Test fun moreTapsInTheSameBandDoNotReplayButEscalatingDoes() {
+        val (rig, fx) = rig()
+        tap(rig.stage, rig.l, 2, PlayLayout.MINUS, times = 2)
+        rig.platform.clock.advance(quiet)
+        assertEquals(FxRole.DAMAGE, fx.player.current(2)!!.role)
+        tap(rig.stage, rig.l, 2, PlayLayout.MINUS) // touch-down cancels it; −3: same band
+        assertNull(fx.player.current(2))
+        rig.platform.clock.advance(quiet)
+        assertNull("same band, same group: no replay", fx.player.current(2))
+        // Escalate: a hold step of −10 takes the group's total to −13 → the big-hit band.
+        holdFor(rig, 2, PlayLayout.MINUS, steps = 1)
+        rig.platform.clock.advance(quiet)
+        assertEquals("escalated into a bigger band", Fx.byName("focus"), fx.player.current(2))
+        fx.player.cancelAll()
+        tap(rig.stage, rig.l, 2, PlayLayout.PLUS) // −12: still big; back down never replays a smaller band
+        rig.platform.clock.advance(quiet)
+        assertNull(fx.player.current(2))
+        // A new group (after the commit) starts afresh.
+        rig.platform.clock.advance(window)
+        tap(rig.stage, rig.l, 2, PlayLayout.MINUS)
+        rig.platform.clock.advance(quiet)
+        assertEquals(FxRole.DAMAGE, fx.player.current(2)!!.role)
     }
 
     @Test fun healAndBigChangesPickByNetSignAndSize() {
         val (rig, fx) = rig()
         tap(rig.stage, rig.l, 3, PlayLayout.PLUS, times = 2)
-        rig.platform.clock.advance(window)
+        rig.platform.clock.advance(quiet)
         assertEquals(FxRole.HEAL, fx.player.current(3)!!.role)
         fx.player.cancelAll()
         // −2 then +2: nets to zero → nothing.
         tap(rig.stage, rig.l, 2, PlayLayout.MINUS, times = 2)
         tap(rig.stage, rig.l, 2, PlayLayout.PLUS, times = 2)
-        rig.platform.clock.advance(window)
+        rig.platform.clock.advance(quiet)
         assertNull(fx.player.current(2))
         // A big hit (one hold step of 10): focus.
         holdFor(rig, 2, PlayLayout.MINUS, steps = 1)
         assertNull("nothing during the hold", fx.player.current(2))
-        rig.platform.clock.advance(window)
+        rig.platform.clock.advance(quiet)
         assertEquals(Fx.byName("focus"), fx.player.current(2))
         fx.player.cancelAll()
-        holdFor(rig, 3, PlayLayout.PLUS, steps = 2)
-        rig.platform.clock.advance(window)
+        holdFor(rig, 3, PlayLayout.PLUS, steps = 1)
+        rig.platform.clock.advance(quiet)
         assertTrue(fx.player.current(3) in listOf(Fx.byName("sunrise"), Fx.byName("vines")))
     }
 
@@ -116,19 +148,23 @@ class FxComponentTest {
         rig.stage.up(p)
     }
 
-    @Test fun aLongHoldNeverTriggersUntilItsGroupCommits() {
+    @Test fun aLongHoldPlaysOnceNotPerRepeatStep() {
         val (rig, fx) = rig()
         val r = rig.l.zones[PlayLayout.zone(2, PlayLayout.PLUS)]
         rig.stage.down(0, r.right - 8, (r.top + r.bottom) / 2, 0)
-        repeat(8) {
-            rig.platform.clock.advance(1_000) // hold steps every second: the readout keeps re-arming
-            assertNull("no effect while repeating (${it + 1} s)", fx.player.current(2))
+        var starts = 0
+        var was: Fx? = null
+        repeat(80) {
+            rig.platform.clock.advance(100) // hold steps every second (+10 each): one band from the first step on
+            val now = fx.player.current(2)
+            if (now != null && was == null) starts++
+            was = now
         }
         rig.stage.up(0)
         assertTrue(rig.session.state.players[2].life > 40)
-        assertNull(fx.player.current(2))
+        assertEquals("one effect for the whole hold", 1, starts)
         rig.platform.clock.advance(window)
-        assertEquals(FxRole.HEAL, fx.player.current(2)!!.role)
+        assertNull(fx.player.current(2))
     }
 
     @Test fun aHoldThatCrossesZeroStopsAtTheKoAndPlaysKoShatterOnceWithTheDeadTileHeld() {
@@ -136,20 +172,21 @@ class FxComponentTest {
         val ko = rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.ko.KoComponent>().single()
         val r = rig.l.zones[PlayLayout.zone(2, PlayLayout.MINUS)]
         rig.stage.down(0, r.left + 8, (r.top + r.bottom) / 2, 0)
-        rig.platform.clock.advance(500 + 3 * 1_000) // 40 → 30 → 20 → 10 → 0: KO
+        rig.platform.clock.advance(500 + quiet) // 40 → 30, quiet: the big hit plays mid-hold, once
+        assertEquals(Fx.byName("focus"), fx.player.current(2))
+        rig.platform.clock.advance(3 * 1_000 - quiet) // → 20 → 10 → 0: KO (no replay for −20, −30)
         assertEquals(0, rig.session.state.players[2].life)
         assertTrue("dead tile held off at the KO (KO_HOLD)", (ko.held ushr 2) and 1 != 0)
+        assertNull(fx.player.current(2))
+        rig.platform.clock.advance(quiet)
+        assertEquals("the KO flourish a short quiet after the KO", Fx.byName("ko-shatter"), fx.player.current(2))
+        assertTrue("still held while it plays", (ko.held ushr 2) and 1 != 0)
         rig.platform.clock.advance(2_000)
         assertEquals("the repeat stopped at the KO", 0, rig.session.state.players[2].life)
         assertNull(fx.player.current(2))
-        rig.stage.up(0)
-        rig.platform.clock.advance(window - 2_000)
-        assertEquals(Fx.byName("ko-shatter"), fx.player.current(2))
-        assertTrue("still held while it plays", (ko.held ushr 2) and 1 != 0)
-        rig.platform.clock.advance(2_000)
-        assertNull(fx.player.current(2))
         assertEquals("released when it ends (KO_RELEASE)", 0, (ko.held ushr 2) and 1)
         assertTrue((ko.shown ushr 2) and 1 != 0)
+        rig.stage.up(0)
         rig.platform.clock.advance(10_000)
         assertNull("once", fx.player.current(2))
     }
@@ -158,7 +195,7 @@ class FxComponentTest {
         val (rig, fx) = rig()
         tap(rig.stage, rig.l, 2, PlayLayout.MINUS)
         tap(rig.stage, rig.l, 3, PlayLayout.MINUS)
-        rig.platform.clock.advance(window)
+        rig.platform.clock.advance(quiet)
         assertEquals(listOf(2, 3), playing(fx))
         rig.platform.invalidated.clear()
         val r = rig.l.zones[PlayLayout.zone(2, PlayLayout.PLUS)]
@@ -171,7 +208,7 @@ class FxComponentTest {
     @Test fun atMostTwoSeatsAnimateAThirdStaysClean() {
         val (rig, fx) = rig()
         for (s in 0 until 4) tap(rig.stage, rig.l, s, PlayLayout.MINUS)
-        rig.platform.clock.advance(window)
+        rig.platform.clock.advance(quiet)
         assertEquals(2, playing(fx).size)
         assertEquals(2, fx.player.active)
     }
@@ -180,7 +217,7 @@ class FxComponentTest {
         val (rig, fx) = rig()
         fun start() {
             tap(rig.stage, rig.l, 2, PlayLayout.MINUS); tap(rig.stage, rig.l, 3, PlayLayout.PLUS)
-            rig.platform.clock.advance(window)
+            rig.platform.clock.advance(quiet)
             assertEquals(2, playing(fx).size)
         }
         start(); rig.session.undo(); assertEquals(emptyList<Int>(), playing(fx))
@@ -194,14 +231,14 @@ class FxComponentTest {
         val (rig, fx) = rig()
         tap(rig.stage, rig.l, 2, PlayLayout.MINUS, times = 4)
         rig.session.undo() // commits every readout as "another kind of action"
-        rig.platform.clock.advance(window)
+        rig.platform.clock.advance(quiet)
         assertEquals(emptyList<Int>(), playing(fx))
     }
 
     @Test fun poisonAndCountersPlayNothing() {
         val (rig, fx) = rig()
         rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), Counter.POISON, 3))
-        rig.platform.clock.advance(window)
+        rig.platform.clock.advance(quiet)
         assertEquals(emptyList<Int>(), playing(fx))
     }
 
@@ -212,7 +249,7 @@ class FxComponentTest {
         assertTrue(rig.cmd.mode.active)
         repeat(4) { rig.cmd.dispatchDamage(3, Action.ChangeCommanderDamage(rig.id(target), rig.id(3), Commander.PRIMARY, 1)) }
         assertEquals(36, rig.session.state.players[target].life)
-        rig.platform.clock.advance(window)
+        rig.platform.clock.advance(quiet)
         // The number is hidden in the mode: kept, not played over the mode's tile; the source's
         // own group (damage dealt, no life change) plays nothing.
         assertEquals(emptyList<Int>(), playing(fx))
@@ -269,7 +306,7 @@ class FxComponentTest {
         setLife(m.session, 2, 2)
         tap(m.stage, m.l, 2, PlayLayout.MINUS, times = 2)
         assertEquals("held at the KO, before the commit", listOf("hold:2"), m.events)
-        m.platform.clock.advance(window)
+        m.platform.clock.advance(quiet)
         assertEquals(Fx.byName("ko-shatter"), m.fx.player.current(2))
         assertEquals(listOf("hold:2"), m.events)
         m.platform.clock.advance(2_000)
@@ -281,7 +318,7 @@ class FxComponentTest {
         val m = Mini()
         setLife(m.session, 2, 1)
         tap(m.stage, m.l, 2, PlayLayout.MINUS)
-        m.platform.clock.advance(window)
+        m.platform.clock.advance(quiet)
         assertNotNull(m.fx.player.current(2))
         val r = m.l.zones[PlayLayout.zone(2, PlayLayout.MINUS)]
         m.stage.down(1, r.left + 8, (r.top + r.bottom) / 2, 0)
@@ -295,7 +332,7 @@ class FxComponentTest {
         setLife(m.session, 2, 1)
         tap(m.stage, m.l, 2, PlayLayout.MINUS) // 0: KO, held
         tap(m.stage, m.l, 2, PlayLayout.PLUS, times = 3) // 3: alive again, net +2
-        m.platform.clock.advance(window)
+        m.platform.clock.advance(quiet)
         assertEquals(FxRole.HEAL, m.fx.player.current(2)!!.role)
     }
 
@@ -304,13 +341,13 @@ class FxComponentTest {
         setLife(m.session, 0, 0); setLife(m.session, 1, 0) // already out
         setLife(m.session, 3, 3)
         tap(m.stage, m.l, 3, PlayLayout.MINUS, times = 3)
-        m.platform.clock.advance(window)
+        m.platform.clock.advance(quiet)
         assertEquals(Fx.byName("ko-shatter"), m.fx.player.current(3))
         assertEquals(Fx.byName("winner"), m.fx.player.current(2))
         m.platform.clock.advance(10_000)
         // Once per game: another commit on the survivor is a plain effect.
         tap(m.stage, m.l, 2, PlayLayout.PLUS)
-        m.platform.clock.advance(window)
+        m.platform.clock.advance(quiet)
         assertEquals(FxRole.HEAL, m.fx.player.current(2)!!.role)
     }
 
@@ -321,7 +358,7 @@ class FxComponentTest {
         tap(m.stage, m.l, 2, PlayLayout.MINUS)
         m.platform.clock.advance(100)
         tap(m.stage, m.l, 3, PlayLayout.MINUS) // KO, commits 100 ms after the other two
-        m.platform.clock.advance(window - 100)
+        m.platform.clock.advance(quiet - 100)
         assertEquals(listOf(1, 2), playing(m.fx)) // the cap is full of plain hits
         m.platform.clock.advance(100)
         assertEquals(Fx.byName("ko-shatter"), m.fx.player.current(3))
@@ -347,7 +384,7 @@ class FxComponentTest {
             m.fx.policy.full[FxPolicy.Trigger.DAMAGE.ordinal] = arrayOf(fx)
             tap(m.stage, m.l, seat, PlayLayout.MINUS)
             m.platform.invalidated.clear()
-            m.platform.clock.advance(window)
+            m.platform.clock.advance(quiet)
             assertEquals(fx, m.fx.player.current(seat))
             val panel = m.l.panels[seat]
             val want = IRect()
@@ -360,7 +397,7 @@ class FxComponentTest {
                 want.set(maxOf(want.left, panel.left), maxOf(want.top, panel.top), minOf(want.right, panel.right), minOf(want.bottom, panel.bottom))
             }
             val dev = g.toDevice(want, IRect())
-            // The commit's flush also carries the readout clearing: it covers the footprint.
+            // The quiet timer's flush: the footprint (the readout stays up until its own commit).
             val first = m.platform.invalidated.single()
             assertTrue("$name start", first.left <= dev.left && first.top <= dev.top && first.right >= dev.right && first.bottom >= dev.bottom)
             // Then exactly the footprint, once per keyframe, the clean step included.
@@ -370,6 +407,7 @@ class FxComponentTest {
                 assertEquals("$name step $i", listOf(dev), m.platform.invalidated)
             }
             assertNull(m.fx.player.current(seat))
+            m.platform.clock.advance(window) // the readout commits (and redraws) before the next round
         }
     }
 

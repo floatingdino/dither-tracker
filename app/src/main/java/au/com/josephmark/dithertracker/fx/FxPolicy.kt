@@ -43,6 +43,34 @@ class FxPolicy(
         else -> Trigger.HEAL
     }
 
+    /**
+     * Whether [trigger] should play for a readout group that already played the triggers in [fired]
+     * (bits `1 shl ordinal`), T55: once per band per group, again only when the running total escalates
+     * into a bigger band of the same direction (a smaller one after a bigger one plays nothing).
+     */
+    fun escalates(trigger: Trigger, fired: Int): Boolean {
+        if (fired and (1 shl trigger.ordinal) != 0) return false
+        val fam = family(trigger)
+        if (fam < 0) return true
+        for (i in TRIGGERS.indices) {
+            val t = TRIGGERS[i]
+            if (fired and (1 shl t.ordinal) == 0) continue
+            if (family(t) == fam && rank(t) >= rank(trigger)) return false
+        }
+        return true
+    }
+
+    private fun family(t: Trigger): Int = when (t) {
+        Trigger.DAMAGE, Trigger.BIG_HIT -> 0
+        Trigger.HEAL, Trigger.BIG_HEAL -> 1
+        else -> -1
+    }
+
+    private fun rank(t: Trigger): Int = when (t) {
+        Trigger.BIG_HIT, Trigger.BIG_HEAL -> 1
+        else -> 0
+    }
+
     /** The effect for [seat]'s committed net life change, or null to play nothing. */
     fun choose(seat: Int, netDelta: Int, ko: Boolean = false, compact: Boolean = false): Fx? =
         trigger(netDelta, ko)?.let { choose(seat, it, compact) }
@@ -78,6 +106,8 @@ class FxPolicy(
     fun effects(): List<Fx> = (full.flatten() + compact.flatten()).distinct()
 
     companion object {
+        private val TRIGGERS: Array<Trigger> = Trigger.values()
+
         private fun fx(name: String): Fx = requireNotNull(Fx.byName(name)) { "no effect '$name' in design/fx/" }
 
         /** Full-seat pools, by [Trigger] ordinal (DAMAGE, HEAL, BIG_HIT, BIG_HEAL, KO, WIN). */

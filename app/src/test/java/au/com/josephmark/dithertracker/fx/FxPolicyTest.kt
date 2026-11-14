@@ -85,6 +85,19 @@ class FxPolicyTest {
         assertEquals(fx("winner"), p.choose(2, Trigger.WIN))
     }
 
+    @Test fun aGroupPlaysEachBandOnceAndAgainOnlyWhenItEscalates() {
+        val p = FxPolicy(Random(1))
+        fun bits(vararg t: Trigger) = t.fold(0) { m, x -> m or (1 shl x.ordinal) }
+        assertTrue(p.escalates(Trigger.DAMAGE, 0))
+        assertTrue(!p.escalates(Trigger.DAMAGE, bits(Trigger.DAMAGE)))
+        assertTrue("small → big plays again", p.escalates(Trigger.BIG_HIT, bits(Trigger.DAMAGE)))
+        assertTrue("big → small never", !p.escalates(Trigger.DAMAGE, bits(Trigger.BIG_HIT)))
+        assertTrue("the other direction is its own band", p.escalates(Trigger.HEAL, bits(Trigger.BIG_HIT)))
+        assertTrue(!p.escalates(Trigger.HEAL, bits(Trigger.BIG_HEAL)))
+        assertTrue("a KO always plays once", p.escalates(Trigger.KO, bits(Trigger.BIG_HIT, Trigger.DAMAGE)))
+        assertTrue(!p.escalates(Trigger.KO, bits(Trigger.KO)))
+    }
+
     @Test fun sameSeedSamePicks() {
         val a = FxPolicy(Random(9)); val b = FxPolicy(Random(9))
         repeat(30) { assertEquals(a.choose(it % 4, -1 - it % 3), b.choose(it % 4, -1 - it % 3)) }

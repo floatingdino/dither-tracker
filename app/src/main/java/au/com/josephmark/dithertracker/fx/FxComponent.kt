@@ -18,14 +18,15 @@ import kotlin.random.Random
  * [Kind.EFFECT], no zones; drawn in the `TILE` layer right after the number, readout and drawer
  * (its slot in `PlayScreen`), clipped to the seat's panel. Wiring notes: `fx/README.md`.
  *
- * - **Trigger**: once per committed pending-delta group ([Events.READOUT_COMMITTED]), never per tap
- *   or hold step (a hold keeps re-arming the readout, so nothing commits while it repeats). The net
- *   life change of the group is mirrored here from the state diffs the readout itself adds (the
- *   seat's own taps; [Origin.ATTRIBUTED] life loss, i.e. commander damage on the target), so a
- *   commander-damage source's group (its dealt damage, no life change) plays nothing, and poison or
- *   counters never do. [FxPolicy] picks the effect.
+ * - **Trigger** (T55): [QUIET_MS] after a seat's last life change (one timer per seat, restarted by
+ *   each change), not at the readout's commit: the effect plays alongside the readout, which keeps its
+ *   own schedule. The band comes from the group's running total at that moment; a group plays each
+ *   band once and plays again only when its total escalates into a bigger band ([FxPolicy.escalates]),
+ *   so taps or a hold that stay in a band never replay. The net is mirrored from the state diffs the
+ *   readout itself adds (the seat's own taps; [Origin.ATTRIBUTED] life loss, i.e. commander damage on
+ *   the target). A group that commits before it went quiet plays at the commit. [FxPolicy] picks.
  * - **KO**: when a seat's life group KOs it, [Events.KO_HOLD] keeps the dead treatment off while the
- *   group is still open; at commit `ko-shatter` (or `fizzle` when compact) plays and
+ *   group is still open; once it is quiet `ko-shatter` (or `fizzle` when compact) plays and
  *   [Events.KO_RELEASE] follows when it ends, is cancelled or can't play. **Last player standing**:
  *   `winner` on the survivor, alongside the KO flourish (or at once for a KO with no flourish).
  * - **Cancel**: a touch-down on the seat ([Events.TOUCH_DOWN]) stops its effect (one clean redraw);
@@ -44,7 +45,7 @@ import kotlin.random.Random
  * [FxDebug] and [startGallery].
  */
 class FxComponent(random: Random = Random(System.nanoTime())) :
-    Component(Layer.TILE, Kind.EFFECT, timerCount = P + 1), FxPlayer.Listener {
+    Component(Layer.TILE, Kind.EFFECT, timerCount = TIMERS), FxPlayer.Listener {
 
     val policy = FxPolicy(random, P)
 
@@ -64,6 +65,12 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
 
     /** Per seat: net life change of the open readout group (mirrors the readout's). */
     private val net = IntArray(P)
+
+    /** Per seat: the triggers already played for the open readout group (bit `1 shl Trigger.ordinal`). */
+    private val fired = IntArray(P)
+
+    /** How long a seat's life must be quiet before its effect starts (T55: not the readout's commit). */
+    var quietMs: Long = QUIET_MS
 
     /** Per seat: commits kept while the seat's number is hidden (commander mode), summed. */
     private val deferred = IntArray(P)
@@ -162,18 +169,40 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
         }
     }
 
-    private fun onCommit(seat: Int) {
+    /** A life change on [seat]: (re)start its quiet timer; the effect starts when it fires. */
+    private fun armQuiet(seat: Int) = timers.schedule(QUIET_TIMER + seat, quietMs)
+
+    /**
+     * [seat]'s life has been quiet for [quietMs] (T55): play for the open group's running total now,
+     * alongside the readout (which stays up on its own schedule). Once per trigger per group: taps that
+     * keep the total in the same band play nothing more; escalating into a bigger band plays again.
+     */
+    private fun onQuiet(seat: Int) {
+        val state = stage.session.state
+        if (state !== seen || seat >= state.players.size) return
         val n = net[seat]
+        if (n == 0) return
+        if (!visible(seat)) return // a full overlay: the commit drops it
+        if (!stage.isVisible(content, seat)) return // the number is hidden: kept for the commit / the mode closing
+        fire(seat, n, state)
+    }
+
+    private fun onCommit(seat: Int) {
+        timers.cancel(QUIET_TIMER + seat)
+        val n = net[seat]
+        val played = fired[seat] != 0
         net[seat] = 0
+        fired[seat] = 0
         val state = stage.session.state
         val bit = 1 shl seat
         // Committed by a state change being dispatched right now (undo, a menu action…): no effect;
         // onStateChanged (EXTERNAL) is about to stop everything.
         if (state !== seen) return
-        if (n == 0 || seat >= state.players.size) {
+        if (n == 0 || seat >= state.players.size || played) {
             if (koHeld and bit != 0) release(seat)
             return
         }
+        // Nothing played yet for this group (committed before it went quiet, or hidden meanwhile).
         if (!visible(seat)) { // effects hidden on this seat (a full overlay): drop
             if (koHeld and bit != 0) release(seat)
             return
@@ -186,15 +215,19 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
             return
         }
         fire(seat, n, state)
+        fired[seat] = 0
     }
 
-    /** Plays the effect for [seat]'s committed net change [n]. */
+    /** Plays the effect for [seat]'s net change [n] (running or committed), once per trigger per group. */
     private fun fire(seat: Int, n: Int, state: GameState) {
         val bit = 1 shl seat
         val ko = koHeld and bit != 0
         if (!ko && state.isKo(state.players[seat])) return // already dead before this group
+        val trigger = policy.trigger(n, ko) ?: return
+        if (!policy.escalates(trigger, fired[seat])) return // this band already played for the group
+        fired[seat] = fired[seat] or (1 shl trigger.ordinal)
         val compact = t?.compact(seat) == true
-        val fx = policy.choose(seat, n, ko, compact)
+        val fx = policy.choose(seat, trigger, compact)
         val started = fx != null && start(seat, fx, priority = ko)
         if (ko) {
             koHeld = koHeld and bit.inv()
@@ -264,7 +297,10 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
         for (s in 0 until n) {
             if (np[s] === op[s]) continue
             val d = np[s].life - op[s].life
-            if (d != 0 && (s == origin || origin == Origin.ATTRIBUTED)) net[s] += d
+            if (d != 0 && (s == origin || origin == Origin.ATTRIBUTED)) {
+                net[s] += d
+                armQuiet(s)
+            }
             val wasKo = old.isKo(op[s])
             val isKo = new.isKo(np[s])
             val bit = 1 shl s
@@ -294,19 +330,26 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
             if (d != 0 && s < state.players.size) {
                 deferred[s] = 0
                 fire(s, d, state)
+                if (net[s] == 0) fired[s] = 0
             }
         }
         if (winPending >= 0) maybeWinner(state)
     }
 
     override fun onTimer(id: Int) {
-        if (id < P) player.onTimer(id) else galleryStep()
+        when {
+            id < P -> player.onTimer(id)
+            id >= QUIET_TIMER -> onQuiet(id - QUIET_TIMER)
+            else -> galleryStep()
+        }
     }
 
     /** Stops every effect and forgets open groups, holds and deferrals. */
     private fun stopAll() {
         player.cancelAll()
+        for (s in 0 until P) timers.cancel(QUIET_TIMER + s)
         net.fill(0)
+        fired.fill(0)
         deferred.fill(0)
         for (s in 0 until P) if ((koHeld or koPlaying) and (1 shl s) != 0) stage.send(Events.KO_RELEASE, s)
         koHeld = 0
@@ -378,6 +421,16 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
     companion object {
         private const val P = PlayLayout.MAX_PLAYERS
         private const val GALLERY_TIMER = P
+        /** Per-seat quiet timers ([onQuiet]): `QUIET_TIMER + seat`. */
+        private const val QUIET_TIMER = P + 1
+        private const val TIMERS = QUIET_TIMER + P
+
+        /**
+         * Quiet after a seat's last life change before its effect starts (T55, Sam: "waiting until the
+         * delta disappears is too slow"). Deliberate taps come 150–250 ms apart, so a burst stays one
+         * group; a hold repeats every second (its first step at 500 ms) and plays once per band.
+         */
+        const val QUIET_MS = 300L
         const val GALLERY_START_MS = 1_500L
         const val GALLERY_GAP_MS = 2_000L
     }

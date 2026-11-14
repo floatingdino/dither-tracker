@@ -10,6 +10,7 @@ import au.com.josephmark.dithertracker.turns.TurnTab
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import au.com.josephmark.dithertracker.fx.FxComponent
 import org.junit.Test
 
 /**
@@ -49,11 +50,25 @@ class BackgroundTest {
     @Test fun pauseDuringAnEffectStopsIt() {
         val rig = ScreenRig(1872, 1404, 4)
         rig.tap(rig.life, 2, PlayLayout.MINUS)
-        rig.advance(3_100) // committed: the hit effect is playing
+        rig.advance(FxComponent.QUIET_MS) // quiet (T55): the hit effect is playing beside the readout
         assertTrue(rig.fx.player.isPlaying(2))
         rig.stage.send(Events.PAUSE, Stage.SCREEN)
         assertFalse(rig.fx.player.isPlaying(2))
         assertEquals("timers armed after pause", "", armed(rig))
+    }
+
+    @Test fun pauseBeforeTheQuietTimerFiresLeavesNothingArmed() {
+        val rig = ScreenRig(1872, 1404, 4)
+        rig.tap(rig.life, 2, PlayLayout.MINUS)
+        rig.advance(FxComponent.QUIET_MS - 1) // the effect's quiet timer (T55) is still armed
+        assertFalse(rig.fx.player.isPlaying(2))
+        rig.stage.send(Events.PAUSE, Stage.SCREEN)
+        assertFalse(rig.fx.player.isPlaying(2))
+        assertEquals("timers armed after pause", "", armed(rig))
+        val before = rig.platform.count
+        rig.advance(60_000)
+        assertEquals("nothing plays or redraws in the background", before, rig.platform.count)
+        assertFalse(rig.fx.player.isPlaying(2))
     }
 
     @Test fun pauseInTheMiddleOfAKoHandsTheTileOver() {

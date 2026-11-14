@@ -40,18 +40,28 @@ pattern phase stays global. Each turned view is one more scaled ALPHA_8 mask per
 drawer (so it draws after the number, readout and drawer, before the layer's press inversion) and
 before the KO tile. Timers: one per seat for `FxPlayer` (ids = seats) plus one for the gallery.
 
-- **Trigger**: `Events.READOUT_COMMITTED`, sent by `ReadoutComponent` when a seat's group commits
-  (after its core undo group closes). `PendingDeltas` zeroes the delta before its sink fires, so the
-  component keeps its own net per seat, mirrored from the same state diffs the readout adds: the
-  seat's own life changes (`origin == seat`) and `Origin.ATTRIBUTED` life changes (commander damage
-  on the target). A commander-damage source's group changes no life, so it plays nothing; poison and
-  counters never do. A hold repeats every second and the readout re-arms each time, so nothing
-  commits (or plays) while it repeats; a hold that reaches a KO stops there (the KO tile cancels the
-  seat's touches) and the group then commits normally.
+- **Trigger** (T55 timing, Sam: "waiting until the delta disappears is too slow"): a seat's effect
+  starts **`FxComponent.QUIET_MS` = 300 ms after its last life change**, not at the readout's commit.
+  One timer per seat in the component's own bank (`QUIET_TIMER + seat`), restarted by every change,
+  cancelled by external changes, layout, detach and `Events.PAUSE`; no allocation. The readout stays
+  up on its own schedule (3 s idle) and the effect plays alongside it. The component keeps its own
+  net per seat (the readout zeroes its delta before its sink fires), mirrored from the same state
+  diffs the readout adds: the seat's own life changes (`origin == seat`) and `Origin.ATTRIBUTED`
+  life changes (commander damage on the target). The band is the running total when the timer fires.
+  **Once per band per readout group**: taps that keep the total in a band play nothing more (a tap
+  still cancels the running effect at touch-down); escalating into a bigger band of the same
+  direction plays again; a smaller band after a bigger one never does (`FxPolicy.escalates`). A
+  hold (±10 a second, first step at 500 ms) therefore plays once, at its first quiet gap, unless it
+  escalates; a hold that reaches a KO stops there (the KO tile cancels the seat's touches) and the
+  KO flourish plays 300 ms later. `Events.READOUT_COMMITTED` closes the group (and plays it if it
+  committed before going quiet, e.g. on pause, or kept it while hidden). 300 ms: deliberate repeated
+  taps come 150–250 ms apart, so a burst stays one group; on the panel a beat is ~250 ms, so the
+  first keyframe lands about when the tap's own update settles. Tuned on the emulator (not e-ink):
+  confirm on the Nomad.
 - **External changes**: a commit that happens while another state change is being dispatched (the
   readout commits everything on undo, redo, new game, a menu action) is ignored, and the
-  `Origin.EXTERNAL` change then stops every effect. So do a layout change, a player-count change and
-  detach.
+  `Origin.EXTERNAL` change then stops every effect and quiet timer. So do a layout change, a
+  player-count change and detach.
 - **Cancel**: `Events.TOUCH_DOWN` on a seat stops its effect at once (one clean redraw of the stored
   footprint). A cover that hides the effect or the seat's number stops it there.
 - **Commander mode** hides the number but not effects: a commit there is kept (summed) and played
@@ -59,7 +69,7 @@ before the KO tile. Timers: one per seat for `FxPlayer` (ids = seats) plus one f
 - **KO hand-shake** with the KO tile (`ko/KoComponent`): when a seat's open life group takes it out
   (alive → KO with a negative net, number visible), the component sends `Events.KO_HOLD` from
   `onStateChanged` (the effects slot is before the KO slot, so no dead frame shows) and re-sends it
-  on every further change in that group (re-arming the KO tile's 4 s safety net). At commit it plays
+  on every further change in that group (re-arming the KO tile's 4 s safety net). Once quiet it plays
   `ko-shatter` (`fizzle` on a compact seat) with priority, and sends `Events.KO_RELEASE` when that
   ends, is cancelled (touch) or cannot play. A KO with no open life group (poison, a commander-mode
   KO, already dead) gets no flourish and no hold. Nobody listening = harmless.

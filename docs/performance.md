@@ -220,8 +220,10 @@ effect invalidates its own seat only, at most one panel = 25 %.)
 ## E-ink
 
 - **Frames per action.** A tap is two frames (press inversion, then the release with the new number
-  and readout); a hold step is one; the readout's commit is one, then its effect's keyframes (2–4,
-  each ≥ 250 ms) and a clean end frame. Nothing else draws: idle is 0 frames.
+  and readout); a hold step is one; the effect's keyframes (2–4, each ≥ 250 ms) and a clean end
+  frame start 300 ms after the seat's last life change (T55: `FxComponent.QUIET_MS`, one per-seat
+  one-shot timer, cancelled on pause, no allocation), once per band per readout group; the readout's
+  commit (3 s idle) is one more frame. Nothing else draws: idle is 0 frames.
 - **Area asked per frame** (invalidated rect, % of the screen): life tap 16–20 % (the seat's number
   and readout), hold step 6–12 %, drawer cell under 1 %, drawer open/close ~13–25 % (the seat), an
   effect keyframe its footprint up to one panel (25 %), mode and overlay changes up to the whole
