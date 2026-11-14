@@ -943,3 +943,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-14 — Tick 102: Sam: the game-end time report should use a mini egg timer, not the
   stopwatch. Swapped by the coordinator to `hourglass-2`; 183 core + 9000 app; captures re-taken; on
   the Nomad. The `timer` icon is now unused.
+- 2026-11-14 — Tick 103: Sam: prep a release PR and a draft GitHub release. Branch `release/0.1.0`
+  (CHANGELOG.md, README overview, workflow attaches the APK to an already-drafted release) → PR #1
+  into `build` (the only branch on the remote; mergeable, no checks configured). Draft release
+  "Dither 0.1.0" (tag `v0.1.0`, target `build`) created with install notes + the changelog. The four
+  signing secrets are set. To release: merge the PR, publish the draft; the tag starts the workflow.
+  Not yet exercised: signing with the real key, and the attach-to-draft path.
