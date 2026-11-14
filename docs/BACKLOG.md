@@ -768,3 +768,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-14 — Tick 76: Sam: effects must not trigger while a hold is in progress on that tile →
   T55 agent resumed (quiet timer starts from release; one effect for the whole held readout).
   Running: T59, T55 (fix).
+- 2026-11-14 — Tick 77: T55 hold fix `9f4aaab` (fx/ only): a seat's quiet timer does not fire while
+  any pointer is down on that seat's zones; it re-checks every 100 ms while held, then runs the full
+  300 ms from release — one effect for the whole held readout (−30 = crit band). Dusk/dawn skip a
+  held tile; turn-pass and first-player effects on a held tile are dropped. Verified by coordinator
+  on the Nomad's base (`18f3f19` + the fix): 176 core + 2074 app; that build installed on the Nomad
+  (T59's in-flight commits left out). Running: T59.
