@@ -95,9 +95,10 @@ class AllocationBudgetTest {
         rig.openFromMenu(MenuItem.DICE)
         // T52: every keyframe of the presentation, then the result.
         val o = rig.dice.state.outcome
-        for (beat in 0 until Presentation.TUMBLE.beats(o)) {
+        val pres = rig.dice.state.presentation!!
+        for (beat in 0 until pres.beats(o)) {
             assertDrawFree(rig, "dice keyframe $beat")
-            rig.advance(Presentation.TUMBLE.holdMs(o, beat))
+            rig.advance(pres.holdMs(o, beat))
         }
         assertDrawFree(rig, "dice result")
         rig.tap(rig.dice, Stage.SCREEN, DiceLayout.COIN)

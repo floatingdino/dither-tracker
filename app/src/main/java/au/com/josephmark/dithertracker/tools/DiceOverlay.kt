@@ -27,7 +27,8 @@ import kotlin.random.Random
  * current tool again, and **×** closes.
  *
  * - Every roll plays its **presentation** (T52, [Presentation.TUMBLE]): the die or coin tumbles
- *   across each face in three held keyframes, then the result lands (a stamp, with a little
+ *   across each face in three held keyframes (five shorter ones on a fast display, T59:
+ *   [Presentation.TUMBLE_FAST], chosen by `eink.DisplaySpeed` at the roll), then the result lands (a stamp, with a little
  *   character for natural 20 / natural 1 / heads / tails), then the plain result with its label and
  *   quip — one redraw of the panel per keyframe, ~1.05–1.15 s in all. A tap anywhere during it (but
  *   ×) jumps to the result; AGAIN replays it with a fresh roll. One frame timer, armed only while a
@@ -52,15 +53,19 @@ class DiceOverlay(
 
     private var art: DiceArt? = null
     private var sprites: SpriteSet? = null
-    private var placed: PresentationLayout? = null
+    private var placedSlow: PresentationLayout? = null
+    private var placedFast: PresentationLayout? = null
 
-    /** The roll presentation (null: results at once). Tests swap in variant B for the design sheet. */
-    var presentation: Presentation?
-        get() = state.presentation
-        set(v) {
-            state.presentation = v
-            layout?.let { place(it) }
-        }
+    /**
+     * Sets the slow- and fast-display presentations (null: results at once). Both must share one
+     * sprite table. Tests swap in variant B for the design sheet.
+     */
+    fun setPresentations(slow: Presentation?, fast: Presentation?) {
+        require(slow == null || fast == null || slow.sprites === fast.sprites) { "one sprite table" }
+        state.slow = slow
+        state.fast = fast
+        layout?.let { place(it) }
+    }
 
     /** Where results go besides the screen (the future game log). */
     var results: ToolResults
@@ -93,11 +98,14 @@ class DiceOverlay(
 
     /** Builds the presentation's sprites at the chrome scale and places them on [l] (off the draw path). */
     private fun place(l: DiceLayout) {
-        val p = state.presentation
-        if (p == null) { sprites = null; placed = null; return }
-        val ss = sprites?.takeIf { it.presentation === p && it.k == l.k } ?: SpriteSet(p, l.k)
+        val slow = state.slow
+        val fast = state.fast
+        val table = (slow ?: fast)?.sprites
+        if (table == null) { sprites = null; placedSlow = null; placedFast = null; return }
+        val ss = sprites?.takeIf { it.table === table && it.k == l.k } ?: SpriteSet(table, l.k)
         sprites = ss
-        placed = PresentationLayout(l, p, ss.widths, ss.heights, l.k)
+        placedSlow = slow?.let { PresentationLayout(l, it, ss.widths, ss.heights, l.k) }
+        placedFast = fast?.let { PresentationLayout(l, it, ss.widths, ss.heights, l.k) }
     }
 
     override fun prewarm(f: Frame) {
@@ -137,7 +145,7 @@ class DiceOverlay(
         if (!state.isOpen) return
         val l = layout ?: return
         val a = art ?: return
-        painter.draw(f, l, a, state, label(), sprites, placed)
+        painter.draw(f, l, a, state, label(), sprites, placedSlow, placedFast)
         if (stage.isPressed(this, Stage.SCREEN, AGAIN)) {
             gem.compensate(f.r, l.foldRect, l.cx, l.cy) { dy -> l.foldRowHalf(dy) }
         }

@@ -53,9 +53,9 @@ internal class Sprite(rows: Array<String>, val k: Int) {
     }
 }
 
-/** Every sprite of a [Presentation] at scale [k]. */
-internal class SpriteSet(val presentation: Presentation, val k: Int) {
-    val sprites: Array<Sprite> = Array(presentation.sprites.size) { Sprite(presentation.sprites[it], k) }
+/** Every sprite of a presentation sprite [table] (shared by a slow and a fast [Presentation]) at scale [k]. */
+internal class SpriteSet(val table: Array<Array<String>>, val k: Int) {
+    val sprites: Array<Sprite> = Array(table.size) { Sprite(table[it], k) }
     val widths = IntArray(sprites.size) { sprites[it].width }
     val heights = IntArray(sprites.size) { sprites[it].height }
 }

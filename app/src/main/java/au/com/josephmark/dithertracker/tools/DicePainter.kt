@@ -30,7 +30,7 @@ internal class DicePainter {
      */
     fun draw(
         f: Frame, l: DiceLayout, art: DiceArt, state: DiceState, labelText: CharSequence,
-        sprites: SpriteSet?, placed: PresentationLayout?,
+        sprites: SpriteSet?, placedSlow: PresentationLayout?, placedFast: PresentationLayout?,
     ) {
         if (!f.hit(l.panelOuter)) return
         val r = f.r
@@ -44,8 +44,9 @@ internal class DicePainter {
         r.fill(Role.DOTTED, l.fold.left, l.cy, l.fold.width, 1)
 
         val p = state.presentation
+        val placed = if (placedFast?.p === p) placedFast else placedSlow
         val rolling = state.rolling && p != null && sprites != null && placed != null &&
-            sprites.presentation === p && placed.p === p
+            sprites.table === p.sprites && placed.p === p
         for (face in 0 until 2) {
             if (!f.hit(l.faces[face])) continue
             val rot = l.rotation(face)

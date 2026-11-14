@@ -33,6 +33,11 @@ object DisplaySpeed {
         fun inEffect(): Boolean
     }
 
+    /** Where a component asks for the speed (tests inject a fixed one); the default is [current]. */
+    fun interface Source {
+        fun current(): Int
+    }
+
     /** Set by `MainActivity` on a Supernote; the default answers "no fast waveform". */
     @JvmField var fastMode: FastMode = FastMode { false }
 

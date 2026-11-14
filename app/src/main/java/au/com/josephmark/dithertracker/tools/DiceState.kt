@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.tools
 
 import au.com.josephmark.dithertracker.core.TableTools
+import au.com.josephmark.dithertracker.eink.DisplaySpeed
 import au.com.josephmark.dithertracker.core.flavour.Flavour
 import au.com.josephmark.dithertracker.core.flavour.QuipKind
 import au.com.josephmark.dithertracker.core.flavour.RecentPicks
@@ -18,7 +19,7 @@ import kotlin.random.Random
  * ```
  *
  * Every roll picks its result and caption **immediately** (the log hook hears it at once); the
- * [presentation] only delays *drawing* it: the roll's [Outcome] script holds each keyframe
+ * [presentation] — [fast] or [slow] by the display speed at the roll (T59) — only delays *drawing* it: the roll's [Outcome] script holds each keyframe
  * ([beat], one timer, re-armed per keyframe, scaled by [ToolsDebug.holdScale]) and then shows the
  * result ([SHOWN]). [skip] jumps to the result; a roll during a presentation starts a fresh one (the
  * old one is dropped; sequences never queue). [pause] shows the result and leaves no timer armed
@@ -35,8 +36,12 @@ class DiceState(
     private val flavour: Flavour = Flavour.quippy,
     /** Results go here too (the future game log, T18). */
     var results: ToolResults = ToolResults.NONE,
-    /** The roll presentation; null shows each result at once. */
-    var presentation: Presentation? = Presentation.TUMBLE,
+    /** The roll presentation on a slow display; null shows each result at once. */
+    var slow: Presentation? = Presentation.TUMBLE,
+    /** The same on a fast display (T59: more poses, the same total time). */
+    var fast: Presentation? = Presentation.TUMBLE_FAST,
+    /** The display speed now (`eink.DisplaySpeed`), asked at each roll. */
+    private val speed: DisplaySpeed.Source = DisplaySpeed.Source { DisplaySpeed.current() },
     val idleMillis: Long = IDLE_MS,
 ) {
     fun interface Listener {
@@ -70,6 +75,10 @@ class DiceState(
         private set
 
     var recent: RecentPicks = RecentPicks.EMPTY
+        private set
+
+    /** The presentation of the current roll ([slow] or [fast], chosen at the roll); null: none. */
+    var presentation: Presentation? = null
         private set
 
     /** The current roll's [Outcome] (its presentation script). */
@@ -108,7 +117,8 @@ class DiceState(
         results.onRoll(t, value)
         outcome = Outcome.of(t, value)
         beat = 0
-        val p = presentation
+        val p = if (speed.current() == DisplaySpeed.FAST) fast else slow
+        presentation = p
         if (p != null && !paused) {
             timers.schedule(TIMER_FRAME, ToolsDebug.hold(p.holdMs(outcome, 0)))
             phase = ROLLING
@@ -193,7 +203,7 @@ class DiceState(
          */
         const val IDLE_MS = 30_000L
 
-        /** Longest shipped presentation (unscaled): advance a test clock this far to see any result. */
-        val PRESENT_MAX_MS: Long get() = Presentation.TUMBLE.maxMs
+        /** Longest shipped presentation, either speed (unscaled): advance a test clock this far to see any result. */
+        val PRESENT_MAX_MS: Long get() = maxOf(Presentation.TUMBLE.maxMs, Presentation.TUMBLE_FAST.maxMs)
     }
 }

@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.tools
 
 import au.com.josephmark.dithertracker.core.flavour.Flavour
+import au.com.josephmark.dithertracker.eink.DisplaySpeed
 import au.com.josephmark.dithertracker.core.flavour.QuipKind
 import au.com.josephmark.dithertracker.play.FakeScheduler
 import org.junit.Assert.assertEquals
@@ -12,11 +13,11 @@ import kotlin.random.Random
 
 class DiceStateTest {
 
-    private class Rig(seed: Long = 1, beat: Boolean = true) {
+    private class Rig(seed: Long = 1, beat: Boolean = true, speed: Int = DisplaySpeed.SLOW) {
         val timers = FakeScheduler(DiceState.TIMERS)
         val changes = mutableListOf<Pair<Int, Int>>()
         val rolled = mutableListOf<Pair<Tool, Int>>()
-        val state = DiceState(timers, Random(seed), { o, n -> changes += o to n }, presentation = if (beat) Presentation.TUMBLE else null).also {
+        val state = DiceState(timers, Random(seed), { o, n -> changes += o to n }, slow = if (beat) Presentation.TUMBLE else null, fast = if (beat) Presentation.TUMBLE_FAST else null, speed = { speed }).also {
             it.results = object : ToolResults {
                 override fun onRoll(tool: Tool, value: Int) { rolled += tool to value }
             }
@@ -27,7 +28,7 @@ class DiceStateTest {
 
     /** Plays the current roll's presentation through, beat by beat, checking each hold. */
     private fun playThrough(r: Rig) {
-        val p = Presentation.TUMBLE
+        val p = r.state.presentation!!
         val o = r.state.outcome
         for (i in 0 until p.beats(o)) {
             assertEquals(DiceState.ROLLING, r.state.phase)
@@ -50,7 +51,7 @@ class DiceStateTest {
         assertTrue(r.state.caption.isNotEmpty())
         assertEquals(1, r.rolled.size) // the result is fixed (and reported) at the tap, not at the reveal
         assertEquals(Outcome.of(Tool.D20, r.state.value), r.state.outcome)
-        val n = Presentation.TUMBLE.beats(r.state.outcome)
+        val n = r.state.presentation!!.beats(r.state.outcome)
         playThrough(r)
         // One change per keyframe: open, n − 1 beat steps, the result.
         assertEquals(DiceState.CLOSED to DiceState.ROLLING, r.changes.first())
@@ -60,13 +61,21 @@ class DiceStateTest {
     }
 
     @Test fun everyOutcomeHasItsOwnLandingAndStaysInBudget() {
-        val p = Presentation.TUMBLE
+        val slow = Presentation.TUMBLE
+        val fast = Presentation.TUMBLE_FAST
+        assertTrue("one sprite table", slow.sprites === fast.sprites)
         for (o in 0 until Outcome.COUNT) {
-            val total = p.totalMs(o)
-            assertTrue("outcome $o: $total ms", total in 800L..1500L)
-            for (i in 0 until p.beats(o)) assertTrue(p.holdMs(o, i) >= Presentation.MIN_HOLD_MS)
-            assertTrue("2–4 tumbling keyframes then a landing", p.beats(o) in 3..5)
+            for ((p, min, beats) in listOf(Triple(slow, Presentation.MIN_HOLD_MS, 3..5), Triple(fast, Presentation.MIN_HOLD_FAST_MS, 5..7))) {
+                val total = p.totalMs(o)
+                assertTrue("outcome $o: $total ms", total in 800L..1500L)
+                for (i in 0 until p.beats(o)) assertTrue(p.holdMs(o, i) >= min)
+                assertTrue("tumbling keyframes then a landing: ${p.beats(o)}", p.beats(o) in beats)
+            }
+            // T59: the fast display gets more poses, never a longer roll.
+            assertTrue(fast.beats(o) >= slow.beats(o) + 2)
+            assertTrue(fast.totalMs(o) <= slow.totalMs(o))
         }
+        val p = slow
         assertEquals(Outcome.NAT_20, Outcome.of(Tool.D20, 20))
         assertEquals(Outcome.NAT_1, Outcome.of(Tool.D20, 1))
         assertEquals(Outcome.D20, Outcome.of(Tool.D20, 7))
@@ -80,6 +89,21 @@ class DiceStateTest {
         assertTrue(land(Outcome.HEADS) !== land(Outcome.TAILS))
         // Nothing before the landing shows the result.
         for (o in 0 until Outcome.COUNT) for (i in 0 until p.beats(o) - 1) assertEquals(Beat.NONE, p.scripts[o].beats[i].result)
+    }
+
+    @Test fun theDisplaySpeedAtTheRollPicksThePresentation() {
+        var speed = DisplaySpeed.FAST
+        val timers = FakeScheduler(DiceState.TIMERS)
+        val st = DiceState(timers, Random(1), { _, _ -> }, speed = { speed })
+        timers.target = au.com.josephmark.dithertracker.play.Scheduler.Target { st.onTimer(it) }
+        st.open()
+        assertTrue(st.presentation === Presentation.TUMBLE_FAST)
+        speed = DisplaySpeed.SLOW
+        timers.advance(200)
+        assertTrue("a roll keeps its presentation", st.presentation === Presentation.TUMBLE_FAST)
+        timers.advance(DiceState.PRESENT_MAX_MS)
+        st.again()
+        assertTrue(st.presentation === Presentation.TUMBLE)
     }
 
     @Test fun skipJumpsToTheResultAndAgainReplays() {
@@ -122,7 +146,7 @@ class DiceStateTest {
         ToolsDebug.holdScale = 4f
         try {
             r.state.open()
-            assertEquals(4 * Presentation.TUMBLE.holdMs(r.state.outcome, 0), r.timers.dueAt(DiceState.TIMER_FRAME))
+            assertEquals(4 * r.state.presentation!!.holdMs(r.state.outcome, 0), r.timers.dueAt(DiceState.TIMER_FRAME))
         } finally {
             ToolsDebug.holdScale = 1f
         }
@@ -162,7 +186,7 @@ class DiceStateTest {
         r.state.roll(Tool.D6)
         assertEquals(DiceState.ROLLING, r.state.phase)
         assertEquals(0, r.state.beat)
-        assertEquals(260 + Presentation.TUMBLE.holdMs(r.state.outcome, 0), r.timers.dueAt(DiceState.TIMER_FRAME))
+        assertEquals(260 + r.state.presentation!!.holdMs(r.state.outcome, 0), r.timers.dueAt(DiceState.TIMER_FRAME))
         playThrough(r)
         assertEquals(Tool.D6, r.state.tool)
         // Exactly one reveal: the first presentation was replaced, not queued.

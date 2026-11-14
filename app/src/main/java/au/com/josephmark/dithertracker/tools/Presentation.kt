@@ -19,13 +19,15 @@ class Presentation internal constructor(
     internal val sprites: Array<Array<String>>,
     /** Indexed by [Outcome]. */
     internal val scripts: Array<Script>,
+    /** The shortest hold allowed: [MIN_HOLD_MS] for a slow display, [MIN_HOLD_FAST_MS] for a fast one. */
+    val minHoldMs: Long = MIN_HOLD_MS,
 ) {
     init {
         require(scripts.size == Outcome.COUNT) { "${scripts.size} scripts" }
         for (s in scripts) {
             require(s.beats.isNotEmpty())
             for (b in s.beats) {
-                require(b.holdMs >= MIN_HOLD_MS) { "${s.name}: hold ${b.holdMs} < $MIN_HOLD_MS" }
+                require(b.holdMs >= minHoldMs) { "${s.name}: hold ${b.holdMs} < $minHoldMs" }
                 for (p in b.places) require(p.sprite in sprites.indices) { "${s.name}: sprite ${p.sprite}" }
             }
         }
@@ -42,73 +44,113 @@ class Presentation internal constructor(
     val maxMs: Long = (0 until Outcome.COUNT).maxOf { totalMs(it) }
 
     companion object {
-        /** SPEC rule 4: each keyframe held long enough for the panel to settle. */
+        /** SPEC rule 4 on a slow display: each keyframe held long enough for the panel to settle. */
         const val MIN_HOLD_MS = 250L
 
-        /** Variant A, "tumble across the face" (the shipped one). */
-        val TUMBLE: Presentation by lazy { tumble() }
+        /** SPEC rule 4 on a fast display (T59): more poses, each still a held pose. */
+        const val MIN_HOLD_FAST_MS = 120L
+
+        /** Variant A, "tumble across the face" (the shipped one), for a slow display: 3 tumbling poses. */
+        val TUMBLE: Presentation get() = Built.slow
+
+        /** The same for a fast display (T59): 5 tumbling poses at 150 ms, the same total time. */
+        val TUMBLE_FAST: Presentation get() = Built.fast
+
+        /** [TUMBLE_FAST] or [TUMBLE] for `eink.DisplaySpeed` [speed]. */
+        fun tumble(speed: Int): Presentation = if (speed == au.com.josephmark.dithertracker.eink.DisplaySpeed.FAST) TUMBLE_FAST else TUMBLE
 
         private const val TOSS = 250L
         private const val BOUNCE = 250L
         private const val SKID = 250L
         private const val LAND = 300L
         private const val LAND_BIG = 400L
+        private const val POSE_FAST = 150L
 
-        private fun tumble(): Presentation {
-            val s = DiceSprites
-            val table = arrayOf(
-                s.D20_A, s.D20_B, s.D20_C, s.D6_A, s.D6_B, s.D6_C, s.COIN_A, s.COIN_B, s.COIN_C,
-                s.TRAIL, s.DUST, s.IMPACT, s.TWINKLE, s.TWINKLE_S, s.SWEAT, s.PUFF, s.ARC_UP, s.ARC_DOWN, s.THUD,
-            )
-            val d20 = 0; val d6 = 3; val coin = 6
-            val trail = 9; val dust = 10; val impact = 11; val twinkle = 12; val twinkleS = 13
-            val sweat = 14; val puff = 15; val arcUp = 16; val arcDown = 17; val thud = 18
-            val t = Region.TRACK
-            val b = Region.BOX
+        /** Both share one sprite table (one [SpriteSet], one set of masks). */
+        private object Built {
+            val table: Array<Array<String>>
+            val slow: Presentation
+            val fast: Presentation
 
-            // The die enters at the far end of the face, bounces once mid-face, skids in beside the
-            // result box and lands there (it travels towards the face's start, so the speed ticks trail
-            // to its right).
-            fun tumbleBeats(first: Int) = arrayOf(
-                Beat(TOSS, Beat.NONE, Place(first, t, 1000, 0, 1000, 0, dx = -10), Place(trail, t, 1000, 0, 1000, 0, dy = 8)),
-                Beat(BOUNCE, Beat.NONE, Place(first + 1, t, 560, 1000, 500, 1000), Place(dust, t, 560, 1000, 500, 1000, dy = 1)),
-                Beat(SKID, Beat.NONE, Place(first + 2, t, 250, 300, 500, 300), Place(trail, t, 250, 300, 0, 300, dx = 15)),
-            )
-            fun land(hold: Long, result: Int, vararg extra: Place) = Beat(hold, result, *extra)
-            val impactRight = Place(impact, b, 1000, 500, 0, 500, dx = 3)
+            init {
+                val s = DiceSprites
+                table = arrayOf(
+                    s.D20_A, s.D20_B, s.D20_C, s.D6_A, s.D6_B, s.D6_C, s.COIN_A, s.COIN_B, s.COIN_C,
+                    s.TRAIL, s.DUST, s.IMPACT, s.TWINKLE, s.TWINKLE_S, s.SWEAT, s.PUFF, s.ARC_UP, s.ARC_DOWN, s.THUD,
+                    s.D20_AB, s.D20_BC, s.D6_AB, s.D6_BC, s.COIN_AB, s.COIN_BC,
+                )
+                slow = build(fast = false)
+                fast = build(fast = true)
+            }
 
-            val d20Land = land(LAND, Beat.PLATE, impactRight)
-            val nat20 = land(
-                LAND_BIG, Beat.PLATE, impactRight,
-                Place(twinkle, t, 470, 150, 500, 0), Place(twinkleS, t, 660, 1000, 500, 1000),
-                Place(twinkle, t, 850, 400, 500, 500), Place(twinkleS, t, 1000, 0, 1000, 0),
-            )
-            // The anticlimax: no stamp, it just flops there with a sweat drop and a sad little puff.
-            val nat1 = land(
-                LAND_BIG, Beat.PLAIN,
-                Place(sweat, b, 1000, 0, 0, 0, dx = 2, dy = 1), Place(puff, b, 1000, 1000, 0, 1000, dx = 2),
-            )
-            val coinBeats = arrayOf(
-                Beat(TOSS, Beat.NONE, Place(coin, t, 1000, 500, 1000, 500, dx = -2),
-                    Place(arcUp, t, 1000, 0, 1000, 0, dx = -6), Place(arcDown, t, 1000, 1000, 1000, 1000, dx = -6)),
-                Beat(BOUNCE, Beat.NONE, Place(coin + 1, t, 600, 0, 500, 0, dy = 3),
-                    Place(arcDown, t, 600, 0, 500, 0, dy = 10)),
-                Beat(SKID, Beat.NONE, Place(coin + 2, t, 260, 1000, 500, 1000),
-                    Place(trail, t, 260, 1000, 0, 1000, dx = 12, dy = -3)),
-            )
-            val heads = land(LAND, Beat.PLAIN, impactRight, Place(twinkle, b, 500, 0, 0, 0, dx = 8, dy = -1))
-            // Tails lands with a thunk: a dust puff at its foot and the two flat thud lines.
-            val tails = land(LAND, Beat.PLAIN, Place(puff, b, 500, 1000, 0, 1000, dx = 14), Place(thud, b, 500, 0, 0, 0, dx = 16, dy = 3))
+            private fun build(fast: Boolean): Presentation {
+                val d20 = 0; val d6 = 3; val coin = 6
+                val trail = 9; val dust = 10; val impact = 11; val twinkle = 12; val twinkleS = 13
+                val sweat = 14; val puff = 15; val arcUp = 16; val arcDown = 17; val thud = 18
+                // In-between poses (fast only): A, AB, B, BC, C.
+                val d20Mid = 19; val d6Mid = 21; val coinMid = 23
+                val t = Region.TRACK
+                val b = Region.BOX
 
-            val scripts = arrayOfNulls<Script>(Outcome.COUNT)
-            scripts[Outcome.D20] = Script("d20", *tumbleBeats(d20), d20Land)
-            scripts[Outcome.NAT_20] = Script("nat 20", *tumbleBeats(d20), nat20)
-            scripts[Outcome.NAT_1] = Script("nat 1", *tumbleBeats(d20), nat1)
-            scripts[Outcome.D6] = Script("d6", *tumbleBeats(d6), d20Land)
-            scripts[Outcome.HEADS] = Script("heads", *coinBeats, heads)
-            scripts[Outcome.TAILS] = Script("tails", *coinBeats, tails)
-            @Suppress("UNCHECKED_CAST")
-            return Presentation(table, scripts as Array<Script>)
+                // The die enters at the far end of the face, bounces once mid-face, skids in beside the
+                // result box and lands there (it travels towards the face's start, so the speed ticks
+                // trail to its right). Fast: the same path in five poses.
+                fun tumbleBeats(first: Int, mid: Int): Array<Beat> = if (!fast) arrayOf(
+                    Beat(TOSS, Beat.NONE, Place(first, t, 1000, 0, 1000, 0, dx = -10), Place(trail, t, 1000, 0, 1000, 0, dy = 8)),
+                    Beat(BOUNCE, Beat.NONE, Place(first + 1, t, 560, 1000, 500, 1000), Place(dust, t, 560, 1000, 500, 1000, dy = 1)),
+                    Beat(SKID, Beat.NONE, Place(first + 2, t, 250, 300, 500, 300), Place(trail, t, 250, 300, 0, 300, dx = 15)),
+                ) else arrayOf(
+                    Beat(POSE_FAST, Beat.NONE, Place(first, t, 1000, 0, 1000, 0, dx = -10), Place(trail, t, 1000, 0, 1000, 0, dy = 8)),
+                    Beat(POSE_FAST, Beat.NONE, Place(mid, t, 780, 500, 500, 500), Place(trail, t, 780, 500, 0, 500, dx = 15)),
+                    Beat(POSE_FAST, Beat.NONE, Place(first + 1, t, 560, 1000, 500, 1000), Place(dust, t, 560, 1000, 500, 1000, dy = 1)),
+                    Beat(POSE_FAST, Beat.NONE, Place(mid + 1, t, 400, 550, 500, 550), Place(trail, t, 400, 550, 0, 550, dx = 15)),
+                    Beat(POSE_FAST, Beat.NONE, Place(first + 2, t, 250, 300, 500, 300), Place(trail, t, 250, 300, 0, 300, dx = 15)),
+                )
+                fun land(hold: Long, result: Int, vararg extra: Place) = Beat(hold, result, *extra)
+                val impactRight = Place(impact, b, 1000, 500, 0, 500, dx = 3)
+
+                val d20Land = land(LAND, Beat.PLATE, impactRight)
+                val nat20 = land(
+                    LAND_BIG, Beat.PLATE, impactRight,
+                    Place(twinkle, t, 470, 150, 500, 0), Place(twinkleS, t, 660, 1000, 500, 1000),
+                    Place(twinkle, t, 850, 400, 500, 500), Place(twinkleS, t, 1000, 0, 1000, 0),
+                )
+                // The anticlimax: no stamp, it just flops there with a sweat drop and a sad little puff.
+                val nat1 = land(
+                    LAND_BIG, Beat.PLAIN,
+                    Place(sweat, b, 1000, 0, 0, 0, dx = 2, dy = 1), Place(puff, b, 1000, 1000, 0, 1000, dx = 2),
+                )
+                val coinBeats = if (!fast) arrayOf(
+                    Beat(TOSS, Beat.NONE, Place(coin, t, 1000, 500, 1000, 500, dx = -2),
+                        Place(arcUp, t, 1000, 0, 1000, 0, dx = -6), Place(arcDown, t, 1000, 1000, 1000, 1000, dx = -6)),
+                    Beat(BOUNCE, Beat.NONE, Place(coin + 1, t, 600, 0, 500, 0, dy = 3),
+                        Place(arcDown, t, 600, 0, 500, 0, dy = 10)),
+                    Beat(SKID, Beat.NONE, Place(coin + 2, t, 260, 1000, 500, 1000),
+                        Place(trail, t, 260, 1000, 0, 1000, dx = 12, dy = -3)),
+                ) else arrayOf(
+                    Beat(POSE_FAST, Beat.NONE, Place(coin, t, 1000, 500, 1000, 500, dx = -2),
+                        Place(arcUp, t, 1000, 0, 1000, 0, dx = -6), Place(arcDown, t, 1000, 1000, 1000, 1000, dx = -6)),
+                    Beat(POSE_FAST, Beat.NONE, Place(coinMid, t, 800, 250, 500, 250), Place(arcUp, t, 800, 0, 500, 0, dy = -1)),
+                    Beat(POSE_FAST, Beat.NONE, Place(coin + 1, t, 600, 0, 500, 0, dy = 3),
+                        Place(arcDown, t, 600, 0, 500, 0, dy = 10)),
+                    Beat(POSE_FAST, Beat.NONE, Place(coinMid + 1, t, 430, 600, 500, 500)),
+                    Beat(POSE_FAST, Beat.NONE, Place(coin + 2, t, 260, 1000, 500, 1000),
+                        Place(trail, t, 260, 1000, 0, 1000, dx = 12, dy = -3)),
+                )
+                val heads = land(LAND, Beat.PLAIN, impactRight, Place(twinkle, b, 500, 0, 0, 0, dx = 8, dy = -1))
+                // Tails lands with a thunk: a dust puff at its foot and the two flat thud lines.
+                val tails = land(LAND, Beat.PLAIN, Place(puff, b, 500, 1000, 0, 1000, dx = 14), Place(thud, b, 500, 0, 0, 0, dx = 16, dy = 3))
+
+                val scripts = arrayOfNulls<Script>(Outcome.COUNT)
+                scripts[Outcome.D20] = Script("d20", *tumbleBeats(d20, d20Mid), d20Land)
+                scripts[Outcome.NAT_20] = Script("nat 20", *tumbleBeats(d20, d20Mid), nat20)
+                scripts[Outcome.NAT_1] = Script("nat 1", *tumbleBeats(d20, d20Mid), nat1)
+                scripts[Outcome.D6] = Script("d6", *tumbleBeats(d6, d6Mid), d20Land)
+                scripts[Outcome.HEADS] = Script("heads", *coinBeats, heads)
+                scripts[Outcome.TAILS] = Script("tails", *coinBeats, tails)
+                @Suppress("UNCHECKED_CAST")
+                return Presentation(table, scripts as Array<Script>, if (fast) MIN_HOLD_FAST_MS else MIN_HOLD_MS)
+            }
         }
     }
 }

@@ -145,8 +145,8 @@ class DiceLayoutTest {
     @Test fun presentationFitsEveryFace() {
         for (s in 2..6) {
             val l = layout(s)
-            val p = Presentation.TUMBLE
-            val ss = SpriteSet(p, l.k)
+            for (p in listOf(Presentation.TUMBLE, Presentation.TUMBLE_FAST)) {
+            val ss = SpriteSet(p.sprites, l.k)
             val placed = PresentationLayout(l, p, ss.widths, ss.heights, l.k)
             val inner = IRect()
             for (face in 0..1) {
@@ -158,8 +158,9 @@ class DiceLayoutTest {
                     if (face == 1) assertEquals(l.reflect(placed.rect(o, b, i, 0), IRect()).toString(), r.toString())
                 }
             }
-            // The tumbling solid is at most the result's height.
-            for (i in 0 until 9) assertTrue(ss.heights[i] <= l.resultBox[0].height)
+            // The tumbling solids are at most the result's height.
+            for (i in 0 until ss.heights.size) if (ss.heights[i] > 20 * l.k) assertTrue(ss.heights[i] <= l.resultBox[0].height)
+            }
             for (v in intArrayOf(1, 7, 20)) {
                 val pl = l.plateFor(v, IRect())
                 assertTrue("S=$s plate $pl", pl.inside(l.faces[0]) && pl.top > l.faces[0].top && pl.bottom < l.faces[0].bottom)

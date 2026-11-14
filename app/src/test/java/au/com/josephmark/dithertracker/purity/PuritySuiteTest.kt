@@ -19,6 +19,7 @@ import au.com.josephmark.dithertracker.stage.Stage
 import au.com.josephmark.dithertracker.tools.DiceLayout
 import au.com.josephmark.dithertracker.tools.DiceOverlay
 import au.com.josephmark.dithertracker.tools.DiceState
+import au.com.josephmark.dithertracker.eink.DisplaySpeed
 import au.com.josephmark.dithertracker.tools.FirstPlayer
 import au.com.josephmark.dithertracker.tools.Outcome
 import au.com.josephmark.dithertracker.tools.Presentation
@@ -401,7 +402,11 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         shot("71_dice_d20")
         // T52: every keyframe of every outcome's presentation (the result is fixed at the tap: roll
         // until the outcome comes up, skipping the others' presentations with a tap).
-        val p = Presentation.TUMBLE
+        // T59: in both display speeds (the fast one has more poses).
+        for (speed in intArrayOf(DisplaySpeed.SLOW, DisplaySpeed.FAST)) try {
+        DisplaySpeed.override = speed
+        val sp = DisplaySpeed.name(speed)
+        val p = Presentation.tumble(speed)
         for (o in 0 until Outcome.COUNT) {
             val button = when (o) {
                 Outcome.D6 -> DiceLayout.D6
@@ -416,10 +421,14 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
                 check(++tries < 500) { "outcome $o never came up" }
             }
             for (beat in 0 until p.beats(o)) {
-                shot("72_present_${p.scripts[o].name.replace(' ', '_')}_$beat")
+                check(dice.state.presentation === p)
+                shot("72_present_${sp}_${p.scripts[o].name.replace(' ', '_')}_$beat")
                 rig.advance(p.holdMs(o, beat))
             }
-            shot("73_result_${p.scripts[o].name.replace(' ', '_')}")
+            shot("73_result_${sp}_${p.scripts[o].name.replace(' ', '_')}")
+        }
+        } finally {
+            DisplaySpeed.override = DisplaySpeed.NO_OVERRIDE
         }
         rig.tap(dice, Stage.SCREEN, DiceOverlay.AGAIN)
         rig.advance(DiceState.PRESENT_MAX_MS)

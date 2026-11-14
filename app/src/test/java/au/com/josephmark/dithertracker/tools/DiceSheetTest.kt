@@ -27,7 +27,7 @@ class DiceSheetTest {
 
     private fun strips(variant: Presentation, outcomes: IntArray, rig: ScreenRig, crop: IRect): List<Strip> {
         val dice = rig.dice
-        dice.presentation = variant
+        dice.setPresentations(variant, variant)
         val out = ArrayList<Strip>()
         for (o in outcomes) {
             val button = when (o) {

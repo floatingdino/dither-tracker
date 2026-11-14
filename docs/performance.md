@@ -301,7 +301,9 @@ effect invalidates its own seat only, at most one panel = 25 %.)
 - **Roll presentation** (T52, `tools/Presentation`, `design/tools/README.md`): a die or coin roll is
   four held keyframes on the dice panel (250, 250, 250, 300 ms; the naturals' landing 400 ms) then the
   result — five panel redraws (163×111 dither px at S = 4, mostly unchanged pixels: a 24-px solid moving
-  across each face, then the stamp's plate) instead of two. ONE frame timer, re-armed per keyframe,
+  across each face, then the stamp's plate) instead of two. On a fast display (`eink/DisplaySpeed`, T59) five tumbling
+  poses at 150 ms: seven redraws in the same ~1.05–1.15 s; the six extra sprites share the slow
+  presentation's sprite table, so their masks add ~50 KB at S = 4. ONE frame timer, re-armed per keyframe,
   armed only while a presentation plays; a tap skips to the result; `Events.PAUSE` shows the result and
   drops it and the panel's 30 s idle timeout (re-armed on `RESUME`). The sprites are built at layout
   (scaled, both face rotations) and prewarmed after the first frame with the other overlays; drawing a

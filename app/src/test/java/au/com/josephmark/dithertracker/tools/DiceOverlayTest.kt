@@ -72,7 +72,7 @@ class DiceOverlayTest {
         r.rig.platform.invalidated.clear()
         r.reveal()
         assertEquals(DiceState.SHOWN, r.state.phase)
-        val n = Presentation.TUMBLE.beats(r.state.outcome)
+        val n = r.state.presentation!!.beats(r.state.outcome)
         assertEquals(List(n) { r.deviceRect(r.l.panelOuter) }, r.rig.platform.invalidated)
     }
 

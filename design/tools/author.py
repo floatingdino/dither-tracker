@@ -426,14 +426,21 @@ def build():
     shipped['D20_A'] = render_solid(ico, (0.8, 1.1, 0.25), 24)
     shipped['D20_B'] = render_solid(ico, (1.25, 1.55, 0.9), 23)
     shipped['D20_C'] = render_solid(ico, (0.8, 1.1, -0.45), 24)
+    # T59: the fast display's in-between poses (A, AB, B, BC, C), halfway between the turns either side.
+    shipped['D20_AB'] = render_solid(ico, (1.02, 1.33, 0.58), 24)
+    shipped['D20_BC'] = render_solid(ico, (1.02, 1.33, 0.22), 23)
     # d6: a cube tumbling corner over edge.
     shipped['D6_A'] = render_solid(cub, (0.55, 0.62, 0.20), 22)
     shipped['D6_B'] = render_solid(cub, (0.20, 0.95, 0.70), 23)
     shipped['D6_C'] = render_solid(cub, (-0.62, 0.40, -0.25), 22)
+    shipped['D6_AB'] = render_solid(cub, (0.38, 0.78, 0.45), 23)
+    shipped['D6_BC'] = render_solid(cub, (-0.21, 0.68, 0.22), 22)
     # coin: flipped about the horizontal axis — tilted (face), edge-on, tilted (the other face).
     shipped['COIN_A'] = render_solid(cn, (-1.05, 0.0, 0.05), 16, rim_group=2)
     shipped['COIN_B'] = render_solid(cn, (-1.52, 0.0, 0.0), 6, rim_group=2)
     shipped['COIN_C'] = render_solid(cn, (-(math.pi - 1.15), 0.0, -0.05), 14, rim_group=2)
+    shipped['COIN_AB'] = render_solid(cn, (-1.30, 0.0, 0.03), 11, rim_group=2)
+    shipped['COIN_BC'] = render_solid(cn, (-1.75, 0.0, -0.02), 10, rim_group=2)
     shipped['TRAIL'] = TRAIL
     shipped['DUST'] = DUST
     shipped['IMPACT'] = IMPACT
