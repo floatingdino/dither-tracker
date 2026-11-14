@@ -454,7 +454,7 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
             var i = 0
             while (first.roll.active && i < 30) {
                 val ph = first.roll.phase
-                shot("76_first_${sp}_${i}_${if (ph == FirstRoll.ROLLING) "pose${first.roll.beat}" else if (ph == FirstRoll.TIE) "tie" else "landed"}")
+                shot("76_first_${sp}_${i}_${if (ph == FirstRoll.ROLLING) "pose${first.roll.beat}" else if (ph == FirstRoll.TIE) "tie" else if (ph == FirstRoll.WINNER) "winner" else "landed"}")
                 rig.advance(if (ph == FirstRoll.ROLLING) 100 else 400)
                 i++
             }

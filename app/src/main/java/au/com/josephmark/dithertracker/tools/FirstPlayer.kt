@@ -34,9 +34,10 @@ import kotlin.random.Random
  *   `eink.DisplaySpeed`, [TileRollLayout]) and finally **the roll in the hero numerals**, where the
  *   life total was — every tile landing together.
  * - **Landing.** The highest roll goes first: its tile gets the **FIRST flag** (an ink pennant in the
- *   under-number row with a `Flavour.startingPlayer` line, e.g. "ON THE PLAY") and every roll stays up
- *   for [FirstRoll.LANDED_MS]. A tie at the top shows "TIE!" flags for [FirstRoll.TIE_MS] and only the
- *   tied seats roll again (at most [FirstRoll.MAX_ROUNDS] rounds, then a random pick among them).
+ *   under-number row with a `Flavour.startingPlayer` line, e.g. "ON THE PLAY") a beat after the rolls
+ *   land (they sit alone for [FirstRoll.LANDED_MS], T65), then every roll stays up for
+ *   [FirstRoll.WINNER_MS]. A tie at the top shows "TIE" flags for [FirstRoll.TIE_MS] and only the tied
+ *   seats roll again (at most [FirstRoll.MAX_ROUNDS] rounds, then a random pick among them).
  * - **Back to the game.** The tiles return to their life totals in one redraw; turn tracking starts
  *   from the winner ([Action.SetStartingPlayer], one undo step — dispatched only now) and
  *   [Events.FIRST_PLAYER] plays T55's `start-flag` effect on the winner's tile as **the sting**; the
@@ -123,7 +124,7 @@ class FirstPlayer(
     private fun changed(done: Boolean) {
         val l = layout ?: return
         invalidateSeats(l, roll.seats)
-        if (roll.phase == FirstRoll.LANDED && roll.winner >= 0) fit(l, roll.winner)
+        if (roll.phase == FirstRoll.WINNER && roll.winner >= 0) fit(l, roll.winner)
         if (done) land(l)
     }
 
@@ -224,7 +225,7 @@ class FirstPlayer(
             f.text.drawInt(l.play.font, v, tmp.left, tmp.top, k, rot)
         }
         if (roll.phase == FirstRoll.TIE && (roll.tied ushr s) and 1 == 1) tieFlag(f, l, s)
-        else if (roll.phase == FirstRoll.LANDED && roll.winner == s) flag(f, l, s)
+        else if (roll.phase == FirstRoll.WINNER && roll.winner == s) flag(f, l, s)
     }
 
     /** The FIRST flag: an ink pennant (notched ends) with the line in paper caps, facing the seat. */

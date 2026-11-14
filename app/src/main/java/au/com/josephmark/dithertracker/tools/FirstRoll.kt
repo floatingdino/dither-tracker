@@ -10,13 +10,16 @@ import kotlin.random.Random
  * rolls a d20 at once on its own tile; the highest roll goes first.
  *
  * ```
- * IDLE ─start(live)─▶ ROLLING (beat 0 … n−1) ─▶ LANDED ─────────────────────────▶ DONE
+ * IDLE ─start(live)─▶ ROLLING (beat 0 … n−1) ─▶ LANDED ──▶ WINNER (the FIRST flag) ──▶ DONE
  *                        ▲                         │ the highest is tied
  *                        └──── ROLLING (the tied) ◀ TIE   (at most [MAX_ROUNDS]; then a random pick)
+ *
+ * T65: the numbers land and sit alone for [LANDED_MS]; only then, a beat later, does the winner's flag
+ * (or the "TIE" flags) appear — the landing reads before the verdict.
  * ```
  *
  * Every roll is fixed when its round starts (no result is readable until it lands: the tiles show the
- * tumbling die). [skip] (a tap) resolves every remaining round at once and shows [LANDED]; a skip
+ * tumbling die). [skip] (a tap) resolves every remaining round at once and shows [WINNER]; a skip
  * there finishes. [finish] (pause, detach, a second skip) resolves everything and ends with no timer
  * armed. One timer ([TIMER_STEP]), armed only between [start] and [DONE]. Holds are × the debug
  * [ToolsDebug.holdScale]. The pose count follows the display speed read at [start] ([beats]).
@@ -96,7 +99,7 @@ class FirstRoll(
         listener.onChanged(false)
     }
 
-    private fun poseMs(): Long = if (beats == FAST_POSES) FAST_POSE_MS else SLOW_POSE_MS
+    private fun poseMs(): Long = if (beats == FAST_POSES) FAST_POSE_MS[beat] else SLOW_POSE_MS[beat]
 
     private fun schedule(ms: Long) = timers.schedule(TIMER_STEP, ToolsDebug.hold(ms))
 
@@ -142,18 +145,18 @@ class FirstRoll(
                 schedule(poseMs())
                 listener.onChanged(false)
             } else {
-                // Landed together: the rolls show. A tie at the top holds a TIE beat, then re-rolls.
-                if (judge()) toLanded()
-                else if (round >= MAX_ROUNDS) { pickAtRandom(); toLanded() }
-                else {
-                    phase = TIE
-                    rolling = 0
-                    schedule(TIE_MS)
-                    listener.onChanged(false)
-                }
+                // Landed together: the rolls show, alone, for a beat.
+                if (!judge() && round >= MAX_ROUNDS) pickAtRandom()
+                toLanded()
+            }
+            // Then the verdict: the winner's flag, or the tied seats' "TIE" and their re-roll.
+            LANDED -> if (winner >= 0) toWinner() else {
+                phase = TIE
+                schedule(TIE_MS)
+                listener.onChanged(false)
             }
             TIE -> roll(tied)
-            LANDED -> finish()
+            WINNER -> finish()
         }
     }
 
@@ -164,11 +167,18 @@ class FirstRoll(
         listener.onChanged(false)
     }
 
-    /** A tap: tumbling or tied → every roll lands now ([LANDED], held as usual); landed → [finish]. */
+    private fun toWinner() {
+        phase = WINNER
+        rolling = 0
+        schedule(WINNER_MS)
+        listener.onChanged(false)
+    }
+
+    /** A tap: tumbling, landed or tied → every roll lands now with the winner's flag ([WINNER], held as usual); then → [finish]. */
     fun skip() {
         when (phase) {
-            ROLLING, TIE -> { resolve(); toLanded() }
-            LANDED -> finish()
+            ROLLING, TIE, LANDED -> { resolve(); toWinner() }
+            WINNER -> finish()
         }
     }
 
@@ -202,6 +212,9 @@ class FirstRoll(
         const val LANDED = 3
         const val DONE = 4
 
+        /** Landed with the winner's FIRST flag up (T65: a beat after the numbers). */
+        const val WINNER = 5
+
         const val TIMER_STEP = 0
 
         const val SIDES = 20
@@ -210,16 +223,24 @@ class FirstRoll(
         /** Rounds at most (the first and two re-rolls of a tie); then the tied pick at random. */
         const val MAX_ROUNDS = 3
 
-        /** Tumbling poses on a slow display (held [SLOW_POSE_MS]) and on a fast one ([FAST_POSE_MS]). */
+        /** Tumbling poses on a slow display and on a fast one. */
         const val SLOW_POSES = 3
         const val FAST_POSES = 5
-        const val SLOW_POSE_MS = 250L
-        const val FAST_POSE_MS = 150L
 
-        /** The rolls held, landed, with the winner's flag (the losers' numbers then go back to life). */
-        const val LANDED_MS = 1_600L
+        // ---- Timing (T65): uneven on purpose — anticipate, move fast, settle, hold the read. --------
+        /** Slow display (each ≥ 250 ms): the toss, the bounce, the skid slowing down. */
+        @JvmField val SLOW_POSE_MS = longArrayOf(300L, 250L, 300L)
 
-        /** The "TIE" beat before the tied seats roll again. */
-        const val TIE_MS = 700L
+        /** Fast display (each ≥ 120 ms): a wind-up, three quick poses of the throw, a slower last one. */
+        @JvmField val FAST_POSE_MS = longArrayOf(200L, 130L, 120L, 130L, 200L)
+
+        /** The numbers landed, alone: everyone reads their roll before the verdict. */
+        const val LANDED_MS = 1_000L
+
+        /** The winner's FIRST flag up beside every roll, before the tiles go back to their life totals. */
+        const val WINNER_MS = 1_600L
+
+        /** The "TIE" flags before the tied seats roll again (long enough to read across the table). */
+        const val TIE_MS = 1_000L
     }
 }

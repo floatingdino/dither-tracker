@@ -45,11 +45,14 @@ class FirstPlayerTest {
         init { timers.target = Scheduler.Target { roll.onTimer(it) } }
     }
 
-    private fun playOut(r: StateRig, poses: Int, poseMs: Long) {
+    private fun playOut(r: StateRig, poses: Int, poseMs: LongArray) {
+        assertEquals(poses, poseMs.size)
         for (b in 0 until poses) {
             assertEquals(FirstRoll.ROLLING, r.roll.phase)
             assertEquals(b, r.roll.beat)
-            r.timers.advance(poseMs)
+            r.timers.advance(poseMs[b] - 1)
+            assertEquals("pose $b holds ${poseMs[b]} ms", b, r.roll.beat)
+            r.timers.advance(1)
         }
     }
 
@@ -60,11 +63,16 @@ class FirstPlayerTest {
         assertEquals(FirstRoll.SLOW_POSES, r.roll.beats)
         assertEquals("fixed at the start", listOf(7, 15, 3, 12), r.roll.value.take(4))
         playOut(r, FirstRoll.SLOW_POSES, FirstRoll.SLOW_POSE_MS)
+        // T65: the numbers land and sit alone, then the winner's flag, then back to the game.
         assertEquals(FirstRoll.LANDED, r.roll.phase)
         assertEquals(1, r.roll.winner)
         assertTrue(r.timers.isArmed(FirstRoll.TIMER_STEP))
         r.timers.advance(FirstRoll.LANDED_MS - 1)
         assertEquals(FirstRoll.LANDED, r.roll.phase)
+        r.timers.advance(1)
+        assertEquals(FirstRoll.WINNER, r.roll.phase)
+        r.timers.advance(FirstRoll.WINNER_MS - 1)
+        assertEquals(FirstRoll.WINNER, r.roll.phase)
         r.timers.advance(1)
         assertEquals(FirstRoll.DONE, r.roll.phase)
         assertEquals(listOf(true), r.changes.filter { it })
@@ -77,7 +85,14 @@ class FirstPlayerTest {
         assertEquals(FirstRoll.FAST_POSES, r.roll.beats)
         playOut(r, FirstRoll.FAST_POSES, FirstRoll.FAST_POSE_MS)
         assertEquals(FirstRoll.LANDED, r.roll.phase)
-        assertTrue(FirstRoll.FAST_POSES * FirstRoll.FAST_POSE_MS <= FirstRoll.SLOW_POSES * FirstRoll.SLOW_POSE_MS)
+        assertTrue(FirstRoll.FAST_POSE_MS.sum() <= FirstRoll.SLOW_POSE_MS.sum())
+        // T65: uneven holds — the first and last poses longer than the quick middle.
+        for (p in listOf(FirstRoll.FAST_POSE_MS, FirstRoll.SLOW_POSE_MS)) {
+            assertTrue(p.first() > p[1] && p.last() > p[p.size - 2])
+        }
+        for (ms in FirstRoll.FAST_POSE_MS) assertTrue(ms >= 120)
+        for (ms in FirstRoll.SLOW_POSE_MS) assertTrue(ms >= 250)
+        assertTrue("the numbers sit longer than any pose", FirstRoll.LANDED_MS > FirstRoll.SLOW_POSE_MS.max())
     }
 
     @Test fun aTieAtTheTopRerollsOnlyTheTiedSeats() {
@@ -85,6 +100,8 @@ class FirstPlayerTest {
         val r = StateRig(Rolls(18, 4, 18, 11, 6, 13))
         r.roll.start(0b1111)
         playOut(r, FirstRoll.SLOW_POSES, FirstRoll.SLOW_POSE_MS)
+        assertEquals("the numbers land first, alone", FirstRoll.LANDED, r.roll.phase)
+        r.timers.advance(FirstRoll.LANDED_MS)
         assertEquals(FirstRoll.TIE, r.roll.phase)
         assertEquals(0b0101, r.roll.tied)
         r.timers.advance(FirstRoll.TIE_MS)
@@ -95,6 +112,8 @@ class FirstPlayerTest {
         playOut(r, FirstRoll.SLOW_POSES, FirstRoll.SLOW_POSE_MS)
         assertEquals(FirstRoll.LANDED, r.roll.phase)
         assertEquals(2, r.roll.winner)
+        r.timers.advance(FirstRoll.LANDED_MS)
+        assertEquals(FirstRoll.WINNER, r.roll.phase)
         assertFalse(r.roll.drawn)
     }
 
@@ -102,8 +121,8 @@ class FirstPlayerTest {
         val r = StateRig(Rolls(*IntArray(40) { 20 }))
         r.roll.start(0b111)
         var guard = 0
-        while (r.roll.phase != FirstRoll.LANDED && guard++ < 100) r.timers.advance(50)
-        assertEquals(FirstRoll.LANDED, r.roll.phase)
+        while (r.roll.phase != FirstRoll.WINNER && guard++ < 200) r.timers.advance(50)
+        assertEquals(FirstRoll.WINNER, r.roll.phase)
         assertEquals(FirstRoll.MAX_ROUNDS, r.roll.round)
         assertTrue(r.roll.drawn)
         assertTrue(r.roll.winner in 0..2)
@@ -114,7 +133,7 @@ class FirstPlayerTest {
         r.roll.start(0b111)
         r.timers.advance(100)
         r.roll.skip()
-        assertEquals(FirstRoll.LANDED, r.roll.phase)
+        assertEquals(FirstRoll.WINNER, r.roll.phase)
         assertTrue(r.roll.winner >= 0)
         r.roll.skip()
         assertEquals(FirstRoll.DONE, r.roll.phase)
@@ -166,7 +185,7 @@ class FirstPlayerTest {
         assertEquals(40, r.rig.session.state.players[1].life)
         // Each keyframe redraws the rolling tiles.
         r.rig.platform.invalidated.clear()
-        r.rig.platform.clock.advance(FirstRoll.SLOW_POSE_MS)
+        r.rig.platform.clock.advance(FirstRoll.SLOW_POSE_MS[0])
         val p0 = r.device(r.rig.l.panels[0])
         assertTrue(r.rig.platform.invalidated.any { it.left <= p0.left && it.top <= p0.top && it.right >= p0.right && it.bottom >= p0.bottom })
         r.finish()
@@ -189,7 +208,7 @@ class FirstPlayerTest {
         r.pickFromMenu()
         val z = PlayRig.mid(r.rig.l.zones[PlayLayout.zone(2, PlayLayout.PLUS)])
         r.tap(z[0], z[1])
-        assertEquals(FirstRoll.LANDED, r.first.roll.phase)
+        assertEquals(FirstRoll.WINNER, r.first.roll.phase)
         assertEquals(40, r.rig.session.state.players[2].life)
         r.tap(z[0], z[1])
         assertFalse(r.first.roll.active)
