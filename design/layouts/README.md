@@ -135,14 +135,17 @@ so it favours nobody.
 Under a back row, **wordless thumbnails, four columns of three a page** (`settings/LayoutPicker.kt`),
 default first; a count with more than 12 pages with a `‹ n/m ›` footer (none does today: 3 players has
 exactly 12). Each thumbnail is the real play layout in miniature, in **screen orientation** (whichever
-side the card faces, it lies the way the tablet does): every seat's whole tile as an **inset ground of
-the tab dither** with a paper gap round it — no outlines, no names, no drawer-tab notch; an **empty
-cell** is a dotted outline on paper; margins are paper. Only the **selected** thumbnail says which way
-people face: an ink frame round it, its seats in solid ink, each with a small paper arrow pointing at
-the edge its player sits at — the others stay plain grounds. A layout **not available** at the table's
-scale is hatched (`DISABLED`); tapping it does not choose it but writes why on the page's **hint
-line**: "Needs scale 3 (Settings > Scale)" or "Too small at any scale". The card's remembered facing
-applies to this page as to every other.
+side the card faces, it lies the way the tablet does). After the owner saw it on the Nomad ("border
+for seat, dither for empty"): every seat's whole tile is an **inset ink outline on paper** with paper
+gaps between; an **empty cell** is a block of the play screen's own empty ground (`Role.EMPTY`, chunky
+dots — the same "not a seat" texture the table shows, rather than the tab dither, which belongs to seats
+and tabs); no names, no notches; margins paper. Only the **selected** thumbnail says which way people
+face: an ink frame round it and its seats **solid ink** (the strongest contrast with the outlined
+others), each with a small paper arrow pointing at the edge its player sits at. A layout **not
+available** at the table's scale draws its seats as **dotted** outlines — broken lines read "not
+usable", and stay unfilled so they can't be taken for a dithered empty cell; tapping one does not
+choose it but writes why on the page's **hint line**: "Needs scale 3 (Settings > Scale)" or "Too small
+at any scale". The card's remembered facing applies to this page as to every other.
 
 **When a choice applies.** For the count the table is playing: **at once**. A layout change is
 non-destructive — the same players keep the same seats in the same clockwise order (seat i stays seat

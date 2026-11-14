@@ -26,7 +26,7 @@ import au.com.josephmark.dithertracker.widgets.WidgetMetrics
  * the same clockwise order — nothing is lost. For another count it waits, like the count, for NEW.
  *
  * **What is offered.** Every arrangement for the count. One that is not comfortable at the table's
- * scale is drawn hatched (wordless); tapping it does not choose it but writes the reason on the hint
+ * scale is drawn with dotted seat outlines (wordless); tapping it does not choose it but writes the reason on the hint
  * line at the foot of the page ("Needs scale 3 (Settings > Scale)" / "Too small at any scale").
  */
 class LayoutPickerRow(private val title: CharBuf) : SettingsRow() {
@@ -144,8 +144,8 @@ class LayoutPickerRow(private val title: CharBuf) : SettingsRow() {
  *
  * A thumbnail is the real play layout in miniature, in **screen orientation** (whichever side the
  * card faces it lies the way the table does): every seat's whole tile scaled down and drawn as an
- * inset dithered ground with a paper gap round it; empty cells as a dotted outline on paper; margins
- * paper. Seat rects are precomputed per box size ([seatRects], [emptyRects], in thumbnail px) at
+ * inset block with a paper gap round it; empty cells marked apart; margins
+ * paper (T60 tweak: seats are now outlines, empties the dithered ground; see [LayoutThumbPainter]). Seat rects are precomputed per box size ([seatRects], [emptyRects], in thumbnail px) at
  * layout, so drawing allocates nothing.
  */
 class LayoutGrid(id: Int) : Widget(id) {
@@ -317,12 +317,15 @@ class LayoutGrid(id: Int) : Widget(id) {
 }
 
 /**
- * Draws a laid-out [LayoutGrid] (T60). Per thumbnail: each seat an inset ground of the tab dither
- * ([Role.TAB]) — **hatched** ([Role.DISABLED]) when the arrangement is not available at this scale —
- * with paper gaps between; empty cells a dotted outline on paper. The current one: an ink frame
- * round the miniature, its seats in solid ink, and in each a small paper arrow pointing at the edge
- * its player sits at (only the selected thumbnail says which way people face, so the others stay
- * plain). Then the hint line and the footer. Allocation-free.
+ * Draws a laid-out [LayoutGrid] (T60; the owner's tweak: "border for seat, dither for empty"). Per
+ * thumbnail: each seat an inset **ink outline on paper**, paper gaps between; an **empty cell** a
+ * block of the play screen's own empty ground ([Role.EMPTY], chunky dots — the same "not a seat"
+ * texture the table shows, and unlike anything a seat is drawn with). The current one: an ink frame
+ * round the miniature, its seats **solid ink** each with a small paper arrow pointing at the edge its
+ * player sits at — the strongest contrast with the outlined others, and the only thumbnail that says
+ * which way people face. **Not available at this scale:** seats as **dotted** outlines (broken
+ * lines read as "not usable", and stay unfilled so they can't be taken for a dithered empty cell).
+ * Then the hint line and the footer. Allocation-free.
  */
 class LayoutThumbPainter(private val p: SettingsPainter) {
 
@@ -343,16 +346,21 @@ class LayoutThumbPainter(private val p: SettingsPainter) {
             val oy = s.top + (s.height - th) / 2
             val sel = i == g.selected
             if (sel) c.frame(ox - SEL_OUT, oy - SEL_OUT, tw + 2 * SEL_OUT, th + 2 * SEL_OUT, LayoutGrid.SEL, ink = true)
-            val ground = if (!g.enabledAt[i]) Role.DISABLED else if (sel) Role.INK else Role.TAB
+            val offered = g.enabledAt[i]
             for (k in 0 until g.emptyCount[i]) {
                 val e = g.emptyRects[i][k]
-                dottedOutline(ox + e.left, oy + e.top, e.width, e.height)
+                if (e.width > 0 && e.height > 0) c.fill(Role.EMPTY, ox + e.left, oy + e.top, e.width, e.height)
             }
             for (k in 0 until g.seatCount[i]) {
                 val r = g.seatRects[i][k]
                 if (r.width <= 0 || r.height <= 0) continue
-                c.fill(ground, ox + r.left, oy + r.top, r.width, r.height)
-                if (sel) arrow(ox + r.left, oy + r.top, r.width, r.height, g.seatRot[i][k])
+                val x = ox + r.left
+                val y = oy + r.top
+                when {
+                    sel -> { c.rect(x, y, r.width, r.height, ink = true); arrow(x, y, r.width, r.height, g.seatRot[i][k]) }
+                    offered -> c.frame(x, y, r.width, r.height, 1, ink = true)
+                    else -> dottedOutline(x, y, r.width, r.height)
+                }
             }
         }
         if (g.hintChars > 0) w.text(f, m, m.ui, g.hint, 0, g.hintChars, g.hintRect, TextLayout.CENTRE, invert = false, opaque = false)
