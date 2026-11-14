@@ -898,3 +898,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   the "D20" text is unnecessary. T65 agent resumed. Running: T62, T65.
 - 2026-11-14 — Tick 95: Sam: the winner's flag wave should start on the earlier beat (the winner
   reveal) and loop so it waves back and forth one more time → added to the T65 agent's pass.
+- 2026-11-14 — Tick 96: both agents (T62, T65) were cut off by a usage limit and resumed after it
+  reset. T65 had already committed the settle physics, the flag wave and re-taken captures; T62 had
+  an uncommitted README edit and `docs/compatibility.md` in the tree. Neither verified yet.
+  Running: T62, T65.
