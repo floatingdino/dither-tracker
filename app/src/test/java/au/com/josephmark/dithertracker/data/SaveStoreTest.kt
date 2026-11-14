@@ -286,4 +286,17 @@ class SaveStoreTest {
             exec.shutdownNow()
         }
     }
+
+    /** T66: the session's active clock goes with the save; a clock-only change (a pause) is written. */
+    @Test fun theActiveClockIsSavedAndAClockOnlyChangeIsWritten() {
+        val s = store()
+        val g = game(30)
+        s.markSaved(g, AppSettings(), 1_000)
+        s.flush()
+        assertEquals(0, s.writeCount)
+        s.update(g, AppSettings(), 61_000)
+        s.flush()
+        assertEquals(1, s.writeCount)
+        assertEquals(61_000L, store().load().save!!.activeClock)
+    }
 }

@@ -26,7 +26,15 @@ import java.util.zip.CRC32
  * would multiply the file size by up to `maxDepth` snapshots for little value. After a restore the
  * app starts a fresh `History(save.game)` — the game and its log survive, undo resets.
  */
-data class SaveFile(val game: Game, val settings: AppSettings = AppSettings())
+data class SaveFile(
+    val game: Game,
+    val settings: AppSettings = AppSettings(),
+    /**
+     * The session's active clock at save (T66, ms the app has been in use): what every timestamp in
+     * [game] is measured on. A restore resumes the clock from here, so durations survive process death.
+     */
+    val activeClock: Long = 0L,
+)
 
 sealed interface DecodeResult {
     data class Success(
@@ -74,7 +82,12 @@ enum class FailureReason {
  * (`AppSettings.hiddenTrackers`: a count, then [Codes.tracker] codes) after the turn settings; older
  * saves show every tracker. v5 (T53) appends the remembered card facings (`settingsFacing`,
  * `historyFacing`: one varint each, 0 = never turned, else 1 + rotation / 90); older saves open the
- * cards facing the side that asks. (`AppSettings.layout` has been in the body since v1: an opaque string, so
+ * cards facing the side that asks. v6 (T66) moves every time onto the session's **active clock**
+(ms in use, `SaveFile.activeClock`, a varint after the facings) and extends the turn clock to
+`startedAt`, `turnStartedAt`, `lastTurnMillis`, `endedAt` (optional varints) plus the per-player
+turn totals (a count, then id, ms, turns); v3–v5 turn stamps were wall-clock, so they load
+unstamped (the clock restarts at the next pass) and the active clock resumes from the newest log
+timestamp. (`AppSettings.layout` has been in the body since v1: an opaque string, so
  * T53's per-count layout choices needed no format change. T58's `fastDisplay` is a bit of the v1
  * settings flags, set for NORMAL, so every older save — which never sets it — loads as FAST, the
  * default, and an older reader ignores it.) Integers are
@@ -93,7 +106,7 @@ enum class FailureReason {
  * the current model. Older readers reject newer versions with [FailureReason.UNSUPPORTED_VERSION].
  */
 object SaveCodec {
-    const val CURRENT_VERSION = 5
+    const val CURRENT_VERSION = 6
 
     /** Log entries kept by default when encoding (the most recent ones). */
     const val DEFAULT_MAX_LOG_ENTRIES = 500
@@ -123,7 +136,8 @@ object SaveCodec {
         if (version >= 3) writeTurnSettings(w, save.settings)
         if (version >= 4) writeTrackers(w, save.settings)
         if (version >= 5) writeFacings(w, save.settings)
-        writeGame(w, save.game, maxLogEntries.coerceAtLeast(0), clock = version >= 3)
+        if (version >= 6) w.svar(save.activeClock)
+        writeGame(w, save.game, maxLogEntries.coerceAtLeast(0), clock = if (version >= 6) CLOCK_V6 else if (version >= 3) CLOCK_V3 else CLOCK_NONE)
         val crc = CRC32().apply { update(w.toByteArray()) }.value.toInt()
         w.u32(crc)
         return w.toByteArray()
@@ -172,7 +186,8 @@ object SaveCodec {
         3 -> readBodyV3(r, ctx)
         4 -> readBodyV4(r, ctx)
         5 -> readBodyV5(r, ctx)
-        // 6 -> readBodyV6(r, ctx); the older readers stay and map their layouts into the current model.
+        6 -> readBodyV6(r, ctx)
+        // 7 -> readBodyV7(r, ctx); the older readers stay and map their layouts into the current model.
         else -> corrupt("no reader for version $version")
     }
 
@@ -180,7 +195,7 @@ object SaveCodec {
 
     private fun readBodyV1(r: ByteReader, ctx: DecodeContext): SaveFile {
         val settings = readSettings(r)
-        val game = readGame(r, ctx, clock = false)
+        val game = readGame(r, ctx, clock = CLOCK_NONE)
         // v1 had no pending player count: the next new game keeps the saved game's.
         return SaveFile(game, settings.copy(playerCount = game.state.players.size))
     }
@@ -189,7 +204,7 @@ object SaveCodec {
 
     private fun readBodyV2(r: ByteReader, ctx: DecodeContext): SaveFile {
         val settings = readSettingsV2(r)
-        val game = readGame(r, ctx, clock = false)
+        val game = readGame(r, ctx, clock = CLOCK_NONE)
         return SaveFile(game, settings)
     }
 
@@ -203,25 +218,49 @@ object SaveCodec {
 
     private fun readBodyV3(r: ByteReader, ctx: DecodeContext): SaveFile {
         val settings = readTurnSettings(r, readSettingsV2(r))
-        val game = readGame(r, ctx, clock = true)
-        return SaveFile(game, settings)
+        val game = readGame(r, ctx, clock = CLOCK_V3)
+        return wallClockSave(game, settings)
     }
 
     // ---- v4 (T53): v3 + the hidden trackers ---------------------------------------------------------
 
     private fun readBodyV4(r: ByteReader, ctx: DecodeContext): SaveFile {
         val settings = readTrackers(r, readTurnSettings(r, readSettingsV2(r)))
-        val game = readGame(r, ctx, clock = true)
-        return SaveFile(game, settings)
+        val game = readGame(r, ctx, clock = CLOCK_V3)
+        return wallClockSave(game, settings)
     }
 
     // ---- v5 (T53): v4 + the cards' remembered facings -------------------------------------------------
 
     private fun readBodyV5(r: ByteReader, ctx: DecodeContext): SaveFile {
         val settings = readFacings(r, readTrackers(r, readTurnSettings(r, readSettingsV2(r))))
-        val game = readGame(r, ctx, clock = true)
-        return SaveFile(game, settings)
+        val game = readGame(r, ctx, clock = CLOCK_V3)
+        return wallClockSave(game, settings)
     }
+
+    // ---- v6 (T66): v5 + the active clock, the full turn clock --------------------------------------------
+
+    private fun readBodyV6(r: ByteReader, ctx: DecodeContext): SaveFile {
+        val settings = readFacings(r, readTrackers(r, readTurnSettings(r, readSettingsV2(r))))
+        val active = r.svarLong()
+        val game = readGame(r, ctx, clock = CLOCK_V6)
+        return SaveFile(game, settings, maxOf(0L, active))
+    }
+
+    /**
+     * A v3–v5 save: its turn stamps were wall-clock ms, not active time, so they are dropped (the clock
+     * restarts at the next pass), and the active clock resumes from its newest log timestamp so new
+     * entries keep counting up from the old ones.
+     */
+    private fun wallClockSave(game: Game, settings: AppSettings): SaveFile {
+        val turn = game.state.turn.unstamped()
+        val g = if (turn == game.state.turn) game else Game(game.state.copy(turn = turn), game.log)
+        return SaveFile(g, settings, maxOf(0L, game.log.maxOfOrNull { it.timestamp } ?: 0L))
+    }
+
+    private const val CLOCK_NONE = 0
+    private const val CLOCK_V3 = 3
+    private const val CLOCK_V6 = 6
 
     private fun facingCode(f: Int): Int = if (f < 0) 0 else 1 + f / 90
 
@@ -324,7 +363,7 @@ object SaveCodec {
         return GameSettings(startingLife, flags and G_CMD_AFFECTS_LIFE != 0, flags and G_AUTO_KO != 0)
     }
 
-    private fun writeGame(w: ByteWriter, game: Game, maxLogEntries: Int, clock: Boolean) {
+    private fun writeGame(w: ByteWriter, game: Game, maxLogEntries: Int, clock: Int) {
         val s = game.state
         writeGameSettings(w, s.settings)
         w.uvar(Codes.dayNight(s.dayNight))
@@ -332,9 +371,20 @@ object SaveCodec {
         w.optInt(s.turn.startingPlayer)
         w.svar(s.turn.number)
         w.svar(s.turn.round)
-        if (clock) { // v3
+        if (clock >= CLOCK_V3) {
             writeTime(w, s.turn.startedAt)
             writeTime(w, s.turn.turnStartedAt)
+        }
+        if (clock >= CLOCK_V6) {
+            writeTime(w, s.turn.lastTurnMillis)
+            writeTime(w, s.turn.endedAt)
+            val ids = (s.turn.spent.keys + s.turn.taken.keys).sorted()
+            w.uvar(ids.size)
+            for (id in ids) {
+                w.svar(id)
+                w.svar(s.turn.spent[id] ?: 0L)
+                w.uvar(s.turn.taken[id] ?: 0)
+            }
         }
         w.uvar(s.players.size)
         for (p in s.players) writePlayer(w, p)
@@ -354,12 +404,26 @@ object SaveCodec {
         }
     }
 
-    /** [clock]: the save has the turn clock (v3+). */
-    private fun readGame(r: ByteReader, ctx: DecodeContext, clock: Boolean): Game {
+    /** [clock]: which turn clock the save has ([CLOCK_NONE] before v3). */
+    private fun readGame(r: ByteReader, ctx: DecodeContext, clock: Int): Game {
         val settings = readGameSettings(r)
         val dayNight = Codes.dayNight(r.uvar()) ?: DayNight.UNSET
         val numbers = TurnState(activePlayer = r.optInt(), startingPlayer = r.optInt(), number = r.svar(), round = r.svar())
-        val turn = if (clock) numbers.copy(startedAt = readTime(r), turnStartedAt = readTime(r)) else numbers
+        var turn = if (clock >= CLOCK_V3) numbers.copy(startedAt = readTime(r), turnStartedAt = readTime(r)) else numbers
+        if (clock >= CLOCK_V6) {
+            turn = turn.copy(lastTurnMillis = readTime(r), endedAt = readTime(r))
+            val n = r.count(3)
+            val spent = HashMap<Int, Long>(n)
+            val taken = HashMap<Int, Int>(n)
+            repeat(n) {
+                val id = r.svar()
+                val ms = r.svarLong()
+                val k = r.uvar()
+                spent[id] = maxOf(0L, ms) // a pass always credits both (so both maps hold the same ids)
+                taken[id] = maxOf(0, k)
+            }
+            turn = turn.copy(spent = spent, taken = taken)
+        }
         val playerCount = r.count()
         if (playerCount !in GameState.MIN_PLAYERS..GameState.MAX_PLAYERS) corrupt("player count $playerCount")
         val players = List(playerCount) { seat -> readPlayer(r, seat) }

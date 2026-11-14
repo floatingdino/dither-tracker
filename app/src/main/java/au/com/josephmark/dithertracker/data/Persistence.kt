@@ -27,6 +27,8 @@ object Persistence {
     private const val FLUSH_WAIT_MILLIS = 1_000L
 
     private var store: SaveStore? = null
+    private var session: GameSession? = null
+    private var settingsHolder: SettingsHolder? = null
 
     /** Load report from [start] (null before it ran). */
     var lastLoad: SaveStore.LoadResult? = null
@@ -69,20 +71,33 @@ object Persistence {
             settings.update(save.settings)
             if (save.game.state.players.size in 2..PlayLayout.MAX_PLAYERS && session.isPristine) {
                 session.replace(History(save.game))
+                session.restoreClock(save.activeClock) // T66: durations continue across process death
                 applied = true
             }
         }
         // Whatever is in memory now is what's on disk (or a fresh game that needn't be written yet).
-        s.markSaved(session.game, settings.current)
+        s.markSaved(session.game, settings.current, session.clock.base)
+        this.session = session
+        settingsHolder = settings
         Log.i(TAG, "restore: source=${loaded.source.name.lowercase()} applied=$applied load=${loaded.nanos / 1000} us (read ${loaded.readNanos / 1000} us)")
 
-        session.addListener { _, _ -> s.update(session.game, settings.current) }
-        settings.addListener { _, new -> s.update(session.game, new) }
+        session.addListener { _, _ -> s.update(session.game, settings.current, session.activeAt(System.currentTimeMillis())) }
+        settings.addListener { _, new -> s.update(session.game, new, session.activeAt(System.currentTimeMillis())) }
     }
 
     /** Writes any pending change now and waits briefly for it (call from `onPause`/`onStop`). */
     fun flush() {
         val s = store ?: return
+        // T66: the active clock at this moment (paused by now when called from onPause) goes with it.
+        val ss = session
+        val st = settingsHolder
+        if (ss != null && st != null) {
+            val clock = ss.activeAt(System.currentTimeMillis())
+            if (clock != ss.lastSavedClock) {
+                ss.lastSavedClock = clock
+                s.update(ss.game, st.current, clock)
+            }
+        }
         val t0 = SystemClock.elapsedRealtimeNanos()
         val before = s.writeCount
         val ok = s.flush(FLUSH_WAIT_MILLIS)

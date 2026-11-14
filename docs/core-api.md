@@ -22,11 +22,21 @@ Read the sources for signatures; this file records the behaviour a UI author mus
   or passes over the starting player, even a KO'd one); `SetActivePlayer` corrects whose turn it is
   without counting; `SetStartingPlayer` (the FIRST tool) starts or restarts tracking at turn 1, round 1.
   An active player knocked out on their own turn stays active until someone passes.
-- **Turn clock (T17):** `TurnState.startedAt` (tracking started) and `turnStartedAt` (current turn
-  number began) are wall-clock ms stamped from the dispatch timestamp by `reduceAt` — what `Game.apply`,
-  `History.dispatch` and undo's replay use; a bare `reduce` leaves them `TurnState.NO_TIME`. A
-  correction keeps both, a pass stamps `turnStartedAt`, (re)starting stamps both, undo restores them.
-  Compare turns with `turn.unstamped()` when only who/how-many matters. Persisted since save v3.
+- **Active clock (T66):** every timestamp core sees is **active time** — ms the app has been in use —
+  not wall time. `ActiveClock(base, resumedAt)` (immutable, clock-free: `at(wall)`, `pause(wall)`,
+  `resume(wall)`) lives in the app's `GameSession`, which converts each wall-clock dispatch with `at`;
+  the activity pauses / resumes it, so a turn left overnight or the device asleep never counts. It is
+  saved as `SaveFile.activeClock` and a restore resumes from there (`GameSession.restoreClock`).
+- **Turn clock (T17, T66):** `reduceAt` (what `Game.apply`, `History.dispatch` and undo's replay use;
+  a bare `reduce` stamps nothing) keeps, on the active clock: `startedAt` (tracking started),
+  `turnStartedAt` (current turn began), `lastTurnMillis` (the turn the last pass ended), `endedAt`
+  (one player or none left standing; cleared by a revive), and per player id `spent` / `taken` (summed
+  durations and count of completed turns, credited at each pass to whoever held the turn then — a
+  corrected turn goes to the corrected holder). Queries: `timeOnTurn(id, now)` and `gameMillis(now)`
+  (the turn in progress up to `now`, or up to `endedAt` once the game is over), `turnsTaken(id)`,
+  `gameMillisAtLastPass`. A correction changes none of them; (re)starting tracking and a new game reset
+  them; undo / redo restore them exactly. Compare turns with `turn.unstamped()` when only who / how
+  many matters. Persisted since save v6 (v3–v5 stamps were wall-clock and load unstamped).
 - **Monarch / initiative** are exclusive: granting one changes two `Player` objects. Either can be
   nobody's. A player going KO drops both (T14: in the rules they pass on, but the app can't know to
   whom, so they are left unset; the log gets a `ToggleChanged(…, false)` before the `KnockedOut`).

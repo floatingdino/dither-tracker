@@ -73,4 +73,21 @@ class GameSessionTest {
         assertEquals(listOf("view", "save", "other", "other"), calls)
         assertEquals(42, s.game.state.players[0].life)
     }
+
+    /** T66: the session hands core active time, so a turn that spans the app being paused excludes it. */
+    @Test fun dispatchStampsActiveTimeAndPausedTimeNeverCounts() {
+        val s = GameSession(History(GameState.create(4)), au.com.josephmark.dithertracker.core.ActiveClock.pausedAt(0))
+        s.resume(1_000_000)
+        s.dispatch(au.com.josephmark.dithertracker.core.Action.SetStartingPlayer(0), 1_000_000)
+        assertEquals(0L, s.state.turn.startedAt)
+        s.pause(1_090_000)                 // 90 s of play, then the night
+        s.resume(30_000_000)
+        s.dispatch(au.com.josephmark.dithertracker.core.Action.NextTurn, 30_037_000)
+        assertEquals(127_000L, s.state.turn.lastTurnMillis)
+        // A restore continues from the saved active time, paused until resumed.
+        s.restoreClock(500_000)
+        assertEquals(500_000L, s.activeAt(99_999_999))
+        s.resume(10)
+        assertEquals(500_100L, s.activeAt(110))
+    }
 }

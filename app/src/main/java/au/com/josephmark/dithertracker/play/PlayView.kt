@@ -178,9 +178,15 @@ class PlayView(
     }
 
     /** The activity paused / resumed: components drop or re-arm optional timers (the e-ink cleanup's quiet timer). */
-    fun onHostPause() = stage.send(Events.PAUSE, Stage.SCREEN)
+    fun onHostPause() {
+        stage.session.pause(System.currentTimeMillis()) // T66: the active clock stops (turn durations exclude it)
+        stage.send(Events.PAUSE, Stage.SCREEN)
+    }
 
-    fun onHostResume() = stage.send(Events.RESUME, Stage.SCREEN)
+    fun onHostResume() {
+        stage.session.resume(System.currentTimeMillis())
+        stage.send(Events.RESUME, Stage.SCREEN)
+    }
 
     // Not visible (T20): a timer that still fires in the background (a menu or mode timing out) only
     // notes that a redraw is due; the one redraw happens when the window is visible again. On the

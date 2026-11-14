@@ -83,6 +83,10 @@ class SaveStore(
     @Volatile private var writtenGame: Game? = null
     @Volatile private var writtenSettings: AppSettings? = null
 
+    /** The session's active clock (T66) with the latest snapshot / on disk. */
+    @Volatile private var latestClock: Long = 0L
+    @Volatile private var writtenClock: Long = 0L
+
     /** Whether the current main file is one we decoded or wrote — only then is it promoted to backup. */
     @Volatile private var mainKnownGood = false
 
@@ -157,20 +161,23 @@ class SaveStore(
      * Records [game]/[settings] as already on disk (after a restore), so an unchanged state isn't
      * rewritten. Call before the first [update].
      */
-    fun markSaved(game: Game, settings: AppSettings) {
+    fun markSaved(game: Game, settings: AppSettings, activeClock: Long = 0L) {
         latestGame = game
         latestSettings = settings
         writtenGame = game
         writtenSettings = settings
+        latestClock = activeClock
+        writtenClock = activeClock
     }
 
     /**
      * Main thread, after any change. Stores the snapshot and makes sure a debounced write is pending.
      * Cheap: two volatile writes, one clock read, and a post only on the first change of a burst.
      */
-    fun update(game: Game, settings: AppSettings) {
+    fun update(game: Game, settings: AppSettings, activeClock: Long = latestClock) {
         latestGame = game
         latestSettings = settings
+        latestClock = activeClock
         val now = clock.now()
         lastChange = now
         if (scheduled.compareAndSet(false, true)) {
@@ -222,14 +229,16 @@ class SaveStore(
     private fun writeLatest() {
         val game = latestGame ?: return
         val settings = latestSettings
-        if (game === writtenGame && settings === writtenSettings) return
+        val clock = latestClock
+        if (game === writtenGame && settings === writtenSettings && clock == writtenClock) return
         try {
             val t0 = System.nanoTime()
-            val bytes = SaveCodec.encode(SaveFile(game, settings))
+            val bytes = SaveCodec.encode(SaveFile(game, settings, clock))
             val t1 = System.nanoTime()
             writeAtomically(bytes)
             writtenGame = game
             writtenSettings = settings
+            writtenClock = clock
             lastEncodeNanos = t1 - t0
             lastWriteNanos = System.nanoTime() - t0
             writeCount++

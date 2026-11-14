@@ -21,22 +21,45 @@ fun reduce(state: GameState, action: Action): GameState {
 }
 
 /**
- * [reduce] at wall-clock [timestamp]: also stamps the turn clock (T17, [TurnState.startedAt] /
- * [TurnState.turnStartedAt]) where the action started tracking or began a new turn number. What
- * [Game.apply], [History.dispatch] and undo's replay use, so a replayed pass keeps its own time.
+ * [reduce] at [timestamp] (the session's active clock, T66): also keeps the turn clock (T17/T66,
+ * [TurnState]) — stamps where the action started tracking, credits the ended turn to whoever held it
+ * at a pass, and stamps / clears the game's end when the last-but-one player goes out / comes back.
+ * What [Game.apply], [History.dispatch] and undo's replay use, so a replayed pass keeps its own time.
  */
 fun reduceAt(state: GameState, action: Action, timestamp: Long): GameState = stampTurn(state, reduce(state, action), timestamp)
 
 internal fun stampTurn(before: GameState, after: GameState, timestamp: Long): GameState {
-    val t = after.turn
-    if (t === before.turn || !t.started) return after
-    val turn = when {
-        // A fresh TurnState (tracking started or restarted from a player): the game clock starts too.
-        t.startedAt == TurnState.NO_TIME -> t.copy(startedAt = timestamp, turnStartedAt = timestamp)
-        t.number != before.turn.number -> t.copy(turnStartedAt = timestamp)
-        else -> return after // a correction (who, not how many): the clock runs on
+    if (after === before) return after
+    val b = before.turn
+    var t = after.turn
+    if (!t.started) return after
+    if (t !== b) {
+        t = when {
+            // A fresh TurnState (tracking started or restarted from a player) or an unstamped one (an
+            // old save): the clock starts here.
+            !t.stamped -> t.copy(startedAt = timestamp, turnStartedAt = timestamp)
+            // A pass: the ended turn goes to whoever held it, the next one starts now.
+            t.number != b.number && b.started && b.stamped -> {
+                val d = maxOf(0L, timestamp - b.turnStartedAt)
+                val who = b.activePlayer
+                if (who == null) t.copy(turnStartedAt = timestamp, lastTurnMillis = d)
+                else t.copy(
+                    turnStartedAt = timestamp,
+                    lastTurnMillis = d,
+                    spent = t.spent + (who to (t.spent[who] ?: 0L) + d),
+                    taken = t.taken + (who to (t.taken[who] ?: 0) + 1),
+                )
+            }
+            else -> t // a correction (who, not how many): the clock runs on
+        }
     }
-    return after.copy(turn = turn)
+    // The game's end: one player (or none) left standing.
+    if (after.players !== before.players || after.settings !== before.settings || t !== b) {
+        val over = after.players.count { !after.isKo(it) } <= 1
+        if (over && t.endedAt == TurnState.NO_TIME) t = t.copy(endedAt = timestamp)
+        else if (!over && t.endedAt != TurnState.NO_TIME) t = t.copy(endedAt = TurnState.NO_TIME)
+    }
+    return if (t === after.turn) after else after.copy(turn = t)
 }
 
 private fun reduceRaw(s: GameState, a: Action): GameState = when (a) {

@@ -693,4 +693,51 @@ class SaveCodecTest {
         fixCrc(bytes)
         assertEquals(AppSettings.FACING_NONE, SaveCodec.decodeOrNull(bytes)?.settings?.settingsFacing)
     }
+
+    // ---- v6 (T66): the active clock and the full turn clock ------------------------------------------------
+
+    /** Active-clock times: tracking from seat 0, passes, a correction, a KO that ends nothing yet. */
+    private fun timedGame(): Game {
+        var h = History(GameState.create(4))
+        h = h.dispatch(SetStartingPlayer(0), 1_000)
+        h = h.dispatch(NextTurn, 128_000)
+        h = h.dispatch(SetActivePlayer(2), 130_000)
+        h = h.dispatch(NextTurn, 200_500)
+        h = h.dispatch(MarkDead(1), 210_000)
+        h = h.dispatch(NextTurn, 260_000)
+        return h.present
+    }
+
+    @Test fun activeClockAndTurnTotalsRoundTrip() {
+        val g = timedGame()
+        assertEquals(mapOf(0 to 127_000L, 2 to 72_500L, 3 to 59_500L), g.state.turn.spent)
+        for (clock in listOf(0L, 7L, 260_000L, 9_000_000_000L)) {
+            val save = SaveFile(g, richSettings().copy(turnTimer = TurnTimer.TURN), clock)
+            assertEquals(save, roundTrip(save))
+        }
+        // The game's end and a zero-length turn survive too.
+        var h = History(GameState.create(2)).dispatch(SetStartingPlayer(0), 0).dispatch(NextTurn, 0).dispatch(SetLife(1, 0), 5_000)
+        assertEquals(5_000L, h.state.turn.endedAt)
+        val save = SaveFile(h.present, AppSettings(), 5_000)
+        assertEquals(save, roundTrip(save))
+    }
+
+    @Test fun version3To5SavesLoadUnstampedWithTheClockFromTheirLog() {
+        val g = clockedGame() // wall-clock stamps, as T17 wrote them
+        val settings = richSettings().copy(playerCount = 4, turnTimer = TurnTimer.GAME)
+        for (v in 3..5) {
+            val r = SaveCodec.decode(SaveCodec.encodeAs(v, SaveFile(g, settings, activeClock = 999)))
+            assertIs<DecodeResult.Success>(r, "v$v decode failed: $r")
+            assertEquals(v, r.version)
+            assertEquals(g.state.turn.unstamped(), r.save.game.state.turn, "v$v: wall-clock stamps dropped")
+            assertEquals(g.log.maxOf { it.timestamp }, r.save.activeClock, "v$v: the clock resumes after the log")
+            assertEquals(g.log, r.save.game.log)
+            assertEquals(TurnTimer.GAME, r.save.settings.turnTimer)
+            // The next pass restarts the clock from there.
+            val h = History(r.save.game).dispatch(NextTurn, r.save.activeClock + 5_000)
+            assertTrue(h.state.turn.stamped)
+            assertEquals(r.save.activeClock + 5_000, h.state.turn.startedAt)
+        }
+        for (v in 1..2) assertEquals(0L, SaveCodec.decodeOrNull(SaveCodec.encodeAs(v, SaveFile(g, settings, 5)))!!.activeClock)
+    }
 }

@@ -90,6 +90,7 @@ class MainActivity : Activity() {
         //                       clock backdated --ei turnAgo M minutes; --ei turnPass N then passes N times,
         //                       the last pass --ei turnPassAgo M minutes ago (default 0)
         //   --es turns off|on|game|turn  (debuggable builds only) the Turns setting (T17)
+        //   --es endLives 40,0,0,0  (debuggable builds only) after the turn extras, set lives (a clocked winner, T66)
         //   --es layout ID      (debuggable builds only) choose arrangement ID (e.g. 3-pyramid) for its
         //                       player count (T53; with --ei players N for that count it is the table's)
         //   --ei pressDelay MS  (debuggable builds only) how long a touch must be down before its zone shows
@@ -295,10 +296,28 @@ class MainActivity : Activity() {
         val p = session.state.players.getOrNull(i.getIntExtra("turn", 0)) ?: return
         val now = System.currentTimeMillis()
         val ago = i.getIntExtra("turnAgo", 0) * 60_000L
+        // T66: the session's active clock runs only while resumed; let it run over the made-up past,
+        // then stop it again (onResume restarts it).
+        session.resume(now - ago)
         session.dispatch(Action.SetStartingPlayer(p.id), now - ago)
         val passes = i.getIntExtra("turnPass", 0)
         val passAgo = i.getIntExtra("turnPassAgo", 0) * 60_000L
-        for (n in 1..passes) session.dispatch(Action.NextTurn, if (n == passes) now - passAgo else now - ago)
+        // Passes spread over the past (uneven turns: seat-dependent shares), the last one turnPassAgo back.
+        val span = maxOf(0L, ago - passAgo)
+        var total = 0L
+        for (n in 1..passes) total += 3L + (n % 3)
+        var at = now - ago
+        for (n in 1..passes) {
+            at += span * (3L + (n % 3)) / maxOf(1L, total) + 7_000L * (n % 2)
+            session.dispatch(Action.NextTurn, if (n == passes) now - passAgo else minOf(at, now - passAgo))
+        }
+        // --es endLives 40,0,0,0: lives set now, after the turns (a winner with a clocked game).
+        i.getStringExtra("endLives")?.split(',')?.withIndex()?.forEach { (seat, v) ->
+            val q = session.state.players.getOrNull(seat) ?: return@forEach
+            val life = v.trim().toIntOrNull() ?: return@forEach
+            if (q.life != life) session.dispatch(Action.SetLife(q.id, life), now)
+        }
+        session.pause(now)
     }
 
     /** Keep-awake (T12): `FLAG_KEEP_SCREEN_ON` on the play window only while resumed and the setting is on. */

@@ -168,11 +168,17 @@ data class GameSettings(
  * Turn tracking. [number] is the count of individual turns taken (0 = tracking not started);
  * [round] increments each time play passes back to (or beyond) [startingPlayer].
  *
- * The turn clock (T17): [startedAt] is when tracking started (turn 1 began) and [turnStartedAt] when
- * the current turn number began, both wall-clock ms taken from the timestamp passed to
- * [Game.apply] / [History.dispatch] (the reducer itself never knows the time, so a bare [reduce]
- * leaves them [NO_TIME]). A correction ([Action.SetActivePlayer]) keeps both; a pass stamps
- * [turnStartedAt]; (re)starting tracking stamps both. Undo restores them with the rest of the state.
+ * The turn clock (T17, reworked in T66). Every time here is on the **active clock**: the timestamp
+ * passed to [Game.apply] / [History.dispatch], which the app takes from its session's active clock
+ * ([ActiveClock]: ms the app has been in use, paused while it is in the background), so a turn left
+ * overnight does not count the night. The reducer itself never knows the time: [reduceAt] stamps.
+ * - [startedAt]: tracking started (turn 1 began); [turnStartedAt]: the current turn number began.
+ * - [lastTurnMillis]: how long the turn that ended at the last pass took ([NO_TIME] before one).
+ * - [spent] / [taken]: per player id, the summed durations and the count of their **completed** turns
+ *   (credited at each pass to whoever held the turn then, a corrected turn included).
+ * - [endedAt]: when one player (or none) was left standing (the game's end), [NO_TIME] while it runs.
+ * A correction ([Action.SetActivePlayer]) changes none of them; a pass credits the ended turn and
+ * stamps the next; (re)starting tracking resets everything. Undo restores them with the rest.
  */
 data class TurnState(
     val activePlayer: PlayerId? = null,
@@ -181,11 +187,39 @@ data class TurnState(
     val round: Int = 0,
     val startedAt: Long = NO_TIME,
     val turnStartedAt: Long = NO_TIME,
+    val lastTurnMillis: Long = NO_TIME,
+    val endedAt: Long = NO_TIME,
+    val spent: Map<PlayerId, Long> = emptyMap(),
+    val taken: Map<PlayerId, Int> = emptyMap(),
 ) {
     val started: Boolean get() = number > 0
 
-    /** This state without its clock stamps (compare turns by who and how many, not when). */
-    fun unstamped(): TurnState = if (startedAt == NO_TIME && turnStartedAt == NO_TIME) this else copy(startedAt = NO_TIME, turnStartedAt = NO_TIME)
+    /** Whether the clock was stamped (tracking started under a `reduceAt`, not a bare `reduce` or an old save). */
+    val stamped: Boolean get() = startedAt != NO_TIME && turnStartedAt != NO_TIME
+
+    /** This state without its clock (compare turns by who and how many, not when). */
+    fun unstamped(): TurnState =
+        if (startedAt == NO_TIME && turnStartedAt == NO_TIME && lastTurnMillis == NO_TIME && endedAt == NO_TIME && spent.isEmpty() && taken.isEmpty()) this
+        else copy(startedAt = NO_TIME, turnStartedAt = NO_TIME, lastTurnMillis = NO_TIME, endedAt = NO_TIME, spent = emptyMap(), taken = emptyMap())
+
+    /** The clock's "now" for reports: the game's end once there is one, else [now]. */
+    fun clockAt(now: Long): Long = if (endedAt != NO_TIME) endedAt else now
+
+    /** Active ms since tracking started (to the end, once the game is over), or [NO_TIME]. */
+    fun gameMillis(now: Long): Long = if (!started || !stamped) NO_TIME else maxOf(0L, clockAt(now) - startedAt)
+
+    /** Active ms [player] has spent on turn: completed turns plus the one in progress (to [now] / the end). */
+    fun timeOnTurn(player: PlayerId, now: Long): Long {
+        if (!started || !stamped) return NO_TIME
+        val done = spent[player] ?: 0L
+        return if (activePlayer == player) done + maxOf(0L, clockAt(now) - turnStartedAt) else done
+    }
+
+    /** Turns [player] has taken: completed ones plus the one in progress. */
+    fun turnsTaken(player: PlayerId): Int = (taken[player] ?: 0) + if (started && activePlayer == player) 1 else 0
+
+    /** Game time at the last pass (what GAME mode reports after it), or [NO_TIME] before one. */
+    val gameMillisAtLastPass: Long get() = if (number > 1 && stamped) maxOf(0L, turnStartedAt - startedAt) else NO_TIME
 
     companion object {
         /** "Not stamped": tracking not started, or a state built by a bare [reduce]. */

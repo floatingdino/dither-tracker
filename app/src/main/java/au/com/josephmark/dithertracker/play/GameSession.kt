@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.play
 
 import au.com.josephmark.dithertracker.core.Action
+import au.com.josephmark.dithertracker.core.ActiveClock
 import au.com.josephmark.dithertracker.core.Game
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.History
@@ -19,7 +20,30 @@ import au.com.josephmark.dithertracker.data.SettingsHolder
  * - Life taps go through [changeLife], which reuses pre-built `ChangeLife(±1)` actions and coalesce
  *   keys per seat: the only allocations on a tap are inside `History.dispatch` itself.
  */
-class GameSession(history: History) {
+class GameSession(history: History, clock: ActiveClock = ActiveClock.WALL) {
+
+    /**
+     * The active clock (T66): every timestamp handed to core is active ms ([ActiveClock.at] of the wall
+     * clock passed in), so time spent paused never counts. A plain session runs it equal to the wall
+     * clock (tests); the app's [shared] one starts paused and follows the activity ([pause] / [resume]).
+     */
+    var clock: ActiveClock = clock
+        private set
+
+    /** Active ms at wall-clock [wall]. */
+    fun activeAt(wall: Long): Long = clock.at(wall)
+
+    /** The app went to the background at [wall]: the active clock stops. */
+    fun pause(wall: Long) { clock = clock.pause(wall) }
+
+    /** The app is back at [wall]: the active clock runs again from where it stopped. */
+    fun resume(wall: Long) { clock = clock.resume(wall) }
+
+    /** The active clock last handed to persistence (T66; main thread). */
+    var lastSavedClock: Long = -1L
+
+    /** A restored save: the active clock continues from [active] (paused until [resume]). */
+    fun restoreClock(active: Long) { clock = ActiveClock.pausedAt(maxOf(active, clock.base)) }
 
     fun interface Listener {
         fun onStateChanged(old: GameState, new: GameState)
@@ -61,9 +85,12 @@ class GameSession(history: History) {
     private var plusOne = arrayOf<Action.ChangeLife>()
     private var lifeKeys = arrayOf<String?>()
 
-    /** Dispatches [action] at [timestamp] (wall clock, ms). Notifies the listener if anything changed. */
+    /**
+     * Dispatches [action] at wall-clock [timestamp] (ms; core gets its active-clock time). Notifies the
+     * listener if anything changed.
+     */
     fun dispatch(action: Action, timestamp: Long, coalesceKey: String? = action.coalesceKey) {
-        set(history.dispatch(action, timestamp, coalesceKey))
+        set(history.dispatch(action, clock.at(timestamp), coalesceKey))
     }
 
     /**
@@ -81,7 +108,7 @@ class GameSession(history: History) {
             1 -> plusOne[seat]
             else -> Action.ChangeLife(id, delta)
         }
-        dispatch(action, timestamp, lifeKeys[seat])
+        dispatch(action, timestamp, lifeKeys[seat]) // (wall clock: dispatch converts)
     }
 
     /** Closes every open coalescing group. */
@@ -141,6 +168,8 @@ class GameSession(history: History) {
         fun newGame(playerCount: Int = 4): GameSession = GameSession(History(GameState.create(playerCount)))
 
         /** The process-wide session (restored from disk by `data.Persistence`); a fresh one seats the settings' count. */
-        val shared: GameSession by lazy { newGame(SettingsHolder.shared.current.playerCount) }
+        val shared: GameSession by lazy {
+            GameSession(History(GameState.create(SettingsHolder.shared.current.playerCount)), ActiveClock.pausedAt(0))
+        }
     }
 }
