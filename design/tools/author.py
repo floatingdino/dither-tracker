@@ -399,6 +399,24 @@ QMARK = from_art("""
 """)
 
 
+def cloud(w, h, circles):
+    """A cartoon dust cloud: the union of [circles] (cx, cy, r) filled with D4, outlined in ink."""
+    inside = [[any((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= r * r for cx, cy, r in circles) for x in range(w)] for y in range(h)]
+    rows = []
+    for y in range(h):
+        row = ''
+        for x in range(w):
+            if not inside[y][x]:
+                row += '.'
+            elif any(not (0 <= x + dx < w and 0 <= y + dy < h) or not inside[y + dy][x + dx]
+                     for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                row += '#'
+            else:
+                row += '1'
+        rows.append(row)
+    return trim(rows)
+
+
 def build():
     ico = icosahedron()
     cub = cube()
@@ -427,7 +445,9 @@ def build():
     shipped['ARC_DOWN'] = ARC_DOWN
     shipped['THUD'] = THUD
     b = {
-        'CLOUD_A': CLOUD_A, 'CLOUD_B': CLOUD_B, 'POP': POP, 'QMARK': QMARK,
+        'CLOUD_A': cloud(52, 31, [(12, 17, 9), (24, 11, 10), (37, 13, 9), (43, 21, 8), (28, 21, 10), (14, 23, 7)]),
+        'CLOUD_B': cloud(52, 31, [(10, 16, 8), (21, 10, 9), (33, 9, 9), (44, 16, 8), (36, 22, 9), (20, 22, 9)]),
+        'POP': POP, 'QMARK': QMARK,
         # the corner of the die poking out of the cloud, two ways
         'POKE_A': trim(render_solid(ico, (0.2, 0.6, 0.9), 14)),
         'POKE_B': trim(render_solid(ico, (0.9, -0.3, -0.4), 13)),
