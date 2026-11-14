@@ -38,6 +38,9 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         /** Counters shown in the tray, in order (`AppSettings.drawerCounters`). */
         val drawerCounters: List<Counter>
 
+        /** Trackers hidden from the tray (`AppSettings.hiddenTrackerMask`, T53). */
+        val hiddenTrackers: Int get() = 0
+
         /**
          * Applies [action] on behalf of [seat]'s drawer (the host attributes life changes to that
          * seat's readout), folding into [key]'s open undo step (null: a step of its own).
@@ -79,7 +82,7 @@ class DrawerController(val state: DrawerState, private val host: Host) {
         if (seat !in g.players.indices) { counts[seat] = 0; state.setPaging(seat, 0, l.perPage); return }
         val off = seat * DrawerItems.MAX_ITEMS
         counts[seat] = when (state.mode(seat)) {
-            DrawerState.TRAY -> DrawerItems.tray(g.players[seat], host.drawerCounters, items, off, withToggles = true)
+            DrawerState.TRAY -> DrawerItems.tray(g.players[seat], host.drawerCounters, items, off, withToggles = true, hidden = host.hiddenTrackers)
             else -> 0
         }
         state.setPaging(seat, counts[seat], l.perPage)

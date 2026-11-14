@@ -44,6 +44,7 @@ class DrawerComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = Drawe
     private val host = object : DrawerController.Host {
         override val game: GameState get() = stage.session.state
         override val drawerCounters: List<Counter> get() = stage.settings.current.drawerCounters
+        override val hiddenTrackers: Int get() = stage.settings.current.hiddenTrackerMask
         override fun dispatch(seat: Int, action: Action, key: String?) = stage.dispatch(seat, action, key)
         override fun invalidate(rect: IRect) = stage.invalidate(rect)
         override fun cancelTouches(seat: Int, from: Int, until: Int) {
@@ -146,7 +147,7 @@ class DrawerComponent : Component(Layer.TILE, Kind.CONTENT, zonesPerSeat = Drawe
     override fun onPlayersChanged() = controller.refreshAll()
 
     override fun onSettingsChanged(old: AppSettings, new: AppSettings) {
-        if (old.drawerCounters != new.drawerCounters) controller.onCountersChanged()
+        if (old.drawerCounters != new.drawerCounters || old.hiddenTrackers != new.hiddenTrackers) controller.onCountersChanged()
     }
 
     /** A cover now hiding a seat closes its drawer (commander mode closes them all). */

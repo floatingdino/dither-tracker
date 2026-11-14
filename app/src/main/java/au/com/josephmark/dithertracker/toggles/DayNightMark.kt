@@ -2,6 +2,8 @@ package au.com.josephmark.dithertracker.toggles
 
 import au.com.josephmark.dithertracker.core.DayNight
 import au.com.josephmark.dithertracker.core.GameState
+import au.com.josephmark.dithertracker.core.serial.AppSettings
+import au.com.josephmark.dithertracker.core.serial.Tracker
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.Icon
 import au.com.josephmark.dithertracker.play.PlayLayout
@@ -24,6 +26,9 @@ import au.com.josephmark.dithertracker.stage.Layer
  * zone: a tap still opens the table menu and its press inverts this too. Display only, [Kind.CHROME]:
  * hidden with the diamond in commander mode and under the menu. Set from any seat's drawer (the
  * shared day/night cell, `drawer.DrawerItems.DAY_NIGHT`); a change redraws just the diamond.
+ *
+ * T53: hidden in settings (`Tracker.DAY_NIGHT`), the diamond is the plain menu diamond again whatever
+ * the table's day/night is (display only: the state is kept and shows again when it is turned back on).
  */
 class DayNightMark : Component(Layer.SCREEN, Kind.CHROME) {
 
@@ -44,7 +49,7 @@ class DayNightMark : Component(Layer.SCREEN, Kind.CHROME) {
     override fun draw(f: Frame, seat: Int) {
         val l = l ?: return
         val dn = stage.session.state.dayNight
-        if (dn == DayNight.UNSET || !f.hit(l.diamond)) return
+        if (dn == DayNight.UNSET || !stage.settings.current.shows(Tracker.DAY_NIGHT) || !f.hit(l.diamond)) return
         val night = dn == DayNight.NIGHT
         fillDiamond(f, l, 0, ink = true)
         if (!night) fillDiamond(f, l, RIM, ink = false)
@@ -72,6 +77,11 @@ class DayNightMark : Component(Layer.SCREEN, Kind.CHROME) {
     override fun onStateChanged(old: GameState, new: GameState, origin: Int) {
         val l = l ?: return
         if (old.dayNight != new.dayNight) invalidate(l.diamond)
+    }
+
+    override fun onSettingsChanged(old: AppSettings, new: AppSettings) {
+        val l = l ?: return
+        if (old.shows(Tracker.DAY_NIGHT) != new.shows(Tracker.DAY_NIGHT)) invalidate(l.diamond)
     }
 
     companion object {

@@ -2,6 +2,7 @@ package au.com.josephmark.dithertracker.toggles
 
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.Toggle
+import au.com.josephmark.dithertracker.core.serial.AppSettings
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.drawer.DrawerItems
 import au.com.josephmark.dithertracker.play.PlayLayout
@@ -22,6 +23,9 @@ import au.com.josephmark.dithertracker.stage.Layer
  * in commander mode and under overlays ([Kind.CONTENT]), under the KO tile (drawn after), and on the
  * sole survivor's tile (the winner's detail chip uses the same band). A toggle change redraws only
  * the changed seats' rows — a monarch moving redraws two rows.
+ *
+ * T53: a toggle hidden in settings (`AppSettings.hiddenTrackers`) draws no badge — the player may still
+ * hold it (hiding is display only), and the badge comes back when it is shown again.
  */
 class BadgesComponent : Component(Layer.TILE, Kind.CONTENT) {
 
@@ -48,13 +52,14 @@ class BadgesComponent : Component(Layer.TILE, Kind.CONTENT) {
         val ps = f.players
         if (seat >= ps.size) return
         val p = ps[seat]
+        val hidden = stage.settings.current.hiddenTrackerMask
         var n = 0
-        for (tg in TOGGLES) if (p.toggles[tg]) n++
+        for (tg in TOGGLES) if (p.toggles[tg] && !DrawerItems.isHidden(hidden, tg)) n++
         if (n == 0 || soleSurvivor(seat)) return
         val rot = b.play.rotation[seat]
         var i = 0
         for (tg in TOGGLES) {
-            if (!p.toggles[tg]) continue
+            if (!p.toggles[tg] || DrawerItems.isHidden(hidden, tg)) continue
             b.badge(seat, i++, n, icon)
             f.icons.icon(b.tk, DrawerItems.TOGGLE_ICONS[tg.ordinal], icon, rot, invert = false, opaque = false)
         }
@@ -80,6 +85,12 @@ class BadgesComponent : Component(Layer.TILE, Kind.CONTENT) {
             if (a === c || a.toggles == c.toggles || t?.compact(i) == true || !visible(i)) continue
             invalidate(b.row[i])
         }
+    }
+
+    override fun onSettingsChanged(old: AppSettings, new: AppSettings) {
+        val b = layout ?: return
+        if (!b.enabled || old.hiddenTrackers == new.hiddenTrackers) return
+        for (i in 0 until b.play.playerCount) if (t?.compact(i) != true && visible(i)) invalidate(b.row[i])
     }
 
     companion object {

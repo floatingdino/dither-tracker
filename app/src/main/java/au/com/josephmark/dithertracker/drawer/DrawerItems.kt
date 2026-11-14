@@ -6,6 +6,7 @@ import au.com.josephmark.dithertracker.core.Counter
 import au.com.josephmark.dithertracker.core.DayNight
 import au.com.josephmark.dithertracker.core.Player
 import au.com.josephmark.dithertracker.core.Toggle
+import au.com.josephmark.dithertracker.core.serial.Tracker
 import au.com.josephmark.dithertracker.dither.Icon
 
 /**
@@ -24,6 +25,10 @@ import au.com.josephmark.dithertracker.dither.Icon
  * counters keep page 1 at four players. Commander damage is not a drawer item since T30 (see
  * `commander.CommanderMode`). The closed-drawer counter peeks (T32) use the same order without the
  * toggles (those show as tile badges, `toggles.BadgesComponent`).
+ *
+ * T53: any of the trackers — tax, the four toggles, day/night — can be hidden in settings
+ * (`AppSettings.hiddenTrackers`, passed here as its mask): a hidden one is simply not listed, so the
+ * tray has fewer cells and pages. The game state is untouched (display only).
  *
  * A toggle cell is on/off, not `− icon value +`: a tap on either half flips it (an exclusive toggle
  * moves to this player); holding does not repeat. Day/night steps unset → day → night → day … on a tap
@@ -59,20 +64,33 @@ object DrawerItems {
      * Fills [out] (from [offset]) with the tray items for [player]; returns the count. [withToggles]:
      * the drawer's list (the T14 toggles and day/night at the end); the peeks pass false.
      */
-    fun tray(player: Player, shown: List<Counter>, out: IntArray, offset: Int = 0, withToggles: Boolean): Int {
+    fun tray(player: Player, shown: List<Counter>, out: IntArray, offset: Int = 0, withToggles: Boolean, hidden: Int = 0): Int {
         var n = 0
-        out[offset + n++] = item(TAX, Commander.PRIMARY)
-        if (player.partner) out[offset + n++] = item(TAX, Commander.PARTNER)
+        if (!isHidden(hidden, Tracker.COMMANDER_TAX)) {
+            out[offset + n++] = item(TAX, Commander.PRIMARY)
+            if (player.partner) out[offset + n++] = item(TAX, Commander.PARTNER)
+        }
         for (i in shown.indices) {
             if (n >= MAX_ITEMS) break
             out[offset + n++] = item(COUNTER, shown[i].ordinal)
         }
         if (withToggles) {
-            for (i in toggles.indices) if (n < MAX_ITEMS) out[offset + n++] = item(TOGGLE, toggles[i].ordinal) // index loop: no iterator per refresh
-            if (n < MAX_ITEMS) out[offset + n++] = item(DAY_NIGHT, 0)
+            for (i in toggles.indices) { // index loop: no iterator per refresh
+                if (n < MAX_ITEMS && !isHidden(hidden, TOGGLE_TRACKERS[i])) out[offset + n++] = item(TOGGLE, toggles[i].ordinal)
+            }
+            if (n < MAX_ITEMS && !isHidden(hidden, Tracker.DAY_NIGHT)) out[offset + n++] = item(DAY_NIGHT, 0)
         }
         return n
     }
+
+    /** The settings tracker of each [Toggle], by ordinal. */
+    val TOGGLE_TRACKERS: Array<Tracker> = arrayOf(Tracker.MONARCH, Tracker.INITIATIVE, Tracker.CITYS_BLESSING, Tracker.RING_BEARER)
+
+    /** Whether [t] is set in a hidden-trackers [mask] (`AppSettings.hiddenTrackerMask`). */
+    fun isHidden(mask: Int, t: Tracker): Boolean = mask and (1 shl t.ordinal) != 0
+
+    /** Whether toggle [t] is hidden in [mask]. */
+    fun isHidden(mask: Int, t: Toggle): Boolean = isHidden(mask, TOGGLE_TRACKERS[t.ordinal])
 
     fun isToggle(item: Int): Boolean = kind(item) == TOGGLE || kind(item) == DAY_NIGHT
 
@@ -154,6 +172,7 @@ object DrawerItems {
 
     init {
         check(TOGGLE_ICONS.size == Toggle.entries.size)
+        for (t in Toggle.entries) check(TOGGLE_TRACKERS[t.ordinal].name == t.name)
     }
 
     /** The icon of a tray item (drawer cell, counter peek); day/night shows the sun unless it is night ([value] 2). */

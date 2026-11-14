@@ -77,4 +77,15 @@ internal object Codes {
     }
 
     fun turnTimer(code: Int): TurnTimer? = TurnTimer.entries.firstOrNull { turnTimer(it) == code }
+
+    fun tracker(t: Tracker): Int = when (t) {
+        Tracker.COMMANDER_TAX -> 1
+        Tracker.MONARCH -> 2
+        Tracker.INITIATIVE -> 3
+        Tracker.CITYS_BLESSING -> 4
+        Tracker.RING_BEARER -> 5
+        Tracker.DAY_NIGHT -> 6
+    }
+
+    fun tracker(code: Int): Tracker? = Tracker.entries.firstOrNull { tracker(it) == code }
 }

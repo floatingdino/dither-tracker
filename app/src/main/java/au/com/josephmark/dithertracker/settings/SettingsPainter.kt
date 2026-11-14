@@ -66,11 +66,14 @@ class SettingsPainter(val canvas: WidgetCanvas) {
         scratch.setXywh(0, 0, w, m.rowH)
         widgets.text(warmFrame, m, m.ui, DIGITS, 0, DIGITS.length, scratch, TextLayout.START, invert = false, opaque = false)
         for (ic in PREWARM_ICONS) canvas.blit(widgets.scaledIcon(ic, m.k), 0, 0, 0, invert = false, opaque = false)
+        // A paged list's footer chevron at the end of its pages is a disabled (hatched) button: its icon sits on its halo (T53: the counters page pages).
+        for (ic in PAGER_ICONS) canvas.blit(widgets.scaledHalo(ic, m.k), 0, 0, 0, invert = true, opaque = false)
     }
 
     companion object {
         private const val DIGITS = "0123456789/"
+        private val PAGER_ICONS = arrayOf(Icon.CHEVRON_LEFT, Icon.CHEVRON_RIGHT)
         private val PREWARM_ICONS = arrayOf(Icon.CHECK, Icon.CHEVRON_LEFT, Icon.CHEVRON_RIGHT, Icon.ROTATE, Icon.CLOSE) +
-            SettingsTable.COUNTER_ICONS
+            SettingsTable.COUNTER_ICONS + SettingsTable.TRACKER_ICONS
     }
 }

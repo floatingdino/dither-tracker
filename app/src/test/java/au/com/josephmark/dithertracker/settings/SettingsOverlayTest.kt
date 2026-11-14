@@ -2,6 +2,7 @@ package au.com.josephmark.dithertracker.settings
 
 import au.com.josephmark.dithertracker.core.Counter
 import au.com.josephmark.dithertracker.core.serial.AppSettings
+import au.com.josephmark.dithertracker.core.serial.Tracker
 import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.dither.DitherGrid
@@ -78,6 +79,19 @@ class SettingsOverlayTest {
                 is BackRow -> it.label == label
                 else -> false
             }
+        }
+
+        /** Pages the card's list until [label]'s row is on it (T53: the counters page has two). */
+        fun reveal(label: String): SettingsRow {
+            val row = row(label)
+            while (card.list.page > 0) tapId(SettingsCard.LIST + PagedList.PREV)
+            r@ while (true) {
+                val first = card.list.firstIndex
+                for (i in 0 until card.list.visibleCount) if (card.shown[first + i] === row) break@r
+                assertTrue("$label not on any page", card.list.page < card.list.pageCount - 1)
+                tapId(SettingsCard.LIST + PagedList.NEXT)
+            }
+            return row
         }
 
         /** Taps option [i] of the choice row [label]. */
@@ -178,7 +192,8 @@ class SettingsOverlayTest {
         r.overlay.open(0)
         val m = WidgetMetrics(4)
         // 10 rows (9 settings + the hint; T11 added Players, T17 Turns), rowH 27 + 1-px dividers.
-        assertEquals(10, r.overlay.pages.maxOf { it.rows.size })
+        // (T53's counters-and-trackers page is longer and pages; the card is capped at the screen.)
+        assertEquals(10, r.overlay.main.rows.size)
         assertEquals(r.card.side, r.card.bounds.width)
         assertTrue(r.card.side <= minOf(r.screen.width, r.screen.height) - 2 * m.size(SettingsCard.MARGIN))
         assertEquals(1, r.card.list.pageCount)
@@ -203,7 +218,7 @@ class SettingsOverlayTest {
                 // Each row reads in the card's frame: "Starting life" is the first row along the reader's y.
                 val life = r.card.frame
                 val first = r.row("Starting life").widget.bounds
-                val last = r.row("Counters").widget.bounds
+                val last = r.row(SettingsTable.COUNTERS_LABEL).widget.bounds
                 assertTrue(first.top < last.top)
                 assertEquals(rot, life.rotation)
             }
@@ -379,7 +394,7 @@ class SettingsOverlayTest {
                 else -> null
             }
         }
-        assertEquals(listOf("Players", "Starting life", "Turns", "Scale", "Invert", "Hold step", "Keep awake", "Screen clean", "Counters"), labels)
+        assertEquals(listOf("Players", "Starting life", "Turns", "Scale", "Invert", "Hold step", "Keep awake", "Screen clean", SettingsTable.COUNTERS_LABEL), labels)
     }
 
     @Test fun turnsIsOneChoiceForTheTrackerAndItsTimer() {
@@ -431,31 +446,66 @@ class SettingsOverlayTest {
     @Test fun countersSubPageTogglesWhichCountersTheDrawerShowsInDefaultOrder() {
         val r = Rig()
         r.overlay.open(0)
-        r.tapId(r.row("Counters").widget.id)
+        r.tapId(r.row(SettingsTable.COUNTERS_LABEL).widget.id)
         assertEquals(SettingsTable.COUNTERS_TITLE, r.overlay.page.title)
         assertEquals(SettingsTable.COUNTERS_TITLE, r.card.title.toString())
-        assertEquals(8, r.card.shownCount)
+        assertEquals("the whole title fits the bar", SettingsTable.COUNTERS_TITLE.length, r.card.titleChars)
+        assertEquals(14, r.card.shownCount)
         assertTrue(r.card.shown[0] is BackRow)
+        assertTrue("14 rows page", r.card.list.pageCount == 2)
         val toggles = r.overlay.page.rows.filterIsInstance<ToggleRow>()
-        assertEquals(7, toggles.size)
-        assertEquals(listOf(Icon.POISON, Icon.ENERGY, Icon.EXPERIENCE, Icon.RADS, Icon.STORM, Icon.TICKETS, Icon.GENERIC_COUNTER), toggles.map { it.toggle.icon })
+        assertEquals(13, toggles.size)
+        assertEquals(
+            listOf(Icon.COMMANDER_TAX, Icon.POISON, Icon.ENERGY, Icon.EXPERIENCE, Icon.RADS, Icon.STORM, Icon.TICKETS, Icon.GENERIC_COUNTER, Icon.MONARCH, Icon.INITIATIVE, Icon.CITYS_BLESSING, Icon.RING, Icon.DAY),
+            toggles.map { it.toggle.icon },
+        )
         assertTrue(toggles.all { it.toggle.checked })
+        // Every label is whole at S = 4.
+        for (p in 0 until 2) {
+            if (p > 0) r.tapId(SettingsCard.LIST + PagedList.NEXT)
+            val first = r.card.list.firstIndex
+            for (i in 0 until r.card.list.visibleCount) {
+                val t = (r.card.shown[first + i] as? ToggleRow)?.toggle ?: continue
+                assertEquals("${t.label}", t.label.length, t.labelChars)
+            }
+        }
         // Hide energy and storm, then bring energy back: order stays the default order.
-        r.tapId(r.row("Energy").widget.id)
-        r.tapId(r.row("Storm").widget.id)
+        r.tapId(r.reveal("Energy").widget.id)
+        r.tapId(r.reveal("Storm").widget.id)
         assertEquals(listOf(Counter.POISON, Counter.EXPERIENCE, Counter.RAD, Counter.TICKETS, Counter.GENERIC), r.settings.current.drawerCounters)
         assertFalse((r.row("Storm") as ToggleRow).toggle.checked)
-        r.tapId(r.row("Energy").widget.id)
+        r.tapId(r.reveal("Energy").widget.id)
         assertEquals(listOf(Counter.POISON, Counter.ENERGY, Counter.EXPERIENCE, Counter.RAD, Counter.TICKETS, Counter.GENERIC), r.settings.current.drawerCounters)
         // Back returns to the main page; close from the sub-page closes the card.
-        r.tapId(r.row("Settings").widget.id)
+        r.tapId(r.reveal("Settings").widget.id)
         assertSame(r.overlay.main, r.overlay.page)
-        r.tapId(r.row("Counters").widget.id)
+        r.tapId(r.row(SettingsTable.COUNTERS_LABEL).widget.id)
         r.tapId(SettingsCard.CLOSE)
         assertFalse(r.overlay.isOpen)
         // Reopening starts on the main page.
         r.overlay.open(0)
         assertSame(r.overlay.main, r.overlay.page)
+    }
+
+    @Test fun trackersToggleLikeCounters() {
+        val r = Rig()
+        r.overlay.open(0)
+        r.tapId(r.row(SettingsTable.COUNTERS_LABEL).widget.id)
+        // Hide each tracker in turn from the page, then show it again.
+        for (i in SettingsTable.TRACKERS.indices) {
+            val t = SettingsTable.TRACKERS[i]
+            val label = SettingsTable.TRACKER_LABELS[i]
+            r.tapId(r.reveal(label).widget.id)
+            assertEquals(setOf(t), r.settings.current.hiddenTrackers)
+            assertFalse((r.row(label) as ToggleRow).toggle.checked)
+            r.tapId(r.reveal(label).widget.id)
+            assertEquals(emptySet<Tracker>(), r.settings.current.hiddenTrackers)
+        }
+        r.tapId(r.reveal("Monarch").widget.id)
+        r.tapId(r.reveal("Day/night").widget.id)
+        assertEquals(setOf(Tracker.MONARCH, Tracker.DAY_NIGHT), r.settings.current.hiddenTrackers)
+        // Counters are untouched by tracker rows.
+        assertEquals(AppSettings.DEFAULT_DRAWER_COUNTERS, r.settings.current.drawerCounters)
     }
 
     @Test fun withCounterKeepsTheFixedOrder() {

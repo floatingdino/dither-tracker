@@ -70,7 +70,10 @@ enum class FailureReason {
  * `AppSettings.playerCount` to the settings; a v1 save takes it from the saved game. v3 (T17) appends
  * the turn settings (`turnTracker`, `turnTimer`) after it and the turn clock (`TurnState.startedAt`,
  * `turnStartedAt`: wall-clock ms, each an optional varint) after the turn's numbers; older saves get
- * the defaults (tracker on, timer off) and an unstamped clock. Integers are
+ * the defaults (tracker on, timer off) and an unstamped clock. v4 (T53) appends the hidden trackers
+ * (`AppSettings.hiddenTrackers`: a count, then [Codes.tracker] codes) after the turn settings; older
+ * saves show every tracker. (`AppSettings.layout` has been in the body since v1: an opaque string, so
+ * T53's per-count layout choices needed no format change.) Integers are
  * LEB128 varints, signed ones zigzag-encoded; strings are varint length + UTF-8; enums use the
  * explicit codes in [Codes]; booleans of a player/settings are packed into flag bytes. Log entries
  * are length-prefixed (so an entry with an unknown tag or enum code is skipped, not fatal) and
@@ -86,7 +89,7 @@ enum class FailureReason {
  * the current model. Older readers reject newer versions with [FailureReason.UNSUPPORTED_VERSION].
  */
 object SaveCodec {
-    const val CURRENT_VERSION = 3
+    const val CURRENT_VERSION = 4
 
     /** Log entries kept by default when encoding (the most recent ones). */
     const val DEFAULT_MAX_LOG_ENTRIES = 500
@@ -114,6 +117,7 @@ object SaveCodec {
         writeSettings(w, save.settings)
         if (version >= 2) w.uvar(save.settings.playerCount)
         if (version >= 3) writeTurnSettings(w, save.settings)
+        if (version >= 4) writeTrackers(w, save.settings)
         writeGame(w, save.game, maxLogEntries.coerceAtLeast(0), clock = version >= 3)
         val crc = CRC32().apply { update(w.toByteArray()) }.value.toInt()
         w.u32(crc)
@@ -161,7 +165,8 @@ object SaveCodec {
         1 -> readBodyV1(r, ctx)
         2 -> readBodyV2(r, ctx)
         3 -> readBodyV3(r, ctx)
-        // 4 -> readBodyV4(r, ctx); the older readers stay and map their layouts into the current model.
+        4 -> readBodyV4(r, ctx)
+        // 5 -> readBodyV5(r, ctx); the older readers stay and map their layouts into the current model.
         else -> corrupt("no reader for version $version")
     }
 
@@ -195,6 +200,23 @@ object SaveCodec {
         val game = readGame(r, ctx, clock = true)
         return SaveFile(game, settings)
     }
+
+    // ---- v4 (T53): v3 + the hidden trackers ---------------------------------------------------------
+
+    private fun readBodyV4(r: ByteReader, ctx: DecodeContext): SaveFile {
+        val settings = readTrackers(r, readTurnSettings(r, readSettingsV2(r)))
+        val game = readGame(r, ctx, clock = true)
+        return SaveFile(game, settings)
+    }
+
+    private fun writeTrackers(w: ByteWriter, s: AppSettings) {
+        w.uvar(s.hiddenTrackers.size)
+        for (t in Tracker.entries) if (t in s.hiddenTrackers) w.uvar(Codes.tracker(t))
+    }
+
+    /** Unknown codes (a newer app's trackers) are dropped: they come back shown. */
+    private fun readTrackers(r: ByteReader, s: AppSettings): AppSettings =
+        s.copy(hiddenTrackers = List(r.count()) { r.uvar() }.mapNotNull(Codes::tracker).toSet())
 
     private const val T_TRACKER = 1
 

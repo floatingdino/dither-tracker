@@ -585,4 +585,56 @@ class SaveCodecTest {
         assertEquals(listOf(0, 1, 2), TurnTimer.entries.map { Codes.turnTimer(it) })
         assertNull(Codes.turnTimer(3))
     }
+
+    // ---- v4 (T53): hidden trackers ----------------------------------------------------------------------
+
+    @Test fun hiddenTrackersRoundTrip() {
+        val g = clockedGame()
+        val sets = listOf(emptySet(), Tracker.entries.toSet(), setOf(Tracker.DAY_NIGHT), setOf(Tracker.COMMANDER_TAX, Tracker.RING_BEARER))
+        for (h in sets) {
+            val save = SaveFile(g, richSettings().copy(hiddenTrackers = h, layout = "3-pyramid,5-end"))
+            assertEquals(save, roundTrip(save))
+        }
+    }
+
+    @Test fun olderSavesShowEveryTracker() {
+        val g = clockedGame()
+        val settings = richSettings().copy(playerCount = 4, hiddenTrackers = setOf(Tracker.MONARCH))
+        for (v in 1..3) {
+            val r = SaveCodec.decode(SaveCodec.encodeAs(v, SaveFile(g, settings)))
+            assertIs<DecodeResult.Success>(r, "v$v decode failed: $r")
+            assertEquals(v, r.version)
+            assertEquals(emptySet(), r.save.settings.hiddenTrackers, "v$v: every tracker shown")
+            assertEquals(g.state.players, r.save.game.state.players)
+        }
+        // A v3 save is byte-for-byte what the v3 app wrote: the v4 body less the tracker list.
+        val v3 = SaveCodec.encodeAs(3, SaveFile(g, settings))
+        val r3 = SaveCodec.decode(v3)
+        assertIs<DecodeResult.Success>(r3)
+        assertEquals(settings.copy(hiddenTrackers = emptySet()), r3.save.settings)
+    }
+
+    @Test fun unknownTrackerCodeIsDropped() {
+        val save = SaveFile(Game(GameState.create(4)), richSettings().copy(playerCount = 4, hiddenTrackers = setOf(Tracker.MONARCH)))
+        val bytes = SaveCodec.encode(save)
+        val at = 6 + settingsSize(richSettings()) + 2 // after the v2 count and the v3 turn byte
+        assertEquals(1, bytes[at].toInt(), "one hidden tracker")
+        assertEquals(Codes.tracker(Tracker.MONARCH), bytes[at + 1].toInt())
+        bytes[at + 1] = 99
+        fixCrc(bytes)
+        assertEquals(emptySet(), SaveCodec.decodeOrNull(bytes)?.settings?.hiddenTrackers)
+    }
+
+    @Test fun trackerCodesAreStable() {
+        assertEquals(listOf(1, 2, 3, 4, 5, 6), listOf(Tracker.COMMANDER_TAX, Tracker.MONARCH, Tracker.INITIATIVE, Tracker.CITYS_BLESSING, Tracker.RING_BEARER, Tracker.DAY_NIGHT).map(Codes::tracker))
+        Tracker.entries.forEach { assertEquals(it, Codes.tracker(Codes.tracker(it))) }
+        assertNull(Codes.tracker(0))
+    }
+
+    @Test fun hiddenTrackerMaskMatchesTheSet() {
+        assertEquals(0, AppSettings().hiddenTrackerMask)
+        val a = AppSettings(hiddenTrackers = setOf(Tracker.DAY_NIGHT, Tracker.MONARCH))
+        assertTrue(!a.shows(Tracker.DAY_NIGHT) && !a.shows(Tracker.MONARCH))
+        assertTrue(a.shows(Tracker.COMMANDER_TAX) && a.shows(Tracker.INITIATIVE))
+    }
 }

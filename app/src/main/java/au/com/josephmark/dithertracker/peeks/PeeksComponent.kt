@@ -53,7 +53,7 @@ class PeeksComponent : Component(Layer.TILE, Kind.CONTENT) {
         val t = t ?: return
         if (t.compact(seat) || !k.enabled || !(f.hit(cornerL[seat]) || f.hit(cornerR[seat]))) return
         val p = f.players[seat]
-        val all = DrawerItems.tray(p, stage.settings.current.drawerCounters, items, withToggles = false)
+        val all = stage.settings.current.let { DrawerItems.tray(p, it.drawerCounters, items, withToggles = false, hidden = it.hiddenTrackerMask) }
         var n = 0
         for (i in 0 until all) {
             val v = DrawerItems.value(items[i], p)
@@ -99,7 +99,7 @@ class PeeksComponent : Component(Layer.TILE, Kind.CONTENT) {
 
     override fun onSettingsChanged(old: AppSettings, new: AppSettings) {
         if (pk == null) return
-        if (old.drawerCounters != new.drawerCounters) for (s in 0 until (pk?.play?.playerCount ?: 0)) invalidateCorners(s)
+        if (old.drawerCounters != new.drawerCounters || old.hiddenTrackers != new.hiddenTrackers) for (s in 0 until (pk?.play?.playerCount ?: 0)) invalidateCorners(s)
     }
 
     private fun invalidateCorners(seat: Int) {

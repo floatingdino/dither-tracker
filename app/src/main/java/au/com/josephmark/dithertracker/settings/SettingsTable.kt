@@ -2,6 +2,7 @@ package au.com.josephmark.dithertracker.settings
 
 import au.com.josephmark.dithertracker.core.Counter
 import au.com.josephmark.dithertracker.core.serial.AppSettings
+import au.com.josephmark.dithertracker.core.serial.Tracker
 import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.dither.DitherGrid
 import au.com.josephmark.dithertracker.dither.Icon
@@ -50,6 +51,14 @@ object SettingsTable {
     val COUNTER_LABELS = arrayOf("Poison", "Energy", "Experience", "Rad", "Storm", "Tickets", "Generic")
     val COUNTER_ICONS = arrayOf(Icon.POISON, Icon.ENERGY, Icon.EXPERIENCE, Icon.RADS, Icon.STORM, Icon.TICKETS, Icon.GENERIC_COUNTER)
 
+    /**
+     * The trackers (T53), in the page's order: commander tax first (it leads the tray), then — after
+     * the counters — the four player toggles and day/night, as the drawer lists them.
+     */
+    val TRACKERS: Array<Tracker> = arrayOf(Tracker.COMMANDER_TAX, Tracker.MONARCH, Tracker.INITIATIVE, Tracker.CITYS_BLESSING, Tracker.RING_BEARER, Tracker.DAY_NIGHT)
+    val TRACKER_LABELS = arrayOf("Commander tax", "Monarch", "Initiative", "City's blessing", "Ring-bearer", "Day/night")
+    val TRACKER_ICONS = arrayOf(Icon.COMMANDER_TAX, Icon.MONARCH, Icon.INITIATIVE, Icon.CITYS_BLESSING, Icon.RING, Icon.DAY)
+
     /** The footnote once starting life differs from when the card was opened (+ the value). */
     const val LIFE_HINT = "Next game starts at "
 
@@ -59,10 +68,13 @@ object SettingsTable {
     const val LIFE_HINT_END = " life"
 
     const val TITLE = "SETTINGS"
-    const val COUNTERS_TITLE = "COUNTERS"
+    /** The sub-page (T53: "Counters and trackers", Sam's wording) and the main-page row that opens it. */
+    const val COUNTERS_TITLE = "COUNTERS AND TRACKERS"
+    const val COUNTERS_LABEL = "Counters and trackers"
 
     init {
         check(COUNTER_LABELS.size == COUNTERS.size && COUNTER_ICONS.size == COUNTERS.size)
+        check(TRACKER_LABELS.size == TRACKERS.size && TRACKER_ICONS.size == TRACKERS.size && TRACKERS.toSet() == Tracker.entries.toSet())
     }
 
     /** The main page, top to bottom (T11 added Players, T17 Turns). Add rows here. */
@@ -77,7 +89,7 @@ object SettingsTable {
             ChoiceRow("Hold step", labels(HOLD_STEPS), HOLD_STEPS, { it.app.holdRepeatStep }, { s, v -> s.updateApp(s.app.copy(holdRepeatStep = v)) }),
             ToggleRow("Keep awake", { it.app.keepScreenAwake }, { s, v -> s.updateApp(s.app.copy(keepScreenAwake = v)) }),
             ChoiceRow("Screen clean", arrayOf("OFF", "20", "50", "100"), CLEAN_EVERY, { it.app.fullRefreshEvery }, { s, v -> s.updateApp(s.app.copy(fullRefreshEvery = v)) }),
-            LinkRow("Counters", counters()),
+            LinkRow(COUNTERS_LABEL, counters()),
             lifeHint(), // last: appearing never moves a row under a finger
         ),
     )
@@ -144,18 +156,31 @@ object SettingsTable {
 
     fun scale(): ScaleRow = ScaleRow({ it.app.scale }, { s, v -> s.updateApp(s.app.copy(scale = v)) })
 
-    /** The drawer-counters sub-page: back, then one toggle per counter (with its icon). */
-    fun counters(): SettingsPage = SettingsPage(
-        COUNTERS_TITLE,
-        Array(1 + COUNTERS.size) { i ->
-            if (i == 0) {
-                BackRow("Settings")
-            } else {
-                val c = COUNTERS[i - 1]
-                ToggleRow(COUNTER_LABELS[i - 1], { it.app.drawerCounters.contains(c) }, { s, v -> s.updateApp(s.app.copy(drawerCounters = withCounter(s.app.drawerCounters, c, v))) }, COUNTER_ICONS[i - 1])
-            }
-        },
-    )
+    /**
+     * The drawer's sub-page (T12; T53 added the trackers): back, then one toggle per item with its
+     * icon, in the tray's order — commander tax, the seven counters, the four player toggles,
+     * day/night. Fourteen rows do not fit the card, so the page uses the card's `‹ 1/2 ›` paging.
+     */
+    fun counters(): SettingsPage {
+        val rows = ArrayList<SettingsRow>()
+        rows += BackRow("Settings")
+        rows += trackerRow(0)
+        for (i in COUNTERS.indices) {
+            val c = COUNTERS[i]
+            rows += ToggleRow(COUNTER_LABELS[i], { it.app.drawerCounters.contains(c) }, { s, v -> s.updateApp(s.app.copy(drawerCounters = withCounter(s.app.drawerCounters, c, v))) }, COUNTER_ICONS[i])
+        }
+        for (i in 1 until TRACKERS.size) rows += trackerRow(i)
+        return SettingsPage(COUNTERS_TITLE, rows.toTypedArray())
+    }
+
+    private fun trackerRow(i: Int): ToggleRow {
+        val t = TRACKERS[i]
+        return ToggleRow(TRACKER_LABELS[i], { it.app.shows(t) }, { s, v -> s.updateApp(s.app.copy(hiddenTrackers = withTracker(s.app.hiddenTrackers, t, v))) }, TRACKER_ICONS[i])
+    }
+
+    /** [hidden] with [t] shown ([on]) or hidden. */
+    fun withTracker(hidden: Set<Tracker>, t: Tracker, on: Boolean): Set<Tracker> =
+        Tracker.entries.filterTo(LinkedHashSet()) { if (it == t) !on else it in hidden }
 
     /** [current] with [c] shown or hidden, in the fixed [COUNTERS] order. */
     fun withCounter(current: List<Counter>, c: Counter, on: Boolean): List<Counter> =
