@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # T51 captures: KO and winner tiles without the life total (4 and 6 players; a poison KO keeps its
 # cause chip; the winner's trophy), the closed menu diamond and a gem facet pressed (only their shape
-# inverts), and the gem still open after a dice roll's panel closes (and the panel over it).
+# inverts).
 # Drives one device over adb (an emulator is fine): installs the debug APK, clears data, launches with
 # the debug extras (--ei players, --es lives, --es poison; debuggable builds only), taps, screencaps,
 # then checks every PNG with tools/check_1bit.py --scale 4.
@@ -55,11 +55,5 @@ sleep 2
 cap_pressed t51-diamond-pressed 934 702
 tap 934 702
 cap_pressed t51-gem-facet-pressed 1050 818
-# A roll: the DICE tip opens the panel over the gem; its close X leaves the gem open.
-tap 702 702
-sleep 2.5                           # the roll's presentation (T52)
-cap t51-dice-over-gem
-tap 1182 702                        # the panel's close X
-cap t51-gem-open-after-roll
 
 for f in "$OUT"/t51-*.png; do python3 tools/check_1bit.py "$f" --scale 4 | tail -1; done

@@ -148,10 +148,10 @@ class MenuOverlayTest {
         r.tap(g.cx, g.cy)
         assertEquals(MenuState.OPEN, r.phase)
         assertEquals(35, r.life(2))
-        // Confirm → NewGame (values reset, names kept), back to the gem (T51: open until dismissed).
+        // Confirm → NewGame (values reset, names kept), menu closed.
         r.tapItem(MenuItem.NEW)
         r.tap(g.confirmBtn.left + 3, g.cy - 6)
-        assertEquals(MenuState.OPEN, r.phase)
+        assertEquals(MenuState.CLOSED, r.phase)
         assertEquals(40, r.life(2))
         assertEquals("Cy", r.rig.session.state.players[2].name)
         // Undo can bring the old game back.
@@ -198,12 +198,23 @@ class MenuOverlayTest {
         assertEquals(MenuState.CONFIRM, r.phase)
         r.tap(r.g.cancelBtn.left + 2, r.g.cy)
         assertEquals(MenuState.OPEN, r.phase)
-        // Every tool keeps it open.
+        // Undo / redo keep it open; every other tool closes it (T51 correction, Sam).
         r.rig.session.changeLife(0, -1, 0)
         r.tapItem(MenuItem.UNDO); assertEquals(MenuState.OPEN, r.phase)
         r.tapItem(MenuItem.REDO); assertEquals(MenuState.OPEN, r.phase)
-        r.tapItem(MenuItem.FIRST); assertEquals(MenuState.OPEN, r.phase)
-        r.tapItem(MenuItem.CLEAN); assertEquals(MenuState.OPEN, r.phase)
+        r.tapSlot(CENTRE)
+        for (item in listOf(MenuItem.FIRST, MenuItem.CLEAN, MenuItem.DICE, MenuItem.LOG, MenuItem.SETUP)) {
+            r.rig.platform.clock.advance(60_000) // let a panel, card or clean from the last one finish
+            r.rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.settings.SettingsOverlay>().single().let { if (it.isOpen) it.close() }
+            r.rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.history.HistoryOverlay>().single().let { if (it.isOpen) it.close() }
+            r.rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.tools.DiceOverlay>().single().state.close()
+            r.open()
+            assertEquals("$item", MenuState.OPEN, r.phase)
+            r.rig.platform.clock.advance(3_600_000)
+            assertEquals("$item: no timeout", MenuState.OPEN, r.phase)
+            r.tapItem(item)
+            assertEquals("$item closes the gem", MenuState.CLOSED, r.phase)
+        }
     }
 
     @Test fun stateMachineHasNoIdleTimer() {
@@ -237,7 +248,7 @@ class MenuOverlayTest {
         r.open()
         r.clearInvalidations()
         r.tapItem(MenuItem.CLEAN)
-        assertEquals(MenuState.OPEN, r.phase) // T51: the gem stays; the clean redraws it with everything
+        assertEquals(MenuState.CLOSED, r.phase)
         assertTrue(cleaner.active)
         assertTrue(cleaner.full)
         val full = IRect()
@@ -249,16 +260,11 @@ class MenuOverlayTest {
         r.rig.platform.clock.advance(1)
         assertFalse(cleaner.active)
         assertEquals(listOf(full), r.rig.platform.invalidated)
-        // A touch cancels a running cleanup at once; with the gem still open it is the dismiss tap.
-        r.tapItem(MenuItem.CLEAN)
-        assertTrue(cleaner.active)
+        // A touch on a tile cancels a running cleanup at once (and still reaches the tile).
+        r.open(); r.tapItem(MenuItem.CLEAN)
         val n = PlayRig.mid(r.l.zones[PlayLayout.zone(3, PlayLayout.PLUS)])
         r.tap(n[0], n[1])
         assertFalse(cleaner.active)
-        assertEquals(MenuState.CLOSED, r.phase)
-        assertEquals(40, r.life(3))
-        // Closed: the next one reaches the tile.
-        r.tap(n[0], n[1])
         assertEquals(41, r.life(3))
     }
 
@@ -275,8 +281,8 @@ class MenuOverlayTest {
         r.open()
         assertTrue(r.menu.enabled[dice])
         r.tapItem(MenuItem.DICE)
-        assertEquals(MenuState.OPEN, r.phase) // T51: the destination opens over the gem
-        r.tapItem(MenuItem.SETUP)
+        assertEquals(MenuState.CLOSED, r.phase)
+        r.open(); r.tapItem(MenuItem.SETUP)
         assertEquals(listOf("DICE ${GemLayout.FOLD}", "SETUP 0"), calls)
         r.menu.destinations.unregister(MenuItem.DICE)
         assertNull(r.menu.destinations[MenuItem.DICE])

@@ -32,7 +32,7 @@ class HistoryOverlayTest {
         fun tapZone(id: Int) = tap(card.screenHit[id])
 
         fun openViaMenu() {
-            if (!menu.state.isOpen) tap(l.diamondCx, l.diamondCy) // T51: the gem stays open under the card
+            tap(l.diamondCx, l.diamondCy)
             assertEquals(MenuState.OPEN, menu.state.phase)
             val g = menu.gem!!
             val slot = GemLayout.slotOf(MenuItem.LOG)
@@ -55,7 +55,7 @@ class HistoryOverlayTest {
         r.rig.session.changeLife(2, -3, 0)
         r.openViaMenu()
         assertTrue(r.history.isOpen)
-        assertEquals(MenuState.OPEN, r.menu.state.phase) // T51: the card opens over the gem
+        assertEquals(MenuState.CLOSED, r.menu.state.phase)
         val g = r.menu.gem!!
         assertEquals(g.rotation[GemLayout.slotOf(MenuItem.LOG)].let { if (it == GemLayout.FOLD) 0 else it }, r.history.rotation)
         assertTrue(r.history.cover.active)

@@ -30,20 +30,16 @@ import kotlin.random.Random
  * both hold without a dismiss tap also changing someone's life. While open, a full-screen dismiss
  * zone under the gem swallows the tap and closes the menu; tiles are visible but not live.
  *
- * **Stays open until dismissed** (T51, Sam): no tool closes the gem and there is no idle timeout; only
- * the centre X or a tap outside it closes it. A tool's own panel or card (dice, history, settings) is
- * a later OVERLAY component, so it draws over the gem and its zones (and its full-screen dismiss)
- * win over the gem's; the gem stays open, drawn and live underneath, and whatever the panel's close
- * redraws repaints the gem there — so it is simply still there when the panel closes.
+ * **No idle timeout** (T51, Sam): the open gem waits until a tool is chosen, its centre X is tapped or
+ * a tap lands outside it.
  *
- * - **UNDO / REDO** → `stage.session` undo/redo; a facet is disabled (`Role.DISABLED`, no zone) while
- *   there is nothing to undo/redo.
+ * - **UNDO / REDO** → `stage.session` undo/redo; the menu stays open (repeated undo); a facet is
+ *   disabled (`Role.DISABLED`, no zone) while there is nothing to undo/redo.
  * - **NEW** → the confirm; confirm dispatches core `NewGame` (keeps players and settings, resets the
- *   values), or `NewGameFor(n)` when settings ask for another player count (T11), and returns to the
- *   gem; cancel (either button face or the fold's close diamond) returns to the gem.
- * - **CLEAN** → sends [Events.CLEAN] (`eink.CleanComponent`: one black frame, 300 ms, redraw of everything, the gem included).
- * - **DICE / FIRST / LOG / SETUP** → [destinations]: calls the registered [MenuDestination] (its
- *   panel opens over the gem); unregistered ones are drawn disabled and take no tap.
+ *   values), or `NewGameFor(n)` when settings ask for another player count (T11), and closes; cancel (either button face or the fold's close diamond) returns to the gem.
+ * - **CLEAN** → closes and sends [Events.CLEAN] (`eink.CleanComponent`: one black frame, 300 ms, redraw).
+ * - **DICE / FIRST / LOG / SETUP** → [destinations]: closes and calls the registered
+ *   [MenuDestination]; unregistered ones are drawn disabled and take no tap.
  * - Closes on the centre X or a tap outside (the tap is swallowed: it never reaches a tile).
  * - Press feedback inverts the pressed facet's *shape* (see [GemPainter.compensate]).
  */
@@ -181,7 +177,7 @@ class MenuOverlay(
             DISMISS -> state.close()
             CANCEL, FOLD_CANCEL -> state.back()
             CONFIRM -> {
-                state.back() // the new game starts under the open gem (T51: open until dismissed)
+                state.close()
                 // T11: the player count chosen in settings takes effect here (the screen re-lays out).
                 val want = stage.settings.current.playerCount
                 if (want != stage.session.state.players.size) stage.dispatch(Origin.EXTERNAL, Action.NewGameFor(want))
@@ -203,10 +199,15 @@ class MenuOverlay(
                 gem?.let { layoutConfirm(it) }
                 state.confirm()
             }
-            MenuItem.CLEAN -> stage.send(Events.CLEAN, Stage.SCREEN)
+            MenuItem.CLEAN -> {
+                state.close()
+                stage.send(Events.CLEAN, Stage.SCREEN)
+            }
             else -> {
                 val d = destinations[item] ?: return
-                d.open(item, gem?.rotation?.get(slot) ?: 0) // over the gem, which stays open (T51)
+                val facing = gem?.rotation?.get(slot) ?: 0
+                state.close()
+                d.open(item, facing)
             }
         }
     }

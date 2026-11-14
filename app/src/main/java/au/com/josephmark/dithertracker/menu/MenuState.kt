@@ -13,8 +13,8 @@ import au.com.josephmark.dithertracker.play.Scheduler
  *
  * [BLOOM] is the optional keyframe (`concept-1-gem-key1.png`, an empty doubled diamond) shown for
  * [KEY_MS] before the full gem; it is off ([bloom] false) unless it clearly reads better on e-ink.
- * **Only [close] closes it** (T51, Sam: "menu should stay open until dismissed"): no idle timeout,
- * and no tool closes it — the owner calls [close] for the centre X or a tap outside. [listener]
+ * **No idle timeout** (T51, Sam): only [close] closes it — the owner calls it for a chosen tool, the
+ * centre X or a tap outside. [listener]
  * hears every change (the component invalidates). Allocation-free.
  */
 class MenuState(

@@ -375,8 +375,6 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         rig.openFromMenu(MenuItem.LOG)
         shot("60_history_empty")
         rig.history.close()
-        shot("60_gem_after_history") // T51: the gem is still open under the card
-        rig.closeMenu()
         for (seat in 0 until 4) {
             rig.tap(rig.life, seat, PlayLayout.MINUS)
             rig.advance(4_000)
@@ -431,7 +429,6 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         rig.cancel()
         rig.tap(dice, Stage.SCREEN, DiceLayout.CLOSE)
         rig.advance(1_000)
-        shot("75_gem_after_dice") // T51: the gem is still open under the panel
         rig.openFromMenu(MenuItem.FIRST)
         shot("76_first_player_asking")
         rig.advance(FirstPlayer.WHO_MS)

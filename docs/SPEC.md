@@ -110,9 +110,8 @@ Icons must read clearly at S=2..6 and when inverted.
 **Table tools (centre menu)**
 - New game / reset (with confirm), choose starting player at random, dice (d6/d20/custom), coin flip,
   turn tracker + optional turn/game timer (minute-resolution redraws only), undo/redo, game history log.
-- The menu **stays open until dismissed** (Sam, 2026-11-14): only its centre X or a tap outside closes
-  it — no tool closes it and there is no idle timeout; a tool's panel or card (dice, history,
-  settings) opens over it, and the gem is still there when that closes.
+- The menu has **no idle timeout** (Sam, 2026-11-14): once open it waits until a tool is chosen (which
+  closes it; undo/redo keep it open), its centre X is tapped or a tap lands outside it.
 
 **Settings**
 - Player count & layout, starting life, integer scale S (auto / 2–6), invert (dark mode),

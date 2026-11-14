@@ -31,7 +31,7 @@ class DiceOverlayTest {
 
         /** Opens the gem and taps its DICE tip (and, with [present], lets the presentation play out). */
         fun openFromMenu(present: Boolean = true) {
-            if (!menu.state.isOpen) tap(rig.l.diamondCx, rig.l.diamondCy) // T51: the gem stays open under the panel
+            tap(rig.l.diamondCx, rig.l.diamondCy)
             val g = menu.gem!!
             val s = GemLayout.slotOf(MenuItem.DICE)
             tap(g.facetX[s], g.facetY[s])
@@ -63,7 +63,7 @@ class DiceOverlayTest {
         val g = r.menu.gem!!
         val s = GemLayout.slotOf(MenuItem.DICE)
         r.tap(g.facetX[s], g.facetY[s])
-        assertEquals(MenuState.OPEN, r.menu.state.phase) // T51: the panel opens over the gem
+        assertEquals(MenuState.CLOSED, r.menu.state.phase)
         assertTrue(r.state.isOpen)
         assertEquals(Tool.D20, r.state.tool)
         assertTrue(r.state.value in 1..20)
@@ -94,10 +94,8 @@ class DiceOverlayTest {
         assertEquals("dice:${DiceOverlay.DISMISS}", r.hit(l.panelOuter.left - 1, l.cy))
         val n = PlayRig.mid(r.rig.l.numberSlot[2])
         assertEquals("dice:${DiceOverlay.DISMISS}", r.hit(n[0], n[1]))
-        // Closed: the gem underneath is back (T51); with it closed too, the tiles are live again.
+        // Closed: the tiles are live again.
         r.state.close()
-        assertEquals(MenuState.OPEN, r.menu.state.phase)
-        r.menu.state.close()
         assertTrue(r.hit(n[0], n[1]).startsWith("life:2:"))
     }
 

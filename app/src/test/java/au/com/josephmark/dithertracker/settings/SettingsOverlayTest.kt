@@ -64,7 +64,7 @@ class SettingsOverlayTest {
 
         /** Opens it the way a player does: diamond → gem → SETUP facet. */
         fun openFromGem() {
-            if (!menu.state.isOpen) tap(l.diamondCx, l.diamondCy) // T51: the gem stays open under the card
+            tap(l.diamondCx, l.diamondCy)
             assertEquals(MenuState.OPEN, menu.state.phase)
             val g = menu.gem!!
             val s = GemLayout.slotOf(MenuItem.SETUP)
@@ -114,7 +114,7 @@ class SettingsOverlayTest {
         assertNotNull(r.menu.destinations[MenuItem.SETUP])
         r.openFromGem()
         assertTrue(r.overlay.isOpen)
-        assertEquals(MenuState.OPEN, r.menu.state.phase) // T51: the card opens over the gem
+        assertEquals(MenuState.CLOSED, r.menu.state.phase)
         assertEquals(0, r.overlay.rotation)
         assertTrue(r.overlay.cover.active)
         assertTrue(r.overlay.cover.covers(0) && r.overlay.cover.covers(3) && r.overlay.cover.covers(Stage.SCREEN))
@@ -137,20 +137,18 @@ class SettingsOverlayTest {
         assertEquals(0, r.overlay.rotation)
     }
 
-    @Test fun closeReturnsToTheGemStillOpen() {
+    @Test fun closeReturnsToThePlayScreenNotTheGem() {
         val r = Rig()
         r.openFromGem()
         r.rig.platform.invalidated.clear()
         r.tapId(SettingsCard.CLOSE)
         assertFalse(r.overlay.isOpen)
         assertFalse(r.overlay.cover.active)
-        assertEquals(MenuState.OPEN, r.menu.state.phase) // T51: open until dismissed
-        // The card's area (over the dividers) is redrawn (the gem with it); the gem has the crossing.
+        assertEquals(MenuState.CLOSED, r.menu.state.phase)
+        // The card's area (over the dividers) is redrawn, and the tiles are live again.
         val dev = IRect()
         r.l.grid.toDevice(r.card.bounds, dev)
         assertTrue(r.rig.platform.invalidated.any { it.left <= dev.left && it.top <= dev.top && it.right >= dev.right && it.bottom >= dev.bottom })
-        assertTrue(r.rig.stage.zoneOwner(r.rig.stage.hitTest(r.l.diamondCx, r.l.diamondCy)) === r.menu)
-        r.menu.state.close()
         assertEquals("menu", r.rig.hit(r.l.diamondCx, r.l.diamondCy))
     }
 
