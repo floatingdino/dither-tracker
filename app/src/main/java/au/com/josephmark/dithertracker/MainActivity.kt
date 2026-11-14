@@ -79,8 +79,6 @@ class MainActivity : Activity() {
         //                       clock backdated --ei turnAgo M minutes; --ei turnPass N then passes N times,
         //                       the last pass --ei turnPassAgo M minutes ago (default 0)
         //   --es turns off|on|game|turn  (debuggable builds only) the Turns setting (T17)
-        //   --ei pressDelay MS  (debuggable builds only) how long a touch must be down before its zone shows
-        //                       the press inversion (T57; default PlayInput.PRESS_DELAY_MS, 0 = on touch-down)
         val inverted = if (intent?.hasExtra("inverted") == true) {
             intent.getBooleanExtra("inverted", false)
         } else {
@@ -101,9 +99,6 @@ class MainActivity : Activity() {
             PlayView(this, GameSession.shared, debugRandom() ?: Random(System.nanoTime())).apply {
                 this.trace = trace
                 setInverted(inverted)
-                if (BuildConfig.DEBUG && intent?.hasExtra("pressDelay") == true) {
-                    pressDelayMillis = intent.getIntExtra("pressDelay", 0).coerceAtLeast(0).toLong()
-                }
             }
         }
         setContentView(root)
