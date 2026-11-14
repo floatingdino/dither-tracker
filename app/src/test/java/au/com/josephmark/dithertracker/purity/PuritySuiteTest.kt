@@ -508,6 +508,26 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         // (2, 3, 5 and 6 seats, the narrow tier and sideways seats: turns/TurnTabTest on CountRig.)
     }
 
+    // ---- T66: the winner screen with times -------------------------------------------------------------------
+
+    @Test fun winnerTimes() = script { rig ->
+        val turn = rig.stage.components.filterIsInstance<TurnTab>().single()
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.TURN))
+        rig.dispatch(Action.SetStartingPlayer(rig.id(0)))
+        rig.advance(10_000)
+        if (turn.shownSeat >= 0) for (i in 0 until 5) {
+            rig.advance(37_000L + 61_000L * i)
+            rig.tap(turn, turn.shownSeat, TurnTab.PASS)
+        }
+        rig.dispatch(Action.SetCounter(rig.id(1), Counter.POISON, 10)) // a cause chip with its time below
+        rig.dispatch(Action.SetLife(rig.id(2), 0))
+        rig.dispatch(Action.SetLife(rig.id(3), 0))
+        rig.advance(10_000)
+        shot("90_winner_turn_times")
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.GAME))
+        shot("91_winner_game_time")
+    }
+
     // ---- effect keyframes ----------------------------------------------------------------------------------------
 
     @Test fun effects() = script(prewarmed = false) { rig ->

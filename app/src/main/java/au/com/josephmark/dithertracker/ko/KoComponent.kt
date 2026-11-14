@@ -1,5 +1,8 @@
 package au.com.josephmark.dithertracker.ko
 
+import au.com.josephmark.dithertracker.widgets.CharBuf
+import au.com.josephmark.dithertracker.turns.TimeFormat
+import au.com.josephmark.dithertracker.core.serial.AppSettings
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.GameState
 import au.com.josephmark.dithertracker.core.KoReason
@@ -93,6 +96,14 @@ class KoComponent(
     private var tombHalo: MonoImage = Icon.DEAD.halo // the emblem's contour cut-out ([HaloMask.of], k.halo px)
     private val chip = IRect()
 
+    /** T66: the winner screen's time report shows ([KoTimes.on]); the dead heroes then keep the detail band free. */
+    var times = false
+        private set
+    private val timeBuf = CharBuf(TimeFormat.MAX_CHARS)
+    private val ti = IRect()
+    private val tt = IRect()
+    private val tc = IRect()
+
     /** The quip shown on [seat] ("" when alive), in caps. */
     fun quip(seat: Int): String = quips[seat]
 
@@ -113,7 +124,7 @@ class KoComponent(
         stage.log?.invoke("$k")
         for (s in 0 until P) {
             disarm(s)
-            if (s < play.playerCount && quips[s].isNotEmpty()) k.arrange(s, quips[s], blocks[s], modeOf(reasons[s]))
+            if (s < play.playerCount && quips[s].isNotEmpty()) k.arrange(s, quips[s], blocks[s], modeOf(reasons[s]), times)
         }
         sync(stage.session.state, invalidate = false)
     }
@@ -135,6 +146,7 @@ class KoComponent(
         f.r.blit(tomb, 0, 0)
         f.r.blit(tombHalo, 0, 0)
         f.icons.prewarm(CAUSE_ICONS, k.causeK)
+        f.icons.prewarm(TIME_ICONS, k.causeK)
         for (rot in k.play.rotations) {
             for (q in 1..k.warmK) f.text.draw(k.ui, warmUi(k.ui), 0, 0, q, rot)
             f.text.draw(k.causeFont, WARM_NUM, 0, 0, k.causeK, rot)
@@ -184,13 +196,23 @@ class KoComponent(
                 quips[s] = picked.value.uppercase()
                 val changedWhileShown = dead and bit != 0 && (shown ushr s) and 1 != 0
                 reasons[s] = reason
-                k.arrange(s, quips[s], blocks[s], modeOf(reason))
+                k.arrange(s, quips[s], blocks[s], modeOf(reason), times)
                 if (changedWhileShown && invalidate) invalidate(k.panels[s])
                 stage.log?.invoke("KO seat $s ($reason): '${quips[s]}'")
             }
         }
         val newlyHeld = mask and dead.inv() and held
         dead = mask
+        // T66: a winner with a timer mode on: every dead tile reports its time (re-arranged once).
+        val on = KoTimes.on(state, stage.settings.current)
+        if (on != times) {
+            times = on
+            for (s in 0 until minOf(P, ps.size)) {
+                if (quips[s].isEmpty()) continue
+                k.arrange(s, quips[s], blocks[s], modeOf(reasons[s]), on)
+                if (invalidate && (shown ushr s) and 1 != 0) invalidate(k.panels[s])
+            }
+        }
         applyCover()
         // A held seat (an effect is playing) keeps its life halves: stop a hold-repeat that killed it.
         // Only on that seat (T57): another player's hold keeps going.
@@ -275,6 +297,10 @@ class KoComponent(
         if (seat < ps.size) stage.dispatch(seat, Action.Revive(ps[seat].id))
     }
 
+    override fun onSettingsChanged(old: AppSettings, new: AppSettings) {
+        if (old.turnTracker != new.turnTracker || old.turnTimer != new.turnTimer) sync(stage.session.state, invalidate = true)
+    }
+
     override fun onCoversChanged() {
         // Another cover (an overlay) hid this seat: drop a pending revive.
         for (s in 0 until P) if ((armed ushr s) and 1 != 0 && !visible(s)) disarm(s)
@@ -325,6 +351,20 @@ class KoComponent(
             }
         }
 
+        // T66: the time report (winner decided, a timer mode on): the timer icon and m:ss on a paper chip.
+        if (times) {
+            val st = stage.session.state
+            if (seat < st.players.size) {
+                KoTimes.format(st, stage.settings.current, seat, timeBuf)
+                val font = k.report(seat, b.mode, timeBuf.length, ti, tt, tc)
+                if (font != null && f.hit(tc)) {
+                    f.r.rect(tc, ink = false)
+                    if (!ti.isEmpty) f.icons.icon(k.causeK, Icon.TIMER, ti, rot, invert = false, opaque = false)
+                    f.text.draw(font, timeBuf, tt.left, tt.top, k.causeK, rot)
+                }
+            }
+        }
+
         // Hero: the armed revive plate, or the quip in ink on one continuous paper ground cut out of the field.
         if ((armed ushr seat) and 1 != 0) {
             if (!f.hit(b.keyline) && !f.hit(b.shadow)) return
@@ -366,6 +406,7 @@ class KoComponent(
         const val HOLD_MAX_MS = 4_000L
 
         private val CAUSE_ICONS = arrayOf(Icon.POISON, Icon.COMMANDER)
+        private val TIME_ICONS = arrayOf(Icon.TIMER)
 
         /** The layout mode for a KO [reason]: a chip only where the cause has its own count (T51). */
         fun modeOf(reason: KoReason?): Int = when (reason) {
@@ -374,6 +415,6 @@ class KoComponent(
         }
         /** Every glyph of [font] (quips use punctuation beyond A–Z 0–9; T20: those were built in onDraw). Prewarm only. */
         private fun warmUi(font: Font): String = font.glyphs.joinToString("") { it.char.toString() }
-        private const val WARM_NUM = "0123456789-"
+        private const val WARM_NUM = "0123456789-:"
     }
 }

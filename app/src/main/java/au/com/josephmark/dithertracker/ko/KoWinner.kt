@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.ko
 
 import au.com.josephmark.dithertracker.core.GameState
+import au.com.josephmark.dithertracker.core.serial.AppSettings
 import au.com.josephmark.dithertracker.core.flavour.Flavour
 import au.com.josephmark.dithertracker.core.flavour.RecentPicks
 import au.com.josephmark.dithertracker.dither.IRect
@@ -11,7 +12,9 @@ import au.com.josephmark.dithertracker.stage.Component
 import au.com.josephmark.dithertracker.stage.Frame
 import au.com.josephmark.dithertracker.stage.Kind
 import au.com.josephmark.dithertracker.stage.Layer
+import au.com.josephmark.dithertracker.turns.TimeFormat
 import au.com.josephmark.dithertracker.type.Font
+import au.com.josephmark.dithertracker.widgets.CharBuf
 import au.com.josephmark.dithertracker.widgets.TextSlice
 import kotlin.random.Random
 
@@ -58,6 +61,14 @@ class KoWinner(
     val showing: Boolean get() = winner >= 0 && !dismissed && caption.isNotEmpty()
 
     private val block = KoLayout.Block()
+
+    /** T66: the winner screen's time report shows ([KoTimes.on]) under the caption. */
+    var times = false
+        private set
+    private val timeBuf = CharBuf(TimeFormat.MAX_CHARS)
+    private val ti = IRect()
+    private val tt = IRect()
+    private val tc = IRect()
     private val band = IRect()
     private val slice = TextSlice()
 
@@ -67,7 +78,7 @@ class KoWinner(
         val nk = KoLayout(play)
         k = nk
         t = tiles
-        if (winner >= 0) nk.arrange(winner, caption, block, KoLayout.WINNER)
+        if (winner >= 0) nk.arrange(winner, caption, block, KoLayout.WINNER, times)
         update(stage.session.state, null)
     }
 
@@ -81,15 +92,29 @@ class KoWinner(
     override fun prewarm(f: Frame) {
         val k = k ?: return
         f.icons.prewarm(WARM_ICONS, k.iconK)
+        f.icons.prewarm(TIME_ICONS, k.causeK)
         for (rot in k.play.rotations) {
             for (q in 1..k.warmK) f.text.draw(k.ui, warmUi(k.ui), 0, 0, q, rot)
+            f.text.draw(k.causeFont, "0123456789:", 0, 0, k.causeK, rot)
         }
     }
 
     override fun onStateChanged(old: GameState, new: GameState, origin: Int) = update(new, old)
 
+    override fun onSettingsChanged(old: AppSettings, new: AppSettings) {
+        if (old.turnTracker != new.turnTracker || old.turnTimer != new.turnTimer) update(stage.session.state, null)
+    }
+
     private fun update(state: GameState, old: GameState?) {
         val k = k ?: return
+        val on = KoTimes.on(state, stage.settings.current)
+        if (on != times) {
+            times = on
+            if (winner >= 0) {
+                k.arrange(winner, caption, block, KoLayout.WINNER, on)
+                invalidate(k.panels[winner])
+            }
+        }
         val ps = state.players
         var alive = -1
         var n = 0
@@ -109,7 +134,7 @@ class KoWinner(
         winner = w
         dismissed = false
         caption = if (w < 0) "" else flavour.winner(random, recent).let { recent = it.recent; it.value.uppercase() }
-        if (w >= 0) k.arrange(w, caption, block, KoLayout.WINNER)
+        if (w >= 0) k.arrange(w, caption, block, KoLayout.WINNER, times)
         if (oldW >= 0 && wasShowing) invalidate(k.panels[oldW])
         if (w >= 0) invalidate(k.panels[w])
         stage.log?.invoke("winner $oldW -> $w '$caption'")
@@ -130,12 +155,24 @@ class KoWinner(
                 f.text.draw(k.ui, slice.set(caption, b.start[i], b.end[i]), r.left, r.top, b.k, rot)
             }
         }
+        // T66: the winner's time (their turns, or the game's) under the caption, in the detail band.
+        if (times) {
+            val st = stage.session.state
+            if (seat >= st.players.size) return
+            KoTimes.format(st, stage.settings.current, seat, timeBuf)
+            val font = k.report(seat, KoLayout.WINNER, timeBuf.length, ti, tt, tc) ?: return
+            if (!f.hit(tc)) return
+            f.r.rect(tc, ink = false)
+            if (!ti.isEmpty) f.icons.icon(k.causeK, Icon.TIMER, ti, rot, invert = false, opaque = false)
+            f.text.draw(font, timeBuf, tt.left, tt.top, k.causeK, rot)
+        }
     }
 
     companion object {
         /** The winner's emblem: its own trophy (T51, Sam: not the monarch's crown). */
         val EMBLEM: Icon = Icon.WINNER
         private val WARM_ICONS = arrayOf(EMBLEM)
+        private val TIME_ICONS = arrayOf(Icon.TIMER)
         /** Every glyph of [font] (quips use punctuation beyond A–Z 0–9; T20: those were built in onDraw). Prewarm only. */
         private fun warmUi(font: Font): String = font.glyphs.joinToString("") { it.char.toString() }
     }

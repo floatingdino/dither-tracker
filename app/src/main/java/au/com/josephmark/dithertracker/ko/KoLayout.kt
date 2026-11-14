@@ -45,6 +45,9 @@ import au.com.josephmark.dithertracker.widgets.TextWrap
  *   next, so the lines merge into one stepped shape with no dither between words or lines.
  * - **Detail** ([DEAD_CAUSE] only): the cause icon + `num-m` count on a paper chip, centred in the
  *   under-number row between the counter-peek corners ([detail]).
+ * - **Time report** (T66, [report]): once there is a winner and a Turns timer mode is on, a `timer`
+ *   icon + `m:ss` chip on every seat — the detail band on the winner's and plain dead tiles (their hero
+ *   then stays above it), the near band under a cause chip.
  * - **Revive** (armed): an ink plate reading [REVIVE] in paper at [Block.reviveK] (T47: the quip's
  *   size, down from k = 4, which shouted next to the one-size quips), with a solid
  *   shadow down-right separated from it by a paper [keyline], centred on the quip it replaces.
@@ -236,6 +239,49 @@ class KoLayout(val play: PlayLayout) {
         return true
     }
 
+    // ---- time report (T66) ---------------------------------------------------------------------------
+
+    /**
+     * The winner screen's time report on [seat] (T66): the `timer` icon then the [chars]-glyph time in
+     * [causeFont] on a paper chip — in the detail band on the winner's tile and on a dead tile without
+     * a cause chip ([DEAD], [WINNER]; their hero is then arranged above the band, `reserve`), and on a
+     * [DEAD_CAUSE] tile in the near band below the cause chip (the KO cover hides the tab and peeks
+     * there). Too narrow for the icon: the time alone; for `num-m`: the `ui` face. Writes the icon (empty
+     * when dropped), text and chip footprints; returns the text's face, or null (all empty) without room.
+     */
+    fun report(seat: Int, mode: Int, chars: Int, icon: IRect, text: IRect, chip: IRect): Font? {
+        val near = mode == DEAD_CAUSE
+        val left = if (near) textLeft else detailLeft
+        val right = if (near) textRight else detailRight
+        val top = if (near) detailBottom else detailTop
+        val bottom = if (near) H - PlayLayout.V_MIN - gutter else detailBottom
+        val bw = right - left
+        val bh = bottom - top
+        // Fullest first: icon + num-m, num-m alone, ui alone; each needs at least a 1 px paper rim.
+        val nw = causeFont.widthOf(chars, causeK)
+        val nh = causeFont.height(causeK)
+        val showIcon = causeIconSize + iconGap + nw + 2 <= bw && maxOf(causeIconSize, nh) + 2 <= bh
+        val f: Font = if (showIcon || (nw + 2 <= bw && nh + 2 <= bh)) causeFont else ui
+        val th = f.height(causeK)
+        val cw = (if (showIcon) causeIconSize + iconGap else 0) + f.widthOf(chars, causeK)
+        val ch = maxOf(if (showIcon) causeIconSize else 0, th)
+        if (cw + 2 > bw || ch + 2 > bh) {
+            icon.set(0, 0, 0, 0); text.set(0, 0, 0, 0); chip.set(0, 0, 0, 0)
+            return null
+        }
+        val g = minOf(halo, (bw - cw) / 2, (bh - ch) / 2)
+        val x = left + (bw - cw) / 2
+        val y = top + (bh - ch) / 2
+        play.mapRect(seat, x - g, y - g, cw + 2 * g, ch + 2 * g, chip)
+        var tx = x
+        if (showIcon) {
+            play.mapRect(seat, x, y + (ch - causeIconSize) / 2, causeIconSize, causeIconSize, icon)
+            tx += causeIconSize + iconGap
+        } else icon.set(0, 0, 0, 0)
+        play.mapRect(seat, tx, y + (ch - th) / 2, f.widthOf(chars, causeK), th, text)
+        return f
+    }
+
     /** The whole detail band on [seat] (screen): invalidate this when the detail's value changes. */
     fun detailBand(seat: Int, out: IRect) =
         play.mapRect(seat, detailLeft, detailTop, maxOf(0, detailRight - detailLeft), maxOf(0, detailBottom - detailTop), out)
@@ -258,8 +304,10 @@ class KoLayout(val play: PlayLayout) {
      * emblem and the quip's cap block are centred together between [emblemTop] and the box's bottom.
      * Also places the ground and the armed revive plate. Pure; allocation-free.
      */
-    fun arrange(seat: Int, quip: CharSequence, out: Block, mode: Int) {
-        val bottom = textBottomOf(mode)
+    fun arrange(seat: Int, quip: CharSequence, out: Block, mode: Int, reserve: Boolean = false) {
+        // [reserve] (T66): the winner screen's time report takes the detail band, so a [DEAD] or
+        // [WINNER] hero stays above it (as a [DEAD_CAUSE] one does).
+        val bottom = if (reserve) minOf(textBottomOf(mode), textBottom) else textBottomOf(mode)
         val th = bottom - textTop
         out.mode = mode
         var k = quipK
@@ -273,7 +321,8 @@ class KoLayout(val play: PlayLayout) {
         // below), centred in [emblemTop, bottom); every glyph box stays inside the text box.
         val capBlock = blockH(k, n) - (lh - ui.capHeight * k - ui.capTop * k)
         val group = iconSize + emblemGap + capBlock
-        var ey = emblemTop + maxOf(0, (centreBottomOf(mode) - emblemTop - group) / 2)
+        val cb = if (reserve) minOf(centreBottomOf(mode), bottom) else centreBottomOf(mode)
+        var ey = emblemTop + maxOf(0, (cb - emblemTop - group) / 2)
         var y0 = ey + iconSize + emblemGap
         if (y0 < textTop) y0 = textTop
         if (y0 + blockH(k, n) > bottom) y0 = maxOf(textTop, bottom - blockH(k, n))
