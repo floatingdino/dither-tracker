@@ -164,13 +164,13 @@ cap 27_coin_again
 tap 1182 702; sleep 1               # close X
 
 # --- first player ----------------------------------------------------------------------------------------
-tap 934 934                         # FIRST (T51: the gem is still open under the closed dice panel)
+tap 934 702; sleep 1; tap 934 934   # gem -> FIRST
 sleep 1.5                           # T52: the "ME?" beat (450 ms), then the badge
 cap 28_first_player
 sleep 6                             # the badge clears after 5 s
 
 # --- settings card (opened from the SETUP facet) --------------------------------------------------------
-tap 1050 818                        # SETUP (the gem is still open)
+tap 934 702; sleep 1; tap 1050 818
 sleep 1
 cap 29_settings
 cap_pressed 30_press_settings_row 934 702   # "Invert" row held; release toggles it (dark mode)
@@ -188,12 +188,10 @@ tap 1514 1278                       # its close X, turned with it to the lower r
 sleep 1
 
 # --- history card -----------------------------------------------------------------------------------------
-tap 818 586                         # LOG (the gem is still open under the closed settings card)
+tap 934 702; sleep 1; tap 818 586   # gem -> LOG
 sleep 1
 cap 34_history
 tap 2 2                             # outside the card: closed
-sleep 1
-tap 934 702                         # T51: the gem is still open under the card; its centre X closes it
 sleep 1
 
 # --- KO and winner -------------------------------------------------------------------------------------------
