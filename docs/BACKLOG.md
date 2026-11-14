@@ -136,7 +136,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T41 | review | T34 T40 | **Contour cut-outs for glyphs on dither** — Sam approved **halo 1** (a 1 px paper halo following the glyph's outline, holes filled first; see `design/icons/candidates/heavy/halo-mocks.png` and README) in place of the square paper backing: generate halo masks at build time for icons; use for the diamond's menu glyph and commander close X, the tab dots, and anywhere a glyph sits on a dither fill; verify on device. (Icon promotion is already done.) | `dither/`, `chrome/`, `drawer/`, icon build step |
 | T28d | done | T28a | More effect options per Sam: bigger, opening up across the tile; knock-out cut-outs through the numerals; a closer `claw`; drawn over sticker numerals. Keep `pow`, `crack`, `twinkle` as approved. | `design/fx/options/` |
 | T27 | done | T08 | Adopt **sticker** (Sam's pick, 2026-11-13) as the hero numeral: new `num-l` from `design/font/candidates/sticker` (32x56 at k=1); draw the checker drop shadow as a separate mask filled at global pattern phase (renderer/type addition) instead of baked into glyphs; half-size +/- glyphs; re-derive play + drawer layout; verify on device. | `design/font/num-l/`, `type/`, `play/` |
-| T39 | todo | no agents running; Sam's go-ahead at run time | **Rewrite git history to remove private data** (Sam, 2026-11-14). Purge from every commit on `build`: the test device's adb serial (in old versions of this file), the third-party reference screenshot under `design/reference/`, and the private Figma file link (old `docs/SPEC.md`). The exact strings are in the untracked `local/README.md` — do not copy them into tracked files or commit messages. Use `git filter-repo` (or equivalent) with a replace-text file kept under `local/`; also check commit messages; verify with a full-history grep that nothing remains; then force-push `build` (confirm with Sam immediately before the force-push — it rewrites every commit hash) and ask Sam to have GitHub drop cached/dangling objects if needed. Coordinator only; run when no agent has work in flight; back up the repo first (`git bundle` into `local/`). | whole repo history |
+| T39 | done 2026-11-14 | no agents running; Sam's go-ahead at run time | **Rewrite git history to remove private data** (Sam, 2026-11-14). Purge from every commit on `build`: the test device's adb serial (in old versions of this file), the third-party reference screenshot under `design/reference/`, and the private Figma file link (old `docs/SPEC.md`). The exact strings are in the untracked `local/README.md` — do not copy them into tracked files or commit messages. Use `git filter-repo` (or equivalent) with a replace-text file kept under `local/`; also check commit messages; verify with a full-history grep that nothing remains; then force-push `build` (confirm with Sam immediately before the force-push — it rewrites every commit hash) and ask Sam to have GitHub drop cached/dangling objects if needed. Coordinator only; run when no agent has work in flight; back up the repo first (`git bundle` into `local/`). | whole repo history |
 | T23 | done | T22 | Release build config (R8, signing instructions), sideload guide for Supernote Nomad in `README.md`. | gradle, `README.md` |
 
 ## Task notes
@@ -815,3 +815,16 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-14 — Tick 83: Sam: partner tab icons are a full-size `+` (14×14) / `−` (14×4) with the
   mini imp overlaid top-left in a 1-px contour cut-out. Redrawn by the coordinator, 176 core + 3826
   app pass, on the Nomad.
+- 2026-11-14 — Tick 84: **T39 done — history rewritten and force-pushed** on Sam's go-ahead (asked
+  again immediately before the push). Method: `git fast-export` → a small byte-level filter →
+  `git fast-import` into a fresh repository (no third-party tool installed): the device serial and
+  the Figma file id replaced by placeholders in every file version (55 occurrences), the reference
+  screenshot dropped from every commit; replacement list kept in untracked `local/`. Verified before
+  and after: no commit's tree or message contains either string, no `design/reference` path, no
+  `.webp` object; 390 commits with identical authors, dates and messages; tip tree identical.
+  **Every commit hash changed** — hashes quoted in earlier tick-log entries are the pre-rewrite ones
+  and no longer resolve; find commits by subject. Local old objects expired and pruned (a stale
+  scratch worktree was holding them; removed). Pre-rewrite backup: `local/backup-pre-rewrite-2026-11-14.bundle`
+  (untracked; contains the private data — delete when no longer wanted). Left to Sam: GitHub keeps
+  the old commits reachable by hash until it collects them — ask GitHub Support to purge, or
+  recreate the repository; existing clones/forks keep the old data.
