@@ -96,6 +96,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T55 | wip | T28f T20 | Promote Sam's round-three effect approvals into the runtime: chomp, slash, stomp, chime, heart-burst, brand, imp-raspberry, imp-poke, every counter effect (ooze, charge, level-up, rad-glow, storm-copy), dusk, dawn, ring-tempt, your-turn, spotlight, start-flag, revive; crit repurposed as a damage effect; crown-drop with the crown lined up between frames 1 and 2; torch with its firelight circle completed (may pass behind the − glyph). Dropped: coin and die effects (can't tell which player acted). Not approved: bonk, nibble, refill, bunting, crown-cut. Needs effect types/triggers for counters, toggles, turn and first player; hit-size bands; all-seat playback. | `fx/`, `design/fx/` |
 | T56 | review | T17 | Sam: the delta is a touch too close to the life number — centre it in the space between the number and the top of the tile. | `readout/` |
 | T57 | wip | T51 T55 | Tap responsiveness on the panel (slow-mo, `docs/eink.md`): the press inversion holds a region busy ~450 ms before the result can show. Proposal: show press feedback only after a touch has been down ≈100–150 ms, so quick taps go straight to the result in one update (action still on release); try the vendor fast waveform for our window; consider a faster hold repeat. | `stage/`, `play/PlayInput`, `eink/` |
+| T58 | wip (experiment; needs Sam's eyes) | T19b | Faster display modes: the Nomad's framework has a per-View e-ink mode (`View.setEinkUpdateMode`, DU/A2/…); the call succeeds from our debug build (`--ei einkMode N`, `eink/EinkViewMode.kt`). To find out: does the panel respond faster, which mode, ghosting cost, per-region modes (fast for taps, GC for cleans), and whether a release build is allowed to call it. | `eink/` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -685,3 +686,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-14 — Decision (Sam): quick taps skip the press inversion (feedback only once held past a
   short threshold; action still on release). T57 dispatched (emulator 5570), threshold 120 ms to
   start, tunable by a debug extra. Running: T51, T52, T53, T55, T57.
+- 2026-11-14 — Tick 68: Sam asked about faster display modes. Found `View.setEinkUpdateMode(int)`
+  and the `EINK_SHOW_MODE_*` constants in the Nomad's framework; experiment hook committed (debug
+  extra `--ei einkMode N`); the call succeeds on the device (final mode reads back 1 = DU). An
+  experimental build (the Nomad's installed commit + the hook) is on the device running in DU mode;
+  save backed up to untracked `local/nomad-save-backup/` and restored after coordinator test taps.
+  Effect on the panel not yet observed → T58. Running: T51, T52, T53, T55, T57.

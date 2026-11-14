@@ -79,6 +79,8 @@ class MainActivity : Activity() {
         //                       clock backdated --ei turnAgo M minutes; --ei turnPass N then passes N times,
         //                       the last pass --ei turnPassAgo M minutes ago (default 0)
         //   --es turns off|on|game|turn  (debuggable builds only) the Turns setting (T17)
+        //   --ei pressDelay MS  (debuggable builds only) how long a touch must be down before its zone shows
+        //                       the press inversion (T57; default PlayInput.PRESS_DELAY_MS, 0 = on touch-down)
         val inverted = if (intent?.hasExtra("inverted") == true) {
             intent.getBooleanExtra("inverted", false)
         } else {
@@ -99,9 +101,19 @@ class MainActivity : Activity() {
             PlayView(this, GameSession.shared, debugRandom() ?: Random(System.nanoTime())).apply {
                 this.trace = trace
                 setInverted(inverted)
+                if (BuildConfig.DEBUG && intent?.hasExtra("pressDelay") == true) {
+                    pressDelayMillis = intent.getIntExtra("pressDelay", 0).coerceAtLeast(0).toLong()
+                }
             }
         }
         setContentView(root)
+        // --ei einkMode N  (debug builds only) EXPERIMENT: per-View e-ink update mode, docs/eink.md
+        // "Faster display modes" (1 DU, 2 GC, 3 GL, 4 A2, 7 AUTO, 11 DUX).
+        if (BuildConfig.DEBUG && intent?.hasExtra("einkMode") == true) {
+            val mode = intent.getIntExtra("einkMode", 0)
+            au.com.josephmark.dithertracker.eink.EinkViewMode.apply(root, mode)
+            root.post { au.com.josephmark.dithertracker.eink.EinkViewMode.apply(root, mode) }
+        }
         if (trace) {
             val t2 = SystemClock.elapsedRealtimeNanos()
             Log.d(

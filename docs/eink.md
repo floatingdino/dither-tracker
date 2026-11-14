@@ -331,3 +331,33 @@ it is the ~450 ms the panel holds a region busy after the press inversion. Lever
 
 Still to film: clean flash (E3/E4), effects gallery and lightest dithers after T55 lands, stills of
 ghost build-up, system Auto Refresh on/off (E7).
+
+## Faster display modes (experiment, 2026-11-14)
+
+The TL;DR above said waveform selection is not reachable from a sideloaded app. That was from
+community reports; the device says otherwise, at least for a debuggable build.
+
+- Pulled the Nomad's `/system/framework/framework.jar` and listed its classes (read-only). Ratta's
+  `android.view.View` carries a per-View e-ink mode: `setEinkUpdateMode(int)`,
+  `setEinkUpdateMode(int,int)`, `resetEinkUpdateMode()`, `getEinkFinalUpdateMode()`,
+  `setEinkA2Gate(int)`, `forceEinkFullUpdate()`, with constants `EINK_SHOW_MODE_DU = 1`, `GC = 2`,
+  `GL = 3`, `A2 = 4`, `DTH = 5`, `FA2/ATH = 6`, `AUTO = 7`, `CURSOR = 8`, `RST = 9`, `GCX = 10`,
+  `DUX = 11`, `FC/AUTODTH = 12`, `GLX = 13`, `UIFC = 14`, `DU4 = 17`, `GLR = 18`, `GLD = 19`, and
+  `EINK_DATA_MODE_A2 = 1 / A4 = 2 / DEFAULT = 3 / DTH = 5`. `android.view.SFCommand` holds the global
+  switches (`setUIFullAuto`, `setUIDither`, `screenRefresh(..)`, …) — global state, not for us.
+- `eink/EinkViewMode.kt` + the debug launch extra `--ei einkMode N` call
+  `View.setEinkUpdateMode(N)` on the root view by reflection. On the Nomad, from our unsigned debug
+  build: **the call succeeds** and the view reports `getEinkFinalUpdateMode() = 1`,
+  `getEinkDataMode() = 1` (A2 data), `isEinkModeSet() = true`. Logcat: "Accessing hidden method …
+  (blacklist, reflection, allowed)".
+- **Not yet known:** (1) whether the panel actually behaves differently — nothing in logcat or
+  `dumpsys SurfaceFlinger` (the `EinkHWC` dump) changes, so it needs eyes or slow-mo: is the
+  press→result wait shorter than the ~450 ms measured above, and how bad is ghosting; (2) whether a
+  **release** build may make the call — "blacklist … allowed" is the leniency debuggable apps get; a
+  non-debuggable app is normally refused blacklisted hidden APIs on Android 11.
+- DU and A2 are 1-bit waveforms, which is all our content needs; they trade speed for ghosting, so
+  if they work the clean cadence matters more (and GC/`forceEinkFullUpdate()` on the view becomes the
+  natural clean).
+
+Try it: `adb shell am start -S -n au.com.josephmark.dithertracker/.MainActivity --ei einkMode 1`
+(1 DU, 4 A2, 11 DUX, 7 AUTO; no extra = stock behaviour).
