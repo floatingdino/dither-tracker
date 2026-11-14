@@ -64,7 +64,10 @@ for layer in BACKDROP..OVERLAY:
 
 So a press inverts everything drawn up to its own layer, and nothing above (a held life half is
 inverted under the closed tab, which is `TILE_CHROME`). On API < 29 the host redraws layers up to the
-owner's inverted inside the rect instead.
+owner's inverted inside the rect instead. A pressable whose shape is not its rect (the centre diamond,
+a gem facet, a fold diamond) pre-inverts the rect's rows outside its shape in `draw` while pressed
+(`GemPainter.compensate`, `MenuDiamond`), so only the shape ends up inverted (T51: never a square round
+it); guarded by `DitherRenderer.invertsInPlace` (the JVM raster says yes, like the Nomad).
 
 Hit-testing is the reverse: at each touch-down the stage collects every visible component's zones
 (layer order, then registration order, then declaration order) and the **last** containing rect wins.

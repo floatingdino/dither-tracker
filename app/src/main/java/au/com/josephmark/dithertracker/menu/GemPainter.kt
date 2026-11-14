@@ -164,10 +164,10 @@ internal class GemPainter {
      * Press feedback in the shape of a staircase diamond: the stage inverts the rect [box] after this
      * layer is drawn, so inverting everything in [box] *outside* the shape first leaves exactly the
      * shape inverted. [rowHalf] is the shape's half-width at row dy from ([cx], [cy]) (−1 = none).
-     * Without in-place inversion (API < 29) this is a no-op and the whole box inverts.
+     * Without in-place inversion (API < 29, [DitherRenderer.invertsInPlace]) this is a no-op and the whole box inverts.
      */
     inline fun compensate(r: DitherRenderer, box: IRect, cx: Int, cy: Int, rowHalf: (Int) -> Int) {
-        if (!DitherRenderer.canInvertInPlace) return
+        if (!r.invertsInPlace) return
         for (y in box.top until box.bottom) {
             val hw = rowHalf(y - cy)
             if (hw < 0) {

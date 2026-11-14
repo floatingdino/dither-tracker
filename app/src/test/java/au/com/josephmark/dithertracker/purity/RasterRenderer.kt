@@ -109,6 +109,9 @@ class RasterRenderer(grid: DitherGrid) : DitherRenderer() {
         for (gy in y until y + h) for (gx in x until x + w) put(gx, gy, v, "rect")
     }
 
+    /** API 29+ semantics: in-place inversion always works here. */
+    override val invertsInPlace: Boolean get() = true
+
     override fun invertRect(x: Int, y: Int, w: Int, h: Int) {
         if (scratch) return
         for (gy in y until y + h) for (gx in x until x + w) flip(gx, gy, "invertRect")

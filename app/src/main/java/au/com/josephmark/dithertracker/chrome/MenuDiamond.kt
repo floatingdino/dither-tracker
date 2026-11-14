@@ -1,5 +1,6 @@
 package au.com.josephmark.dithertracker.chrome
 
+import au.com.josephmark.dithertracker.dither.DitherRenderer
 import au.com.josephmark.dithertracker.dither.HaloGlyph
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.play.Diamond
@@ -16,7 +17,10 @@ import au.com.josephmark.dithertracker.stage.ZoneSink
 /**
  * The centre diamond with the menu glyph (three bars on their paper cut-out, T41): the table menu's button.
  * One zone ([OPEN], the diamond's shape grown by its hit pad); a tap sends [Events.MENU_OPEN] and the
- * menu (`menu.MenuOverlay`, an overlay drawn over this spot) opens. Press feedback inverts the diamond.
+ * menu (`menu.MenuOverlay`, an overlay drawn over this spot) opens. Press feedback inverts the diamond
+ * — its own stepped shape, never the square round it (T51, Sam: the press "painted a larger square"
+ * over the dividers and the tiles' corners): [draw] pre-inverts the square's corners outside the
+ * shape, so the host's inversion of [feedback]'s rect leaves exactly the diamond inverted.
  *
  * [Kind.CHROME]: commander mode's cover hides it (the mode draws its close X on the same spot).
  */
@@ -43,6 +47,21 @@ class MenuDiamond : Component(Layer.SCREEN, Kind.CHROME, zonesPerSeat = 1) {
         if (!f.hit(l.diamond)) return
         Diamond.fill(f.r, l)
         bars?.draw(f.r)
+        if (stage.isPressed(this, Stage.SCREEN, OPEN)) compensate(f.r, l)
+    }
+
+    /** Inverts [PlayLayout.diamond]'s rows outside the stepped shape (no-op without in-place inversion: API < 29). */
+    private fun compensate(r: DitherRenderer, l: PlayLayout) {
+        if (!r.invertsInPlace) return
+        val box = l.diamond
+        for (y in box.top until box.bottom) {
+            val hw = l.diamondRowHalf(y - l.diamondCy)
+            if (hw < 0) { r.invertRect(box.left, y, box.width, 1); continue }
+            val x0 = l.diamondCx - hw
+            val x1 = l.diamondCx + hw + 1
+            if (x0 > box.left) r.invertRect(box.left, y, x0 - box.left, 1)
+            if (x1 < box.right) r.invertRect(x1, y, box.right - x1, 1)
+        }
     }
 
     override fun bounds(out: IRect): Boolean {

@@ -117,6 +117,12 @@ abstract class DitherRenderer {
 
     fun invertRect(r: IRect) = invertRect(r.left, r.top, r.width, r.height)
 
+    /**
+     * Whether [invertRect] works on this renderer: [canInvertInPlace] for the device canvas; a JVM
+     * raster overrides it (it always can), so shape-compensated presses (T51) are tested as drawn on the Nomad.
+     */
+    open val invertsInPlace: Boolean get() = canInvertInPlace
+
     // ---- bitmaps --------------------------------------------------------------------------
 
     /**
