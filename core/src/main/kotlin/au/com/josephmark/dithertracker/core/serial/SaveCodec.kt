@@ -75,7 +75,9 @@ enum class FailureReason {
  * saves show every tracker. v5 (T53) appends the remembered card facings (`settingsFacing`,
  * `historyFacing`: one varint each, 0 = never turned, else 1 + rotation / 90); older saves open the
  * cards facing the side that asks. (`AppSettings.layout` has been in the body since v1: an opaque string, so
- * T53's per-count layout choices needed no format change.) Integers are
+ * T53's per-count layout choices needed no format change. T58's `fastDisplay` is a bit of the v1
+ * settings flags, set for NORMAL, so every older save — which never sets it — loads as FAST, the
+ * default, and an older reader ignores it.) Integers are
  * LEB128 varints, signed ones zigzag-encoded; strings are varint length + UTF-8; enums use the
  * explicit codes in [Codes]; booleans of a player/settings are packed into flag bytes. Log entries
  * are length-prefixed (so an entry with an unknown tag or enum code is skipped, not fatal) and
@@ -269,10 +271,12 @@ object SaveCodec {
     private const val S_INVERTED = 1
     private const val S_KEEP_AWAKE = 2
     private const val S_HAPTICS = 4
+    /** Set when `fastDisplay` is off (T58): absent in older saves = FAST. */
+    private const val S_NORMAL_DISPLAY = 8
 
     private fun writeSettings(w: ByteWriter, s: AppSettings) {
         w.svar(s.scale)
-        w.uvar((if (s.inverted) S_INVERTED else 0) or (if (s.keepScreenAwake) S_KEEP_AWAKE else 0) or (if (s.haptics) S_HAPTICS else 0))
+        w.uvar((if (s.inverted) S_INVERTED else 0) or (if (s.keepScreenAwake) S_KEEP_AWAKE else 0) or (if (s.haptics) S_HAPTICS else 0) or (if (s.fastDisplay) 0 else S_NORMAL_DISPLAY))
         w.svar(s.holdRepeatStep)
         w.svar(s.fullRefreshEvery)
         w.uvar(s.drawerCounters.size)
@@ -299,6 +303,7 @@ object SaveCodec {
             drawerCounters = counters,
             fullRefreshEvery = fullRefresh.coerceIn(AppSettings.FULL_REFRESH_RANGE),
             haptics = flags and S_HAPTICS != 0,
+            fastDisplay = flags and S_NORMAL_DISPLAY == 0,
             orientation = orientation,
             layout = layout,
         )

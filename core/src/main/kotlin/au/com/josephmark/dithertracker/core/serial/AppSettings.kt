@@ -70,6 +70,12 @@ data class AppSettings(
     val settingsFacing: Int = FACING_NONE,
     /** The same for the history card (T53), remembered separately. */
     val historyFacing: Int = FACING_NONE,
+    /**
+     * The e-ink waveform (T58, settings "Display"): FAST (true) asks a Supernote for its fast 1-bit DU
+     * waveform on our view; NORMAL leaves the choice to the firmware. Ignored where the device has no
+     * per-view mode (the row is hidden there).
+     */
+    val fastDisplay: Boolean = true,
 ) {
     /** [hiddenTrackers] as a bit mask (`1 shl Tracker.ordinal`), for allocation-free checks on draw paths. */
     val hiddenTrackerMask: Int = hiddenTrackers.fold(0) { m, t -> m or (1 shl t.ordinal) }

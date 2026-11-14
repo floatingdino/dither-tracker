@@ -394,6 +394,7 @@ class SaveCodecTest {
                 drawerCounters = listOf(Counter.POISON), fullRefreshEvery = 1000, haptics = true,
                 orientation = AppSettings().orientation, layout = "x",
                 playerCount = 2, // a v1 save has no pending count: the saved game's (T11)
+                fastDisplay = false, // 0xFF includes T58's NORMAL bit
             ),
             save.settings,
         )
@@ -659,6 +660,28 @@ class SaveCodecTest {
         }
         // v4 keeps its hidden trackers.
         assertEquals(setOf(Tracker.MONARCH), SaveCodec.decodeOrNull(SaveCodec.encodeAs(4, SaveFile(g, settings)))!!.settings.hiddenTrackers)
+    }
+
+    // ---- T58: the Display setting (a settings flag bit, no format change) ---------------------------------
+
+    @Test fun fastDisplayRoundTripsInEveryVersion() {
+        val g = clockedGame()
+        for (v in 1..SaveCodec.CURRENT_VERSION) for (fast in listOf(true, false)) {
+            val r = SaveCodec.decode(SaveCodec.encodeAs(v, SaveFile(g, richSettings().copy(fastDisplay = fast))))
+            assertIs<DecodeResult.Success>(r, "v$v decode failed: $r")
+            assertEquals(fast, r.save.settings.fastDisplay, "v$v fast=$fast")
+        }
+        assertEquals(true, AppSettings().fastDisplay, "FAST by default")
+    }
+
+    @Test fun savesFromBeforeTheDisplaySettingLoadAsFast() {
+        // An older app never set the bit: the flags byte of a default save has only keep-awake.
+        val bytes = SaveCodec.encode(SaveFile(Game(GameState.create(4)), AppSettings()))
+        val flagsAt = 6 + 1 // magic + version, then the scale varint (AUTO = 0, one byte)
+        assertEquals(2, bytes[flagsAt].toInt(), "keep-awake only")
+        assertEquals(true, SaveCodec.decodeOrNull(bytes)?.settings?.fastDisplay)
+        val normal = SaveCodec.encode(SaveFile(Game(GameState.create(4)), AppSettings(fastDisplay = false)))
+        assertEquals(2 or 8, normal[flagsAt].toInt(), "NORMAL sets bit 8")
     }
 
     @Test fun unknownFacingCodeReadsAsNeverTurned() {
