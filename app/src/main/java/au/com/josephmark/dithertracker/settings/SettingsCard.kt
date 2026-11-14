@@ -94,7 +94,8 @@ class SettingsCard {
         var widest = titleBarNatural(m, pages)
         var rows = 1
         for (p in pages) {
-            rows = maxOf(rows, p.rows.size)
+            val fill = p.rows.isNotEmpty() && p.rows.last().fills
+            rows = maxOf(rows, if (fill) p.rows.size - 1 + FILL_ROWS else p.rows.size)
             for (r in p.rows) widest = maxOf(widest, r.widget.naturalWidth(m))
         }
         rim = m.stroke + m.size(BAND)
@@ -119,6 +120,13 @@ class SettingsCard {
 
     /** Largest side that fits the screen in every rotation. */
     fun maxSide(m: WidgetMetrics, screenW: Int, screenH: Int): Int = minOf(screenW, screenH) - 2 * m.size(MARGIN)
+
+    /** The shown row that fills the rest of the page (T53: the layout picker), or null. */
+    var fillRow: SettingsRow? = null
+        private set
+
+    /** The dotted rule above [fillRow] (local; empty without one). */
+    val fillRule = IRect()
 
     /** Lists [rows] of [page] that are visible under [s] into [shown]. */
     fun show(page: SettingsPage, s: SettingsAccess) {
@@ -152,8 +160,22 @@ class SettingsCard {
         val c = panel.content
         titleRule.setXywh(c.left, c.top, c.width, m.stroke)
         val top = titleRule.bottom + m.padY
-        list.count = shownCount
-        list.layout(m, c.left, top, c.width, maxOf(0, c.bottom - m.padY - top))
+        val bottom = c.bottom - m.padY
+        val fill = if (shownCount > 0 && shown[shownCount - 1]!!.fills) shown[shownCount - 1] else null
+        fillRow = fill
+        if (fill == null) {
+            list.count = shownCount
+            list.layout(m, c.left, top, c.width, maxOf(0, bottom - top))
+            fillRule.set(0, 0, 0, 0)
+        } else {
+            // The uniform rows on top (never paged), a rule, then the fill row takes the rest.
+            list.count = shownCount - 1
+            val lh = minOf(maxOf(0, bottom - top), if (list.count > 0) listHeight(m, list.count) else 0)
+            list.layout(m, c.left, top, c.width, lh)
+            fillRule.setXywh(c.left, top + lh, c.width, 1)
+            val fy = fillRule.bottom
+            fill.widget.layout(m, c.left, fy, c.width, maxOf(0, bottom - fy))
+        }
         val first = list.firstIndex
         for (i in 0 until list.visibleCount) {
             val s = list.slots[i]
@@ -164,10 +186,12 @@ class SettingsCard {
         close.collectHits(region, frame)
         list.collectHits(region, frame)
         for (i in 0 until list.visibleCount) shown[first + i]!!.widget.collectHits(region, frame)
+        fill?.widget?.collectHits(region, frame)
     }
 
     /** The shown row whose widget owns local id [id] on the current list page, or null. */
     fun rowOwning(id: Int): SettingsRow? {
+        fillRow?.let { if (it.widget.owns(id)) return it }
         val first = list.firstIndex
         for (i in 0 until list.visibleCount) {
             val r = shown[first + i]!!
@@ -178,6 +202,10 @@ class SettingsCard {
 
     /** Screen rect of [row]'s widget (if it is on the current list page). */
     fun rowRect(row: SettingsRow, out: IRect): Boolean {
+        if (row === fillRow) {
+            frame.map(row.widget.bounds, out)
+            return true
+        }
         val first = list.firstIndex
         for (i in 0 until list.visibleCount) {
             if (shown[first + i] === row) {
@@ -201,6 +229,9 @@ class SettingsCard {
 
         /** Rows a page can list (pages of the list hold up to `PagedList.MAX_SLOTS` each). */
         const val MAX_ROWS = 64
+
+        /** Rows a fill row counts as when the card sizes itself (it takes whatever is left). */
+        const val FILL_ROWS = 8
         const val MAX_HITS = 64
     }
 }

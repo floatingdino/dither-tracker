@@ -58,7 +58,7 @@ class SettingsOverlay private constructor(b: Built) :
         private fun collect(p: SettingsPage, out: MutableList<SettingsPage>) {
             if (out.any { it === p }) return
             out += p
-            for (r in p.rows) if (r is LinkRow) collect(r.page, out)
+            for (r in p.rows) r.linkedPage?.let { collect(it, out) }
         }
     }
 
@@ -251,9 +251,12 @@ class SettingsOverlay private constructor(b: Built) :
                 refresh()
                 if (structureChanged || !card.rowRect(row, old)) invalidate(card.bounds) else invalidate(old)
             }
-            SettingsRow.Tap.OPEN -> if (row is LinkRow && depth < MAX_DEPTH) {
-                stack[depth++] = page
-                show(row.page)
+            SettingsRow.Tap.OPEN -> {
+                val target = row.linkedPage
+                if (target != null && depth < MAX_DEPTH) {
+                    stack[depth++] = page
+                    show(target)
+                }
             }
             SettingsRow.Tap.BACK -> if (depth > 0) {
                 val back = stack[--depth]!!

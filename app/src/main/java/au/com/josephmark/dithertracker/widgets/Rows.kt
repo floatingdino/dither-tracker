@@ -228,6 +228,9 @@ class Stepper(
  * segment. With a [label], the bar sits on the right at its natural width (each segment ≥ fingertip
  * and wide enough for the longest option); without one, it fills the row. When space runs out the
  * label is cut, then dropped, and option labels are cut.
+ *
+ * With [chevron] (T53: Players → its layouts) a › fingertip column at the row's right end is one more
+ * part, `id + options.size`, that opens something; the bar sits to its left.
  */
 class Segmented(
     id: Int,
@@ -239,7 +242,17 @@ class Segmented(
         require(options.size in 2..MAX_OPTIONS) { "2..$MAX_OPTIONS options, got ${options.size}" }
     }
 
-    override val idCount: Int get() = options.size
+    override val idCount: Int get() = options.size + (if (chevron) 1 else 0)
+
+    /** A trailing › part ([chevronPart]) that opens a sub-page; set before layout. */
+    var chevron: Boolean = false
+
+    /** The chevron's part index (`options.size`). */
+    val chevronPart: Int get() = options.size
+
+    /** The chevron's fingertip column (touch + feedback) and its icon footprint. */
+    val chevronHit = IRect()
+    val chevronRect = IRect()
 
     /**
      * When set, options made only of digits and signs are drawn in the heavy small numerals
@@ -282,14 +295,26 @@ class Segmented(
 
     override fun naturalWidth(m: WidgetMetrics): Int {
         val lw = if (label.isEmpty()) 0 else m.textW(label.length) + m.gap
-        return 2 * m.padX + lw + options.size * segmentNatural(m)
+        return 2 * m.padX + lw + options.size * segmentNatural(m) + (if (chevron) chevronColumn(m) - m.padX + m.gap else 0)
     }
+
+    /** Width of the chevron's column: a fingertip, the icon centred in it. */
+    fun chevronColumn(m: WidgetMetrics): Int = maxOf(m.target, m.icon + 2 * m.inset)
 
     override fun onLayout(m: WidgetMetrics) {
         val b = bounds
         val n = options.size
         val x = b.left + m.padX
-        val innerW = maxOf(0, b.width - 2 * m.padX)
+        var right = b.right - m.padX
+        if (chevron) {
+            val cw = chevronColumn(m)
+            chevronHit.set(b.right - cw, b.top, b.right, b.bottom)
+            chevronRect.setXywh(chevronHit.left + (cw - m.icon) / 2, b.top + TextLayout.centre(b.height, m.icon), m.icon, m.icon)
+            right = chevronHit.left - m.gap
+        } else {
+            chevronHit.set(0, 0, 0, 0); chevronRect.set(0, 0, 0, 0)
+        }
+        val innerW = maxOf(0, right - x)
         val nat = n * segmentNatural(m)
         val labelNat = m.textW(label.length)
         val barW = when {
@@ -313,6 +338,7 @@ class Segmented(
     override fun collectHits(region: HitRegion, frame: WidgetFrame) {
         if (id < 0 || !enabled) return
         for (i in options.indices) region.addLocal(id + i, frame, segHit[i], segVis[i], owner = this)
+        if (chevron) region.addLocal(id + chevronPart, frame, chevronHit, chevronHit, owner = this)
     }
 
     companion object {

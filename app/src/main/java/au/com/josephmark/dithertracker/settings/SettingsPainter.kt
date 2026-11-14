@@ -3,6 +3,7 @@ package au.com.josephmark.dithertracker.settings
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.Icon
 import au.com.josephmark.dithertracker.dither.Role
+import au.com.josephmark.dithertracker.layout.Arrangements
 import au.com.josephmark.dithertracker.type.TextLayout
 import au.com.josephmark.dithertracker.widgets.WidgetCanvas
 import au.com.josephmark.dithertracker.widgets.WidgetFrame
@@ -18,6 +19,7 @@ import au.com.josephmark.dithertracker.widgets.WidgetPainter
 class SettingsPainter(val canvas: WidgetCanvas) {
 
     val widgets = WidgetPainter(canvas)
+    private val thumbs = LayoutThumbPainter(this)
     private val scratch = IRect()
     private val warmFrame = WidgetFrame()
 
@@ -44,6 +46,18 @@ class SettingsPainter(val canvas: WidgetCanvas) {
                 p.paper(f, scratch.setXywh(s.left, s.bottom, s.width, 1))
             }
         }
+        val fill = card.fillRow
+        if (fill != null) {
+            val rule = card.fillRule
+            if (list.visibleCount > 0) p.dotted(f, rule.left + m.padX, rule.top, rule.width - 2 * m.padX, 1)
+            drawRow(f, fill)
+        }
+    }
+
+    /** One row's widget: the kit's painter, or (T53) the layout picker's own. */
+    private fun drawRow(f: WidgetFrame, r: SettingsRow) {
+        val w = r.widget
+        if (w is LayoutGrid) thumbs.draw(f, w) else widgets.draw(f, w)
     }
 
     /**
@@ -59,12 +73,18 @@ class SettingsPainter(val canvas: WidgetCanvas) {
             scratch.setXywh(0, 0, w, m.rowH)
             widgets.text(warmFrame, m, m.ui, page.title, 0, page.title.length, scratch, TextLayout.START, invert = false, opaque = true)
             for (r in page.rows) {
+                if (r.fills) continue // laid out only on its own page (its labels are warmed below)
                 r.widget.layout(m, 0, 0, w, m.rowH)
                 widgets.draw(warmFrame, r.widget)
             }
         }
         scratch.setXywh(0, 0, w, m.rowH)
         widgets.text(warmFrame, m, m.ui, DIGITS, 0, DIGITS.length, scratch, TextLayout.START, invert = false, opaque = false)
+        // The layout picker's labels, plain and selected (T53).
+        for (a in Arrangements.ALL) for (inv in BOOLS) {
+            widgets.text(warmFrame, m, m.ui, a.label, 0, a.label.length, scratch, TextLayout.START, invert = inv, opaque = false)
+        }
+        widgets.text(warmFrame, m, m.ui, WARM_EXTRA, 0, WARM_EXTRA.length, scratch, TextLayout.START, invert = false, opaque = false)
         for (ic in PREWARM_ICONS) canvas.blit(widgets.scaledIcon(ic, m.k), 0, 0, 0, invert = false, opaque = false)
         // A paged list's footer chevron at the end of its pages is a disabled (hatched) button: its icon sits on its halo (T53: the counters page pages).
         for (ic in PAGER_ICONS) canvas.blit(widgets.scaledHalo(ic, m.k), 0, 0, 0, invert = true, opaque = false)
@@ -72,6 +92,8 @@ class SettingsPainter(val canvas: WidgetCanvas) {
 
     companion object {
         private const val DIGITS = "0123456789/"
+        private val BOOLS = booleanArrayOf(false, true)
+        private const val WARM_EXTRA = LayoutPickerRow.NEEDS_SCALE + LayoutPickerRow.TOO_SMALL + LayoutPickerRow.TITLE + LayoutPickerRow.TITLE_END
         private val PAGER_ICONS = arrayOf(Icon.CHEVRON_LEFT, Icon.CHEVRON_RIGHT)
         private val PREWARM_ICONS = arrayOf(Icon.CHECK, Icon.CHEVRON_LEFT, Icon.CHEVRON_RIGHT, Icon.ROTATE, Icon.CLOSE) +
             SettingsTable.COUNTER_ICONS + SettingsTable.TRACKER_ICONS

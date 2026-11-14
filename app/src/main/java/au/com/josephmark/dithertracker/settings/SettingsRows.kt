@@ -88,6 +88,15 @@ abstract class SettingsRow {
     /** Applies a tap on [part] of the widget: one of the [Tap] results. */
     abstract fun tap(part: Int, s: SettingsAccess): Int
 
+    /** The page a [Tap.OPEN] from this row shows ([LinkRow]; T53: the Players row's ›). */
+    open val linkedPage: SettingsPage? get() = null
+
+    /**
+     * True for a row that takes the rest of its page below the uniform rows (T53: the layout picker's
+     * thumbnails). It must be the page's last row; the page does not page.
+     */
+    open val fills: Boolean get() = false
+
     /** [tap] results. */
     object Tap {
         const val NONE = 0
@@ -169,6 +178,7 @@ class ToggleRow(
 
 /** A row that opens a sub-[page] (chevron ›). */
 class LinkRow(val label: String, val page: SettingsPage, private val icon: Icon? = null) : SettingsRow() {
+    override val linkedPage: SettingsPage get() = page
     override fun build(id: Int): Widget = ListRow(id, label, icon = icon, chevron = true)
     override fun bind(s: SettingsAccess) {}
     override fun tap(part: Int, s: SettingsAccess): Int = Tap.OPEN
@@ -255,5 +265,30 @@ class ScaleRow(read: IntRead, write: IntWrite) :
     }
 }
 
-/** A titled list of rows: the main settings, or a sub-page reached through a [LinkRow]. */
-class SettingsPage(val title: String, val rows: Array<SettingsRow>)
+/**
+ * The player-count choice (T11) with a › after it (T53) that opens [layouts], the layout picker for
+ * the count chosen here.
+ */
+class PlayersRow(
+    label: String,
+    options: Array<String>,
+    values: IntArray,
+    read: IntRead,
+    write: IntWrite,
+    private val layouts: SettingsPage,
+) : ChoiceRow(label, options, values, read, write) {
+    override val maxIds: Int get() = Segmented.MAX_OPTIONS + 1
+    override val linkedPage: SettingsPage get() = layouts
+
+    override fun build(id: Int): Widget = (super.build(id) as Segmented).also { it.chevron = true }
+
+    override fun tap(part: Int, s: SettingsAccess): Int =
+        if (part == segmented.chevronPart) Tap.OPEN else super.tap(part, s)
+}
+
+/**
+ * A titled list of rows: the main settings, or a sub-page reached through a [LinkRow]. The [title]
+ * may be a buffer a row rewrites on bind (the layout picker's "LAYOUT: 5 PLAYERS"); it is measured at
+ * its length when the card is built.
+ */
+class SettingsPage(val title: CharSequence, val rows: Array<SettingsRow>)

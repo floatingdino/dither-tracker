@@ -94,12 +94,25 @@ object SettingsTable {
         ),
     )
 
-    /** Seats for the next game (T11): `[2][3][4][5][6]`, stored in `AppSettings.playerCount`, applied by NEW. */
-    fun players(): ChoiceRow = ChoiceRow(
+    /**
+     * Seats for the next game (T11): `[2][3][4][5][6]`, stored in `AppSettings.playerCount`, applied by
+     * NEW; its › (T53) opens the layouts for the count chosen here ([layouts]).
+     */
+    fun players(): PlayersRow = PlayersRow(
         "Players", labels(PLAYERS), PLAYERS,
         { it.app.playerCount },
         { s, v -> s.updateApp(s.app.copy(playerCount = v)) },
+        layouts(),
     )
+
+    /**
+     * The layout picker (T53): back, then a thumbnail per arrangement for the Players row's count
+     * ([LayoutPickerRow]); its title names the count.
+     */
+    fun layouts(): SettingsPage {
+        val title = LayoutPickerRow.titleBuffer()
+        return SettingsPage(title, arrayOf(BackRow("Settings"), LayoutPickerRow(title)))
+    }
 
     fun turns(): ChoiceRow = ChoiceRow(
         "Turns", TURNS_LABELS, TURNS,

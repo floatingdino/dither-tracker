@@ -170,6 +170,7 @@ class WidgetPainter(val c: WidgetCanvas) {
         for (i in sg.options.indices) {
             text(f, m, sg.optionFont(m, i), sg.options[i], 0, sg.segChars[i], sg.segVis[i], TextLayout.CENTRE, invert = i == sel, opaque = false)
         }
+        if (sg.chevron) icon(f, m, Icon.CHEVRON_RIGHT, sg.chevronRect, invert = false, opaque = d)
     }
 
     private fun confirmPrompt(f: WidgetFrame, p: ConfirmPrompt) {
