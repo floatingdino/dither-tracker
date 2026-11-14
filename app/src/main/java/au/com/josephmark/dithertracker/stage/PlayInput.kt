@@ -146,6 +146,9 @@ class PlayInput(
         for (id in 0 until MAX_POINTERS) release(id, apply = false)
     }
 
+    /** Releases [pointerId] without applying anything (its zone's other pointers keep it down). */
+    fun cancelPointer(pointerId: Int) = release(pointerId, apply = false)
+
     /** Releases (without applying) every pointer bound to a zone in `[from, until)`. */
     fun cancelZones(from: Int, until: Int) {
         for (id in 0 until MAX_POINTERS) {

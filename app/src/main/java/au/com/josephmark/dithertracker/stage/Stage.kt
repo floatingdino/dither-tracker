@@ -318,7 +318,10 @@ class Stage(
 
     /**
      * Turns [cover] on / changes / turns it off ([seats] mask, [screen] flag; both empty = off).
-     * Cancels every touch, notifies every component, redraws the affected panels and screen components.
+     * Cancels the touches it can affect — on the seats it covered or now covers, and screen-layer
+     * touches if it covered or now covers the screen — notifies every component, redraws the affected
+     * panels and screen components. (T57: a seat-only cover, such as a KO tile appearing, used to
+     * cancel every touch, so another player's hold-repeat stopped when someone was knocked out.)
      */
     fun setCover(cover: Cover, seats: Int, screen: Boolean) {
         enter()
@@ -329,7 +332,7 @@ class Stage(
             cover.screen = screen
             anyCover = false
             for (cv in covers) if (cv.active) anyCover = true
-            input.cancelAll()
+            cancelCovered(oldSeats or seats, oldScreen || screen)
             for (c in comps) c.onCoversChanged()
             val l = layout ?: return
             val affected = oldSeats or seats
@@ -378,6 +381,19 @@ class Stage(
     }
 
     fun cancelAllTouches() = input.cancelAll()
+
+    /** Releases, without applying, every touch on [seat]'s tile zones (any component). */
+    fun cancelSeatTouches(seat: Int) = cancelCovered(if (seat in 0 until 31) 1 shl seat else 0, false)
+
+    /** Cancels pointers on tile zones of the seats in [seatMask], and on screen zones when [screen]. */
+    private fun cancelCovered(seatMask: Int, screen: Boolean) {
+        for (p in 0 until PlayInput.MAX_POINTERS) {
+            val z = input.zoneOf(p)
+            if (z < 0) continue
+            val s = idSeat[z]
+            if (if (s == SCREEN) screen else (seatMask ushr s) and 1 != 0) input.cancelPointer(p)
+        }
+    }
 
     /**
      * Whether [c]'s [local] on [seat] shows as pressed (inverted): held past the press delay (T57).

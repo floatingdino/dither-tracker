@@ -122,7 +122,9 @@ open readout — the "another kind of action" rule.
 
 A cover hides components by **kind** (`stage.Kind`: `BACKDROP`, `CONTENT`, `READOUT`, `CHROME`, `MODE`,
 `EFFECT`, `OVERLAY`) on a seat mask and/or the screen layers. Hidden = not drawn, not hit-tested.
-`stage.setCover(cover, seats, screen)` cancels every touch, calls `onCoversChanged` everywhere (the
+`stage.setCover(cover, seats, screen)` cancels the touches on the seats it covered or now covers (and
+screen-layer touches when it covered or covers the screen; T57: a KO tile no longer stops another
+seat's hold), calls `onCoversChanged` everywhere (the
 readout commits, the drawer closes hidden seats) and redraws the affected panels + screen components.
 
 Commander mode = `Cover(Kind.CONTENT or Kind.CHROME)` on all seats and the screen while a target is

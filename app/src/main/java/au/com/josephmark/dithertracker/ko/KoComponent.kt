@@ -193,7 +193,8 @@ class KoComponent(
         dead = mask
         applyCover()
         // A held seat (an effect is playing) keeps its life halves: stop a hold-repeat that killed it.
-        if (newlyHeld != 0) stage.cancelAllTouches()
+        // Only on that seat (T57): another player's hold keeps going.
+        if (newlyHeld != 0) for (s in 0 until P) if ((newlyHeld ushr s) and 1 != 0) stage.cancelSeatTouches(s)
     }
 
     /** Points the cover at [shown] (no-op when unchanged; `setCover` redraws the flipped panels). */
