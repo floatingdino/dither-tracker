@@ -10,11 +10,12 @@ import kotlin.random.Random
  * rolls a d20 at once on its own tile; the highest roll goes first.
  *
  * ```
- * IDLE ─start(live)─▶ ROLLING (beat 0 … n−1) ─▶ LANDED ──▶ WINNER (the FIRST flag) ──▶ DONE
+ * IDLE ─start(live)─▶ ROLLING (beat 0 … n−1) ─▶ REST ─▶ LANDED ──▶ WINNER (the FIRST flag) ──▶ DONE
  *                        ▲                         │ the highest is tied
  *                        └──── ROLLING (the tied) ◀ TIE   (at most [MAX_ROUNDS]; then a random pick)
  *
- * T65: the numbers land and sit alone for [LANDED_MS]; only then, a beat later, does the winner's flag
+ * T65: after the last tumbling pose the die comes to REST (a square, still pose on the tile's floor,
+ * held [restMs]) — it reads as stopped — and only then do the numbers land and sit alone for [LANDED_MS]; only then, a beat later, does the winner's flag
  * (or the "TIE" flags) appear — the landing reads before the verdict.
  * ```
  *
@@ -99,6 +100,8 @@ class FirstRoll(
         listener.onChanged(false)
     }
 
+    private fun restMs(): Long = if (beats == FAST_POSES) FAST_REST_MS else SLOW_REST_MS
+
     private fun poseMs(): Long = if (beats == FAST_POSES) FAST_POSE_MS[beat] else SLOW_POSE_MS[beat]
 
     private fun schedule(ms: Long) = timers.schedule(TIMER_STEP, ToolsDebug.hold(ms))
@@ -145,6 +148,12 @@ class FirstRoll(
                 schedule(poseMs())
                 listener.onChanged(false)
             } else {
+                // Stopped: the die at rest, still, before the number replaces it.
+                phase = REST
+                schedule(restMs())
+                listener.onChanged(false)
+            }
+            REST -> {
                 // Landed together: the rolls show, alone, for a beat.
                 if (!judge() && round >= MAX_ROUNDS) pickAtRandom()
                 toLanded()
@@ -177,7 +186,7 @@ class FirstRoll(
     /** A tap: tumbling, landed or tied → every roll lands now with the winner's flag ([WINNER], held as usual); then → [finish]. */
     fun skip() {
         when (phase) {
-            ROLLING, TIE, LANDED -> { resolve(); toWinner() }
+            ROLLING, REST, TIE, LANDED -> { resolve(); toWinner() }
             WINNER -> finish()
         }
     }
@@ -215,6 +224,9 @@ class FirstRoll(
         /** Landed with the winner's FIRST flag up (T65: a beat after the numbers). */
         const val WINNER = 5
 
+        /** The die at rest on the rolling tiles, between the last tumbling pose and the numbers (T65). */
+        const val REST = 6
+
         const val TIMER_STEP = 0
 
         const val SIDES = 20
@@ -233,6 +245,10 @@ class FirstRoll(
 
         /** Fast display (each ≥ 120 ms): a wind-up, three quick poses of the throw, a slower last one. */
         @JvmField val FAST_POSE_MS = longArrayOf(200L, 130L, 120L, 130L, 200L)
+
+        /** The die at rest — the settle — on a fast and a slow display. */
+        const val FAST_REST_MS = 400L
+        const val SLOW_REST_MS = 500L
 
         /** The numbers landed, alone: everyone reads their roll before the verdict. */
         const val LANDED_MS = 1_000L

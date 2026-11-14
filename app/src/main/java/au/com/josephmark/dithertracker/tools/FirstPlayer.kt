@@ -31,8 +31,11 @@ import kotlin.random.Random
  *   is drawn here instead, unmistakably not a life total: paper ground inside a **double ink frame**,
  *   "D20" where the readout sits, then the die tumbling across the tile (the dice panel's sprites,
  *   scaled to the tile and turned with the seat: 3 poses on a slow display, 5 on a fast one,
- *   `eink.DisplaySpeed`, [TileRollLayout]) and finally **the roll in the hero numerals**, where the
- *   life total was — every tile landing together.
+ *   `eink.DisplaySpeed`, [TileRollLayout]); then (T65) the die at **rest** — square to the player on
+ *   the tile's floor, a contact shadow and settle ticks, no speed ticks — held [FirstRoll.FAST_REST_MS]
+ *   / [FirstRoll.SLOW_REST_MS] so the stop reads; and finally **the roll in the hero numerals**, where
+ *   the life total was — every tile landing together — with the small resting die in place of "D20"
+ *   for as long as the roll shows.
  * - **Landing.** The highest roll goes first: its tile gets the **FIRST flag** (an ink pennant in the
  *   under-number row with a `Flavour.startingPlayer` line, e.g. "ON THE PLAY") a beat after the rolls
  *   land (they sit alone for [FirstRoll.LANDED_MS], T65), then every roll stays up for
@@ -213,12 +216,20 @@ class FirstPlayer(
         r.frame(a, 1, ink = true)
         val b = t.frameInner[s]
         r.frame(b, 1, ink = true)
-        val lab = t.label[s]
-        f.text.draw(l.ui, D20, lab.left, lab.top, l.play.tk, rot)
-        if (roll.phase == FirstRoll.ROLLING && (roll.rolling ushr s) and 1 == 1) {
+        val mine = (roll.rolling ushr s) and 1 == 1
+        if (roll.phase == FirstRoll.ROLLING && mine) {
+            labelD20(f, l, t, s, rot)
             t.drawPose(r, s, roll.beats == FirstRoll.FAST_POSES, roll.beat, rot)
             return
         }
+        if (roll.phase == FirstRoll.REST && mine) {
+            // T65: the die has stopped — square, on the floor, no speed ticks — before the number.
+            labelD20(f, l, t, s, rot)
+            t.drawRest(r, s, rot)
+            return
+        }
+        // The roll shows: the small resting die where "D20" was says "this is a die result".
+        t.drawRestSmall(r, s, rot)
         val v = roll.value[s]
         if (v > 0) {
             val k = l.play.numberFootprint(s, v, tmp)
@@ -226,6 +237,11 @@ class FirstPlayer(
         }
         if (roll.phase == FirstRoll.TIE && (roll.tied ushr s) and 1 == 1) tieFlag(f, l, s)
         else if (roll.phase == FirstRoll.WINNER && roll.winner == s) flag(f, l, s)
+    }
+
+    private fun labelD20(f: Frame, l: FirstPlayerLayout, t: TileRollLayout, s: Int, rot: Int) {
+        val lab = t.label[s]
+        f.text.draw(l.ui, D20, lab.left, lab.top, l.play.tk, rot)
     }
 
     /** The FIRST flag: an ink pennant (notched ends) with the line in paper caps, facing the seat. */

@@ -435,6 +435,22 @@ def read_bits(path):
     return rows
 
 
+def rest(die, small):
+    """[die] (rows) standing on a contact shadow; the big one with two settle ticks either side."""
+    w = len(die[0])
+    side = 0 if small else 6
+    W = w + 2 * side
+    rows = ['.' * side + r + '.' * side for r in die]
+    if small:
+        rows.append('.' + '#' * (W - 2) + '.')
+        return rows
+    sh = w + 4
+    pad = (W - sh) // 2
+    rows.append('.' * pad + '2' * sh + '.' * (W - pad - sh))
+    rows.append('###.' + '.' * (pad - 4) + '.' + '2' * (sh - 2) + '.' + '.' * (W - pad - sh - 4) + '.###')
+    return rows
+
+
 def build():
     ico = icosahedron()
     cub = cube()
@@ -459,6 +475,11 @@ def build():
     shipped['COIN_C'] = render_solid(cn, (-(math.pi - 1.15), 0.0, -0.05), 14, rim_group=2)
     shipped['COIN_AB'] = render_solid(cn, (-1.30, 0.0, 0.03), 11, rim_group=2)
     shipped['COIN_BC'] = render_solid(cn, (-1.75, 0.0, -0.02), 10, rim_group=2)
+    # T65: the d20 at REST — a face turned full-on to the player, square, no tilt, no speed ticks,
+    # sitting on a contact shadow with two settle ticks: unmistakably stopped. And a small one for the
+    # tile's corner label while the roll shows.
+    shipped['D20_REST'] = rest(render_solid(ico, (-3.14, 0.36, 0.52), 24), small=False)
+    shipped['D20_REST_S'] = rest(render_solid(ico, (-3.14, 0.36, 0.52), 11), small=True)
     shipped['TRAIL'] = TRAIL
     shipped['DUST'] = DUST
     shipped['IMPACT'] = IMPACT

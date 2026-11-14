@@ -45,6 +45,15 @@ class FirstPlayerTest {
         init { timers.target = Scheduler.Target { roll.onTimer(it) } }
     }
 
+    /** T65: the die comes to rest after the last pose, then the numbers land. */
+    private fun rest(r: StateRig, ms: Long) {
+        assertEquals(FirstRoll.REST, r.roll.phase)
+        assertTrue("the resting seats are still the rolling ones", r.roll.rolling != 0)
+        r.timers.advance(ms - 1)
+        assertEquals(FirstRoll.REST, r.roll.phase)
+        r.timers.advance(1)
+    }
+
     private fun playOut(r: StateRig, poses: Int, poseMs: LongArray) {
         assertEquals(poses, poseMs.size)
         for (b in 0 until poses) {
@@ -63,6 +72,7 @@ class FirstPlayerTest {
         assertEquals(FirstRoll.SLOW_POSES, r.roll.beats)
         assertEquals("fixed at the start", listOf(7, 15, 3, 12), r.roll.value.take(4))
         playOut(r, FirstRoll.SLOW_POSES, FirstRoll.SLOW_POSE_MS)
+        rest(r, FirstRoll.SLOW_REST_MS)
         // T65: the numbers land and sit alone, then the winner's flag, then back to the game.
         assertEquals(FirstRoll.LANDED, r.roll.phase)
         assertEquals(1, r.roll.winner)
@@ -84,6 +94,7 @@ class FirstPlayerTest {
         r.roll.start(0b11)
         assertEquals(FirstRoll.FAST_POSES, r.roll.beats)
         playOut(r, FirstRoll.FAST_POSES, FirstRoll.FAST_POSE_MS)
+        rest(r, FirstRoll.FAST_REST_MS)
         assertEquals(FirstRoll.LANDED, r.roll.phase)
         assertTrue(FirstRoll.FAST_POSE_MS.sum() <= FirstRoll.SLOW_POSE_MS.sum())
         // T65: uneven holds — the first and last poses longer than the quick middle.
@@ -93,6 +104,7 @@ class FirstPlayerTest {
         for (ms in FirstRoll.FAST_POSE_MS) assertTrue(ms >= 120)
         for (ms in FirstRoll.SLOW_POSE_MS) assertTrue(ms >= 250)
         assertTrue("the numbers sit longer than any pose", FirstRoll.LANDED_MS > FirstRoll.SLOW_POSE_MS.max())
+        assertTrue("the rest is a settle: longer than any tumbling pose", FirstRoll.FAST_REST_MS > FirstRoll.FAST_POSE_MS.max() && FirstRoll.SLOW_REST_MS > FirstRoll.SLOW_POSE_MS.max())
     }
 
     @Test fun aTieAtTheTopRerollsOnlyTheTiedSeats() {
@@ -100,6 +112,7 @@ class FirstPlayerTest {
         val r = StateRig(Rolls(18, 4, 18, 11, 6, 13))
         r.roll.start(0b1111)
         playOut(r, FirstRoll.SLOW_POSES, FirstRoll.SLOW_POSE_MS)
+        rest(r, FirstRoll.SLOW_REST_MS)
         assertEquals("the numbers land first, alone", FirstRoll.LANDED, r.roll.phase)
         r.timers.advance(FirstRoll.LANDED_MS)
         assertEquals(FirstRoll.TIE, r.roll.phase)
@@ -110,6 +123,7 @@ class FirstPlayerTest {
         assertEquals(2, r.roll.round)
         assertEquals("the others keep their roll", 4, r.roll.value[1])
         playOut(r, FirstRoll.SLOW_POSES, FirstRoll.SLOW_POSE_MS)
+        rest(r, FirstRoll.SLOW_REST_MS)
         assertEquals(FirstRoll.LANDED, r.roll.phase)
         assertEquals(2, r.roll.winner)
         r.timers.advance(FirstRoll.LANDED_MS)
@@ -126,6 +140,16 @@ class FirstPlayerTest {
         assertEquals(FirstRoll.MAX_ROUNDS, r.roll.round)
         assertTrue(r.roll.drawn)
         assertTrue(r.roll.winner in 0..2)
+    }
+
+    @Test fun aSkipAtRestGoesToTheWinner() {
+        val r = StateRig(Rolls(5, 12))
+        r.roll.start(0b11)
+        playOut(r, FirstRoll.SLOW_POSES, FirstRoll.SLOW_POSE_MS)
+        assertEquals(FirstRoll.REST, r.roll.phase)
+        r.roll.skip()
+        assertEquals(FirstRoll.WINNER, r.roll.phase)
+        assertEquals(1, r.roll.winner)
     }
 
     @Test fun skipLandsEverythingThenASecondSkipFinishes() {
@@ -278,10 +302,14 @@ class FirstPlayerTest {
                     assertFalse("$tag seat $seat die clear of the label", t.dieRect(seat, fast, b).meets(t.label[seat]))
                 }
                 val fp = IRect()
+                // T65: the resting die inside the frame; the small one in the label spot, clear of the roll.
+                assertTrue("$tag seat $seat rest ${t.rest[seat]}", t.rest[seat].inside(t.frameInner[seat]))
+                assertTrue("$tag seat $seat small rest ${t.restSmall[seat]}", t.restSmall[seat].inside(t.frameInner[seat]))
                 for (v in intArrayOf(1, 20)) {
                     p.numberFootprint(seat, v, fp)
                     assertTrue("$tag seat $seat roll $v", fp.inside(t.frameInner[seat]))
                     assertFalse(fp.meets(t.label[seat]))
+                    assertFalse("$tag seat $seat small rest clear of the roll", fp.meets(t.restSmall[seat]))
                 }
                 if (f.enabled) {
                     val band = f.bandRect(seat, IRect())

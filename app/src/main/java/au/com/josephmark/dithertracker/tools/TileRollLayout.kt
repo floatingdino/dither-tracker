@@ -20,15 +20,18 @@ import au.com.josephmark.dithertracker.type.Fonts
 class TileRollLayout(val play: PlayLayout, reuse: Sprites? = null) {
 
     /** The d20 poses A, AB, B, BC, C, then the speed ticks and the dust, at [k], all four turns. */
-    class Sprites internal constructor(val k: Int) {
+    class Sprites internal constructor(val k: Int, val smallK: Int) {
         internal val all: Array<Sprite> = arrayOf(
             DiceSprites.D20_A, DiceSprites.D20_AB, DiceSprites.D20_B, DiceSprites.D20_BC, DiceSprites.D20_C,
-            DiceSprites.TRAIL, DiceSprites.DUST,
+            DiceSprites.TRAIL, DiceSprites.DUST, DiceSprites.D20_REST,
         ).map { Sprite(it, k, allTurns = true) }.toTypedArray()
+
+        /** T65: the die at rest, small, where "D20" sits while the roll shows (at the chrome scale). */
+        internal val small: Sprite = Sprite(DiceSprites.D20_REST_S, smallK, allTurns = true)
     }
 
     val k: Int = spriteK(play)
-    val sprites: Sprites = reuse?.takeIf { it.k == k } ?: Sprites(k)
+    val sprites: Sprites = reuse?.takeIf { it.k == k && it.smallK == play.tk } ?: Sprites(k, play.tk)
 
     private val P = play.playerCount
     private val W = play.panelW
@@ -40,6 +43,13 @@ class TileRollLayout(val play: PlayLayout, reuse: Sprites? = null) {
 
     /** "D20" text box (screen; top-left is the draw origin at the seat's rotation). */
     val label: Array<IRect> = Array(P) { IRect() }
+
+    /**
+     * T65: the REST keyframe's die (screen): square to the player, sitting on the number slot's floor,
+     * centred where the roll will land; and the small resting die that replaces "D20" once the roll shows.
+     */
+    val rest: Array<IRect> = Array(P) { IRect() }
+    val restSmall: Array<IRect> = Array(P) { IRect() }
 
     /** Per speed (0 slow, 1 fast), seat and beat: the die's rect, the extra's rect and which sprites. */
     private val die = Array(2) { Array(P * MAX_BEATS) { IRect() } }
@@ -58,7 +68,20 @@ class TileRollLayout(val play: PlayLayout, reuse: Sprites? = null) {
             val tk = play.tk
             val tw = ui.widthOf(LABEL_LEN, tk)
             val ly = play.readoutY + (play.readoutFont.height(play.readoutK) - ui.height(tk)) / 2
-            play.mapRect(seat, (W - tw) / 2, maxOf(inset + gap + 2, ly), tw, ui.height(tk), label[seat])
+            val lTop = maxOf(inset + gap + 2, ly)
+            play.mapRect(seat, (W - tw) / 2, lTop, tw, ui.height(tk), label[seat])
+            val sm = sprites.small
+            val cy = lTop + ui.capTop * tk + ui.capHeight * tk / 2
+            play.mapRect(seat, (W - sm.width) / 2, maxOf(inset + gap + 1, cy - sm.height / 2), sm.width, sm.height, restSmall[seat])
+        }
+        run {
+            val rs = sprites.all[REST]
+            val floor = play.numberSlotY + play.font.height(play.kMax)
+            val edge = inset + gap + 2
+            for (seat in 0 until P) {
+                val y = (floor - rs.height).coerceIn(edge, maxOf(edge, H - edge - rs.height))
+                play.mapRect(seat, (W - rs.width) / 2, y, rs.width, rs.height, rest[seat])
+            }
         }
         val dw = sprites.all[0].width
         val dh = sprites.all[0].height
@@ -92,6 +115,18 @@ class TileRollLayout(val play: PlayLayout, reuse: Sprites? = null) {
         }
     }
 
+    /** Draws [seat]'s die at rest (the REST keyframe), turned with the seat. */
+    fun drawRest(r: DitherRenderer, seat: Int, rotation: Int) {
+        val d = rest[seat]
+        sprites.all[REST].draw(r, d.left, d.top, rotation)
+    }
+
+    /** Draws the small resting die in [seat]'s label spot (instead of "D20" once the roll shows). */
+    fun drawRestSmall(r: DitherRenderer, seat: Int, rotation: Int) {
+        val d = restSmall[seat]
+        sprites.small.draw(r, d.left, d.top, rotation)
+    }
+
     /** Draws [seat]'s tumbling die at [beat] (fast or slow sequence), turned with the seat. */
     fun drawPose(r: DitherRenderer, seat: Int, fast: Boolean, beat: Int, rotation: Int) {
         val f = if (fast) 1 else 0
@@ -108,6 +143,7 @@ class TileRollLayout(val play: PlayLayout, reuse: Sprites? = null) {
     /** Builds every sprite mask in the layout's [rotations] (off the draw path). */
     fun prewarm(r: DitherRenderer, rotations: IntArray) {
         for (sp in sprites.all) for (rot in rotations) sp.draw(r, 0, 0, rot)
+        for (rot in rotations) sprites.small.draw(r, 0, 0, rot)
     }
 
     companion object {
@@ -117,6 +153,7 @@ class TileRollLayout(val play: PlayLayout, reuse: Sprites? = null) {
         /** Sprite indices in [Sprites.all]. */
         private const val TRAIL = 5
         private const val DUST = 6
+        private const val REST = 7
 
         // Player frame, per mille of the tile's width (die centre) and of the number slot's free height.
         private val SLOW_X = intArrayOf(800, 620, 440)
