@@ -33,11 +33,11 @@ import kotlin.random.Random
  * by its local id, or tap a dither point — then [render] the whole screen in either colour mode.
  * Timers run on a fake clock ([advance]).
  */
-class ScreenRig(val w: Int, val h: Int, val s: Int, seed: Long = 7) {
+class ScreenRig(val w: Int, val h: Int, val s: Int, seed: Long = 7, val players: Int = 4) {
     val platform = StageTest.FakePlatform()
     val grid = DitherGrid(w, h, s)
-    val l: PlayLayout = PlayLayout.compute(grid)
-    val session: GameSession = GameSession.newGame(4)
+    val l: PlayLayout = PlayLayout.compute(grid, players)
+    val session: GameSession = GameSession.newGame(players)
     val stage: Stage = PlayScreen.build(Stage(session, SettingsHolder(), platform), Random(seed))
     val r = RasterRenderer(grid)
 

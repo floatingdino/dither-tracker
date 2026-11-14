@@ -273,6 +273,27 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         shot("34_winner")
     }
 
+    /** T51: every KO cause (life and marked dead without a chip, commander damage with one) and the winner at 6 seats, sideways included. */
+    @Test fun koCausesAndWinnerAtSixSeats() {
+        val shots = Shots(ScreenRig(w, h, s, players = 6))
+        val rig = shots.rig
+        rig.dispatch(Action.SetLife(rig.id(0), -3))
+        rig.dispatch(Action.MarkDead(rig.id(1)))
+        rig.dispatch(Action.ChangeCounter(rig.id(2), Counter.POISON, 10))
+        rig.dispatch(Action.ChangeCommanderDamage(rig.id(3), rig.id(4), Commander.PRIMARY, 21, linkLife = false))
+        rig.advance(6_000)
+        shots.shot("35_ko_causes_6p")
+        rig.press(rig.one<KoComponent>(), 3, 0)
+        shots.shot("36_press_ko_6p")
+        rig.cancel()
+        rig.tap(rig.one<KoComponent>(), 0, 0) // armed: REVIVE?
+        shots.shot("37_revive_armed_6p")
+        rig.dispatch(Action.SetLife(rig.id(4), 0))
+        rig.advance(10_000)
+        shots.shot("38_winner_6p")
+        shots.assertClean()
+    }
+
     // ---- the gem (table menu) ----------------------------------------------------------------------------
 
     @Test fun gem() = script { rig ->

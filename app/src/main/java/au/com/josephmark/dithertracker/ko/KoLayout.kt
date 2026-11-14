@@ -17,19 +17,25 @@ import au.com.josephmark.dithertracker.widgets.TextWrap
  *
  * ```
  *  ┌──────────── far edge (the diamond sits in one far corner) ────────────┐
- *  │                         [emblem]       tombstone / crown, k = iconK    │
  *  │                                                                        │
+ *  │                         [emblem]       tombstone / trophy, k = iconK   │
  *  │                   THE QUIP, IN CAPS,            hero: `ui` × quipK,    │
  *  │                   CENTRED AS A BLOCK            1–4 balanced lines     │
- *  │ (peeks)                                                       (peeks)  │
- *  │ (peeks)              [♥ 0] / [☠ 10]          detail: cause / final life │
+ *  │ (peeks)                                emblem + quip centred together  │
+ *  │ (peeks)                [☠ 10]          detail: poison / commander only │
  *  │ (peeks)                 (tab)                                 (peeks)  │
  *  └─────────────────────────── near edge (the player) ─────────────────────┘
  * ```
  * - **Field** (dead only): `Role.DEAD` over the panel inset by a paper [gutter], with a paper ring
  *   [gutter] wide round the centre diamond ([fieldInk]), so dividers and the diamond keep a clean edge.
- * - **Emblem**: 16 × [iconK] px, centred, [PlayLayout.V_MIN] from the far edge ([emblem]).
- * - **Hero**: the quip block in [textLeft, textRight) × [textTop, textBottom), every line at the one
+ * - **Modes** (T51: no life total on either tile): [DEAD] (life ran out or marked dead: no detail),
+ *   [DEAD_CAUSE] (poison or commander damage: the cause chip stays below the quip) and [WINNER] (no
+ *   detail; the peeks and tab stay, so the hero ends above the peek corners). Each mode has its own
+ *   hero bottom ([textBottomOf]).
+ * - **Emblem + quip** are one group (T51): the 16 × [iconK] emblem, [emblemGap], then the quip's
+ *   cap block, centred together between [emblemTop] and the mode's hero bottom ([arrange] writes
+ *   [Block.emblem]); so a tile without the chip has no hole where the chip was.
+ * - **Hero**: the quip block in [textLeft, textRight) × [textTop, [textBottomOf]), every line at the one
  *   size [quipK] (T47: short lines are not scaled up), wrapped into the fewest lines that fit, broken
  *   only at spaces and balanced (the narrowest widest line for that count) ([arrange]). Only a line
  *   that cannot fit whole at [quipK] steps down (none of the shipped lines on the Nomad do). Lines are
@@ -37,11 +43,11 @@ import au.com.josephmark.dithertracker.widgets.TextWrap
  *   On a dead tile the block sits on one continuous paper ground cut out of the field ([Block.ground]):
  *   per line a bar from its first glyph to its last grown by [halo], each bar reaching down to the
  *   next, so the lines merge into one stepped shape with no dither between words or lines.
- * - **Detail**: an icon + `num-m` value on a paper chip, centred in the under-number row between the
- *   counter-peek corners ([detail]).
+ * - **Detail** ([DEAD_CAUSE] only): the cause icon + `num-m` count on a paper chip, centred in the
+ *   under-number row between the counter-peek corners ([detail]).
  * - **Revive** (armed): an ink plate reading [REVIVE] in paper at [Block.reviveK] (T47: the quip's
  *   size, down from k = 4, which shouted next to the one-size quips), with a solid
- *   shadow down-right separated from it by a paper [keyline], centred in the hero area.
+ *   shadow down-right separated from it by a paper [keyline], centred on the quip it replaces.
  * - **Winner cover** ([winnerCover]): paper over everything above the peek corners (the number, ±
  *   and readout of the live tile underneath).
  */
@@ -65,6 +71,9 @@ class KoLayout(val play: PlayLayout) {
     val shadow: Int = Chrome.size(SHADOW, s)
     val keyline: Int = Chrome.size(KEYLINE, s)
     val iconGap: Int = Chrome.size(ICON_GAP, s)
+
+    /** Between the emblem's art box and the quip's first glyph box (at least the two halos). */
+    val emblemGap: Int = maxOf(2 * Chrome.size(HALO, s), Chrome.size(EMBLEM_GAP, s))
 
     /** Scale of the small detail icon and its number. */
     val causeK: Int = play.tk
@@ -95,8 +104,9 @@ class KoLayout(val play: PlayLayout) {
     val detailBottom: Int = H - play.chrome.tabH - play.chrome.tabHitPad - PlayLayout.V_MIN
 
     /**
-     * Top of the emblem: [PlayLayout.V_MIN] inside the field, or (T11) below the diamond's paper ring
-     * where the diamond sits in the middle of the far edge (2, 5 and 6 players).
+     * Highest top of the emblem: [PlayLayout.V_MIN] inside the field, or (T11) below the diamond's
+     * paper ring where the diamond sits in the middle of the far edge (2, 5 and 6 players). [arrange]
+     * moves it down with the quip ([Block.ey]).
      */
     val emblemTop: Int = run {
         val w = PlayLayout.ICON * Chrome.size(ICON_K, s) + 2 * halo
@@ -109,7 +119,32 @@ class KoLayout(val play: PlayLayout) {
     val textLeft: Int = PlayLayout.EDGE_MIN
     val textRight: Int = W - PlayLayout.EDGE_MIN
     val textW: Int get() = textRight - textLeft
+
+    /** Hero bottom with the cause chip below it ([DEAD_CAUSE]): above the detail band and the peeks. */
     val textBottom: Int = minOf(peekTop, detailTop) - halo
+
+    /** Hero bottom on the winner's tile ([WINNER]): above the peek corners and the tab, which stay. */
+    val textBottomWinner: Int = maxOf(textBottom, minOf(peekTop - halo, detailBottom - halo))
+
+    /**
+     * Hero bottom on a dead tile without the chip ([DEAD]): the cover hides peeks and tab, so the
+     * field's own margin (the emblem's at the far edge, mirrored), and clear of a near-edge diamond.
+     */
+    val textBottomDead: Int = run {
+        var b = H - PlayLayout.V_MIN - gutter - halo
+        // A diamond on the near edge (none of today's layouts has one): stay above it.
+        for (d in play.diamondFrame) {
+            if (d.isEmpty || d.top < H / 2 || d.left >= textRight + halo + gutter || d.right <= textLeft - halo - gutter) continue
+            b = minOf(b, d.top - gutter - halo - 1)
+        }
+        maxOf(textBottom, b)
+    }
+
+    fun textBottomOf(mode: Int): Int = when (mode) {
+        DEAD -> textBottomDead
+        WINNER -> textBottomWinner
+        else -> textBottom
+    }
 
     /**
      * Scale of the emblem (16 × [iconK] px): ≈ 2× chrome, stepped down to leave the hero [MIN_LINES]
@@ -119,6 +154,7 @@ class KoLayout(val play: PlayLayout) {
     val iconK: Int
     val iconSize: Int
     val textTop: Int
+    /** Text box height in [DEAD_CAUSE] (the tightest mode; it sizes the emblem). */
     val textH: Int get() = textBottom - textTop
 
     private val wrap = TextWrap(MAX_LINES)
@@ -166,9 +202,6 @@ class KoLayout(val play: PlayLayout) {
 
     // ---- emblem and detail -----------------------------------------------------------------------------
 
-    /** The emblem (tombstone / crown) footprint on [seat] (screen). */
-    fun emblem(seat: Int, out: IRect) = play.mapRect(seat, (W - iconSize) / 2, emblemTop, iconSize, iconSize, out)
-
     /**
      * The detail on [seat]: icon then [value] in [causeFont], centred in the detail band. Writes the
      * icon, number and chip (paper backing = both grown by [halo]) footprints; returns false (all
@@ -199,31 +232,44 @@ class KoLayout(val play: PlayLayout) {
 
     // ---- hero ----------------------------------------------------------------------------------------
 
-    /** The hero area on [seat] (screen): the text box grown by [halo] — everything the quip or the revive plate touches. */
-    fun heroArea(seat: Int, out: IRect) =
-        play.mapRect(seat, textLeft - halo, textTop - halo, textW + 2 * halo, textH + 2 * halo, out)
+    /** The hero area on [seat] in [mode] (screen): the text box grown by [halo] — everything the quip or the revive plate may touch. */
+    fun heroArea(seat: Int, mode: Int, out: IRect) {
+        val b = textBottomOf(mode)
+        play.mapRect(seat, textLeft - halo, textTop - halo, textW + 2 * halo, b - textTop + 2 * halo, out)
+    }
 
     /** Height of [lines] lines at [k] (each line the face's full height, so descenders always fit). */
     fun blockH(k: Int, lines: Int): Int = lines * ui.height(k)
 
     /**
-     * Lays out the hero [quip] (already in caps) on [seat] into [out]: at [quipK], in the fewest lines
-     * (≤ [MAX_LINES]) that hold it whole without breaking a word and fit [textH], balanced; only when
-     * that fails, one step smaller at a time (k = 1 shows what fits). Also places the ground and the
-     * armed revive plate. Pure; allocation-free.
+     * Lays out the hero [quip] (already in caps) on [seat] in [mode] into [out]: at [quipK], in the
+     * fewest lines (≤ [MAX_LINES]) that hold it whole without breaking a word and fit the mode's text
+     * box, balanced; only when that fails, one step smaller at a time (k = 1 shows what fits). Then the
+     * emblem and the quip's cap block are centred together between [emblemTop] and the box's bottom.
+     * Also places the ground and the armed revive plate. Pure; allocation-free.
      */
-    fun arrange(seat: Int, quip: CharSequence, out: Block) {
+    fun arrange(seat: Int, quip: CharSequence, out: Block, mode: Int) {
+        val bottom = textBottomOf(mode)
+        val th = bottom - textTop
+        out.mode = mode
         var k = quipK
-        while (!balance(quip, k) && k > 1) k--
+        while (!balance(quip, k, th) && k > 1) k--
         var n = wrap.lines
-        while (n > 1 && blockH(k, n) > textH) n--
+        while (n > 1 && blockH(k, n) > th) n--
         out.k = k
         out.lines = n
         val lh = ui.height(k)
-        // Centre the cap bands (the last line's descender rows hang into the slack below), keeping
-        // every glyph box inside the text box.
+        // The group: emblem, gap, the cap bands (the last line's descender rows hang into the slack
+        // below), centred in [emblemTop, bottom); every glyph box stays inside the text box.
         val capBlock = blockH(k, n) - (lh - ui.capHeight * k - ui.capTop * k)
-        val y0 = textTop + maxOf(0, minOf((textH - capBlock) / 2, textH - blockH(k, n)))
+        val group = iconSize + emblemGap + capBlock
+        var ey = emblemTop + maxOf(0, (bottom - emblemTop - group) / 2)
+        var y0 = ey + iconSize + emblemGap
+        if (y0 < textTop) y0 = textTop
+        if (y0 + blockH(k, n) > bottom) y0 = maxOf(textTop, bottom - blockH(k, n))
+        ey = maxOf(emblemTop, minOf(ey, y0 - emblemGap - iconSize))
+        out.ey = ey
+        play.mapRect(seat, (W - iconSize) / 2, ey, iconSize, iconSize, out.emblem)
         var u = Int.MAX_VALUE; var v = Int.MAX_VALUE; var r = Int.MIN_VALUE; var b = Int.MIN_VALUE
         for (i in 0 until n) {
             out.start[i] = wrap.start[i]
@@ -244,16 +290,26 @@ class KoLayout(val play: PlayLayout) {
         }
         if (n > 0) play.mapRect(seat, u, v, r - u, b - v, out.bounds)
         else out.bounds.set(0, 0, 0, 0)
-        arrangeRevive(seat, out)
+        // The plate replaces the quip in place: centred on its cap block, below the emblem's halo.
+        arrangeRevive(seat, out, y0 + (ui.capTop * k + capBlock) / 2, ey + iconSize + halo, bottom)
+        // Everything the hero touches in either state (arm / disarm redraw this).
+        val fb = out.bounds
+        val sh = out.shadow
+        val kl = out.keyline
+        out.area.set(
+            minOf(fb.left, sh.left, kl.left), minOf(fb.top, sh.top, kl.top),
+            maxOf(fb.right, sh.right, kl.right), maxOf(fb.bottom, sh.bottom, kl.bottom),
+        )
+        if (n == 0) out.area.set(kl.left, kl.top, sh.right, sh.bottom)
     }
 
     /**
-     * Wraps [text] at [k] into the fewest lines that hold it whole and fit [textH], then narrows the
+     * Wraps [text] at [k] into the fewest lines that hold it whole and fit [th] rows, then narrows the
      * measure to the smallest that keeps that count (balanced lines). False when it cannot fit at [k].
      */
-    private fun balance(text: CharSequence, k: Int): Boolean {
+    private fun balance(text: CharSequence, k: Int, th: Int): Boolean {
         wrap.wrap(text, ui, k, textW)
-        if (!fitsWhole(text) || blockH(k, wrap.lines) > textH) return false
+        if (!fitsWhole(text) || blockH(k, wrap.lines) > th) return false
         val n = wrap.lines
         if (n == 1) return true
         var c = TextFit.maxChars(ui, k, textW)
@@ -286,13 +342,14 @@ class KoLayout(val play: PlayLayout) {
         return true
     }
 
-    private fun arrangeRevive(seat: Int, out: Block) {
+    /** The armed plate centred on row [midY] (player frame), kept in rows `[top, bottom + halo)` and the hero's width. */
+    private fun arrangeRevive(seat: Int, out: Block, midY: Int, top: Int, bottom: Int) {
         val n = REVIVE.length
         // The plate with its keyline (up-left) and shadow (down-right) inside the hero area.
         val aL = textLeft - halo
-        val aT = textTop - halo
+        val aT = maxOf(textTop - halo, top)
         val aW = textW + 2 * halo - keyline - shadow
-        val aH = textH + 2 * halo - keyline - shadow
+        val aH = bottom + halo - aT - keyline - shadow
         var k = reviveKMax
         while (k > 1 && (ui.widthOf(n, k) + 2 * padH > aW || ui.capHeight * k + 2 * padV > aH)) k--
         out.reviveK = k
@@ -300,7 +357,7 @@ class KoLayout(val play: PlayLayout) {
         val pw = tw + 2 * padH
         val ph = ui.capHeight * k + 2 * padV
         val px = aL + keyline + (aW - pw) / 2
-        val py = aT + keyline + (aH - ph) / 2
+        val py = (midY - ph / 2).coerceIn(aT + keyline, maxOf(aT + keyline, aT + keyline + aH - ph))
         play.mapRect(seat, px, py, pw, ph, out.plate)
         play.mapRect(seat, px - keyline, py - keyline, pw + 2 * keyline, ph + 2 * keyline, out.keyline)
         play.mapRect(seat, px + shadow, py + shadow, pw, ph, out.shadow)
@@ -314,8 +371,17 @@ class KoLayout(val play: PlayLayout) {
 
     /** One seat's hero (screen rects), filled by [arrange]. */
     class Block {
+        /** [DEAD], [DEAD_CAUSE] or [WINNER]: what [arrange] laid it out for. */
+        var mode = DEAD
         var k = 1
         var lines = 0
+
+        /** The emblem's top (player frame) and footprint (screen), placed with the quip. */
+        var ey = 0
+        val emblem = IRect()
+
+        /** Everything the hero touches, quip or armed plate (screen): arm / disarm redraw this. */
+        val area = IRect()
         val start = IntArray(MAX_LINES)
         val end = IntArray(MAX_LINES)
 
@@ -350,10 +416,15 @@ class KoLayout(val play: PlayLayout) {
     }
 
     override fun toString(): String =
-        "KoLayout(S=$s emblem k$iconK, hero k$quipK in ${textW}x$textH at y $textTop, detail " +
+        "KoLayout(S=$s emblem k$iconK, hero k$quipK in ${textW}x$textH at y $textTop (bottom dead $textBottomDead, winner $textBottomWinner), detail " +
             "$detailLeft..$detailRight x $detailTop..$detailBottom, gutter $gutter, halo $halo)"
 
     companion object {
+        /** [arrange] modes (T51): a dead tile without / with the cause chip, the winner's tile. */
+        const val DEAD = 0
+        const val DEAD_CAUSE = 1
+        const val WINNER = 2
+
         const val MAX_LINES = 4
 
         /** Lines of [quipK] the hero box is given room for (by shrinking the emblem) before a quip steps down. */
@@ -373,5 +444,6 @@ class KoLayout(val play: PlayLayout) {
         const val SHADOW = 3
         const val KEYLINE = 1
         const val ICON_GAP = 3
+        const val EMBLEM_GAP = 8
     }
 }

@@ -72,79 +72,95 @@ class KoTest {
         QuipKind.entries.filter { it.name.startsWith("KO_") || it == QuipKind.WINNER }
             .flatMap { Flavour.quippy.lines(it) + Flavour.plain.lines(it) }
 
+    private val modes = intArrayOf(KoLayout.DEAD, KoLayout.DEAD_CAUSE, KoLayout.WINNER)
+
     @Test fun heroFitsEveryKoAndWinnerLineAtEveryScaleOnEverySeat() {
         val all = heroLines()
-        for ((w, h) in screens) for (sc in 2..6) {
-            val l = PlayLayout.compute(DitherGrid(w, h, sc))
+        for ((w, h) in screens) for (sc in 2..6) for (n in 2..6) {
+            val l = PlayLayout.compute(DitherGrid(w, h, sc), n)
             val k = KoLayout(l)
             val peek = au.com.josephmark.dithertracker.peeks.PeekLayout(l)
             val b = KoLayout.Block()
             val g = k.gutter
             val diamond = IRect(l.diamond.left - g, l.diamond.top - g, l.diamond.right + g, l.diamond.bottom + g)
-            for (s in 0 until 4) {
+            for (s in 0 until n) {
                 val p = l.panels[s]
-                val emblem = IRect().also { k.emblem(s, it) }
-                val emblemHalo = IRect(emblem.left - k.halo, emblem.top - k.halo, emblem.right + k.halo, emblem.bottom + k.halo)
-                val area = IRect().also { k.heroArea(s, it) }
                 val cover = IRect().also { k.winnerCover(s, it) }
-                val base = "$w×$h S=$sc seat $s"
-                assertTrue("$base emblem in panel", inside(emblemHalo, p))
-                assertFalse("$base emblem/diamond", overlaps(emblemHalo, diamond))
-                assertTrue("$base hero area in panel", inside(area, p))
-                assertTrue("$base hero area in the winner cover", inside(area, cover))
+                val field = IRect().also { k.field(s, it) }
+                val base = "$w×$h S=$sc ${n}p seat $s"
                 if (peek.enabled) for (col in 0..1) {
                     val c = IRect().also { peek.corner(s, col, it) }
                     assertFalse("$base winner cover over peek corner $col", overlaps(cover, c))
                 }
                 val icon = IRect(); val num = IRect(); val chip = IRect()
+                val causeArea = IRect().also { k.heroArea(s, KoLayout.DEAD_CAUSE, it) }
                 // Cramped layouts (no detail band, hero over the emblem's row) only check the quip fits.
                 if (l.comfortable) {
-                    assertFalse("$base hero area/emblem", overlaps(area, emblemHalo))
-                    assertFalse("$base hero area/diamond", overlaps(area, diamond))
-                    assertFalse("$base hero area/tab", overlaps(area, l.tabHit[s]))
-                    for (v in intArrayOf(0, -999, 10, 21, 999)) {
+                    for (v in intArrayOf(10, 21, 99, 999)) {
                         assertTrue("$base detail $v fits", k.detail(s, v, icon, num, chip))
                         assertTrue("$base chip in panel", inside(chip, p))
                         assertTrue("$base chip holds icon + number", inside(icon, chip) && inside(num, chip))
-                        assertFalse("$base chip/hero", overlaps(chip, area))
+                        assertFalse("$base chip/hero", overlaps(chip, causeArea))
                         assertFalse("$base chip/tab", overlaps(chip, l.tabHit[s]))
                         if (peek.enabled) for (col in 0..1) assertFalse("$base chip/peek $col", overlaps(chip, IRect().also { peek.corner(s, col, it) }))
                     }
                 }
                 val corners = if (peek.enabled) (0..1).map { col -> IRect().also { peek.corner(s, col, it) } } else emptyList()
-                for (q in all) {
-                    val tag = "$base '$q'"
-                    k.arrange(s, q.uppercase(), b)
-                    assertTrue("$tag lines ${b.lines}", b.lines in 1..KoLayout.MAX_LINES)
-                    // One size for every line wherever the hero has room (the Nomad and larger at any S).
-                    if (roomy(w, h)) assertEquals("$tag one size", k.quipK, b.k) else assertTrue("$tag k ${b.k}", b.k in 1..k.quipK)
-                    assertEquals("$tag whole line shown", q.trim().length, (0 until b.lines).sumOf { b.end[it] - b.start[it] } + b.lines - 1)
-                    for (i in 0 until b.lines) {
-                        if (i > 0) assertTrue("$tag breaks at a space", q[b.start[i] - 1] == ' ')
-                        val r = b.line[i]
-                        assertTrue("$tag line $i $r in hero area $area", inside(r, area))
-                        if (i > 0) assertFalse("$tag lines overlap", overlaps(r, b.line[i - 1]))
-                        assertGround(k, q.uppercase(), b, i, tag)
-                        val g = b.ground[i]
-                        assertTrue("$tag ground $i in hero area", inside(g, area))
-                        assertTrue("$tag ground $i in bounds", inside(g, b.bounds))
-                        if (!l.comfortable) continue
-                        assertFalse("$tag ground/emblem", overlaps(g, emblemHalo))
-                        assertFalse("$tag ground/diamond ring", overlaps(g, diamond))
-                        assertFalse("$tag ground/tab", overlaps(g, l.tabHit[s]))
-                        for (c in corners) assertFalse("$tag ground/peek corner", overlaps(g, c))
-                        for (v in intArrayOf(0, -999, 999)) {
-                            k.detail(s, v, icon, num, chip)
-                            assertFalse("$tag ground/chip", overlaps(g, chip))
+                for (mode in modes) {
+                    val area = IRect().also { k.heroArea(s, mode, it) }
+                    assertTrue("$base m$mode hero area in panel", inside(area, p))
+                    if (mode == KoLayout.WINNER) assertTrue("$base hero area in the winner cover", inside(area, cover))
+                    else assertTrue("$base m$mode hero area in the field", inside(area, field))
+                    for (q in all) {
+                        val tag = "$base m$mode '$q'"
+                        k.arrange(s, q.uppercase(), b, mode)
+                        assertEquals(mode, b.mode)
+                        val emblem = b.emblem
+                        val emblemHalo = IRect(emblem.left - k.halo, emblem.top - k.halo, emblem.right + k.halo, emblem.bottom + k.halo)
+                        assertTrue("$tag emblem in panel", inside(emblemHalo, p))
+                        if (mode != KoLayout.WINNER) assertTrue("$tag emblem in field", inside(emblemHalo, field))
+                        else assertTrue("$tag emblem in cover", inside(emblem, cover))
+                        assertFalse("$tag emblem/diamond", overlaps(emblemHalo, diamond))
+                        assertTrue("$tag emblem at or below its top", b.ey >= k.emblemTop)
+                        assertTrue("$tag lines ${b.lines}", b.lines in 1..KoLayout.MAX_LINES)
+                        // One size for every line wherever the hero has room (the Nomad and larger at any S).
+                        if (roomy(w, h) && n <= 4) assertEquals("$tag one size", k.quipK, b.k) else assertTrue("$tag k ${b.k}", b.k in 1..k.quipK)
+                        // Every line whole (more than four seats: on layouts Settings offers; a tiny 6-way split may truncate).
+                        if (n <= 4 || l.comfortable) assertEquals("$tag whole line shown", q.trim().length, (0 until b.lines).sumOf { b.end[it] - b.start[it] } + b.lines - 1)
+                        assertTrue("$tag hero touches in area", inside(b.area, area))
+                        if (l.comfortable) assertFalse("$tag hero/emblem", overlaps(b.area, emblemHalo))
+                        for (i in 0 until b.lines) {
+                            if (i > 0 && (n <= 4 || l.comfortable)) assertTrue("$tag breaks at a space", q[b.start[i] - 1] == ' ')
+                            val r = b.line[i]
+                            assertTrue("$tag line $i $r in hero area $area", inside(r, area))
+                            if (i > 0) assertFalse("$tag lines overlap", overlaps(r, b.line[i - 1]))
+                            assertGround(k, q.uppercase(), b, i, tag, s)
+                            val gr = b.ground[i]
+                            assertTrue("$tag ground $i in hero area", inside(gr, area))
+                            assertTrue("$tag ground $i in bounds", inside(gr, b.bounds))
+                            if (!l.comfortable) continue
+                            assertFalse("$tag ground/emblem", overlaps(gr, emblemHalo))
+                            assertFalse("$tag ground/diamond ring", overlaps(gr, diamond))
+                            if (mode != KoLayout.DEAD) {
+                                assertFalse("$tag ground/tab", overlaps(gr, l.tabHit[s]))
+                                for (c in corners) assertFalse("$tag ground/peek corner", overlaps(gr, c))
+                            }
+                            if (mode == KoLayout.DEAD_CAUSE) for (v in intArrayOf(10, 21, 999)) {
+                                k.detail(s, v, icon, num, chip)
+                                assertFalse("$tag ground/chip", overlaps(gr, chip))
+                            }
                         }
+                        assertMerged(b, tag)
+                        if (roomy(w, h) && n <= 4) assertEquals("$tag revive plate at the quip size", k.quipK, b.reviveK)
+                        for (r in listOf(b.plate, b.keyline, b.shadow)) {
+                            assertTrue("$tag revive $r in hero area", inside(r, area))
+                            if (l.comfortable) assertFalse("$tag revive/emblem", overlaps(r, emblemHalo))
+                        }
+                        val rt = b.reviveText
+                        // The text box's cap band (it is the face's full height; the descender rows face away on a turned seat) sits on the plate.
+                        assertTrue("$tag revive text", rt.left >= b.plate.left && rt.right <= b.plate.right &&
+                            minOf(rt.bottom, b.plate.bottom) - maxOf(rt.top, b.plate.top) >= k.ui.capHeight * b.reviveK)
                     }
-                    assertMerged(b, tag)
-                    if (roomy(w, h)) assertEquals("$tag revive plate at the quip size", k.quipK, b.reviveK)
-                    for (r in listOf(b.plate, b.keyline, b.shadow)) assertTrue("$tag revive $r in hero area", inside(r, area))
-                    val rt = b.reviveText
-                    // The text box's cap band (it is the face's full height; the descender rows face away on a turned seat) sits on the plate.
-                    assertTrue("$tag revive text", rt.left >= b.plate.left && rt.right <= b.plate.right &&
-                        minOf(rt.bottom, b.plate.bottom) - maxOf(rt.top, b.plate.top) >= k.ui.capHeight * b.reviveK)
                 }
             }
         }
@@ -157,7 +173,7 @@ class KoTest {
      * Line [i]'s ground (player frame) runs from its first glyph to its last grown by the halo, and
      * from the cap band's top − halo to at least its baseline (descenders when it has any) + halo.
      */
-    private fun assertGround(k: KoLayout, q: String, b: KoLayout.Block, i: Int, tag: String) {
+    private fun assertGround(k: KoLayout, q: String, b: KoLayout.Block, i: Int, tag: String, seatOf: Int = 0) {
         val ui = k.ui
         val kk = b.k
         val tw = ui.widthOf(b.end[i] - b.start[i], kk)
@@ -168,9 +184,10 @@ class KoTest {
         for (j in b.start[i] until b.end[i]) for (y in ui.baseline until ui.glyphHeight) for (x in 0 until ui.glyphWidth) if (ui.glyph(q[j]).isInk(x, y)) desc = true
         val need = b.ly[i] + (if (desc) ui.glyphHeight else ui.baseline) * kk + k.halo
         assertTrue("$tag ground $i bottom", b.gy[i] + b.gh[i] >= need)
-        // The screen rect is the player-frame box turned (same size on every seat).
-        assertEquals("$tag ground $i w", b.gw[i], b.ground[i].right - b.ground[i].left)
-        assertEquals("$tag ground $i h", b.gh[i], b.ground[i].bottom - b.ground[i].top)
+        // The screen rect is the player-frame box turned (same size on every seat; swapped on a sideways one).
+        val side = k.play.rotation[seatOf] % 180 != 0
+        assertEquals("$tag ground $i w", if (side) b.gh[i] else b.gw[i], b.ground[i].right - b.ground[i].left)
+        assertEquals("$tag ground $i h", if (side) b.gw[i] else b.gh[i], b.ground[i].bottom - b.ground[i].top)
     }
 
     /**
@@ -204,7 +221,7 @@ class KoTest {
         val k = KoLayout(PlayLayout.compute(DitherGrid(1872, 1404, 4)))
         val b = KoLayout.Block()
         fun lines(q: String): List<String> {
-            k.arrange(3, q, b)
+            k.arrange(3, q, b, KoLayout.DEAD_CAUSE)
             assertEquals(q, 2, b.k)
             return (0 until b.lines).map { q.substring(b.start[it], b.end[it]) }
         }
@@ -222,9 +239,20 @@ class KoTest {
         assertEquals(2, b.lines)
         assertEquals(18, b.ly[1] - b.ly[0])
         assertEquals(b.gy[0] + b.gh[0], b.gy[1])
-        assertEquals(listOf(25, 60, 182, 18), listOf(b.gx[0], b.gy[0], b.gw[0], b.gh[0]))
-        assertEquals(listOf(37, 78, 158, 18), listOf(b.gx[1], b.gy[1], b.gw[1], b.gh[1]))
+        assertEquals(listOf(25, 62, 182, 18), listOf(b.gx[0], b.gy[0], b.gw[0], b.gh[0]))
+        assertEquals(listOf(37, 80, 158, 18), listOf(b.gx[1], b.gy[1], b.gw[1], b.gh[1]))
         assertEquals(2, b.reviveK) // the armed plate matches (T47; it was k = 4)
+        // T51: emblem and quip are centred together in each mode's room (margins within a px).
+        for (mode in modes) {
+            k.arrange(3, "STAY A WHILE... STAY FOREVER!", b, mode)
+            val capBottom = b.ly[b.lines - 1] + (k.ui.capTop + k.ui.capHeight) * b.k
+            val above = b.ey - k.emblemTop
+            val below = k.textBottomOf(mode) - capBottom
+            assertTrue("mode $mode: $above above, $below below", Math.abs(above - below) <= 1)
+            assertEquals(b.ly[0] - b.ey - k.iconSize, k.emblemGap)
+        }
+        k.arrange(3, "OOF", b, KoLayout.DEAD)
+        assertTrue("a short line sits lower without the chip", b.ey > k.emblemTop)
         // Layout numbers at S = 4.
         assertEquals(2, k.quipK)
         assertEquals(2, k.iconK)
@@ -240,8 +268,8 @@ class KoTest {
     @Test fun everyShippedLineTakesAtMostTwoLinesOnTheNomadAtS4() {
         val k = KoLayout(PlayLayout.compute(DitherGrid(1872, 1404, 4)))
         val b = KoLayout.Block()
-        for (q in heroLines()) {
-            k.arrange(0, q.uppercase(), b)
+        for (q in heroLines()) for (mode in modes) {
+            k.arrange(0, q.uppercase(), b, mode)
             assertEquals(q, 2, b.k)
             assertTrue("$q: ${b.lines} lines", b.lines <= 2)
         }
@@ -296,10 +324,16 @@ class KoTest {
         val panel = IRect().also { r.l.grid.toDevice(r.l.panels[3], it) }
         assertTrue(r.rig.platform.invalidated.isNotEmpty())
         for (d in r.rig.platform.invalidated) assertTrue("$d in $panel", inside(d, panel))
-        // Staying dead with another life change only redraws the detail chip's band.
+        // Staying dead with another life change redraws nothing: no life total on the tile (T51).
         r.rig.platform.invalidated.clear()
         r.session.dispatch(Action.ChangeLife(r.rig.id(3), -2), 0)
-        val ring = IRect().also { r.l.grid.toDevice(IRect().also { b -> r.ko.layout!!.detailBand(3, b) }, it) }
+        for (d in r.rig.platform.invalidated) assertFalse("$d", overlaps(d, panel))
+        // A poison KO's count changing redraws only the cause chip's band.
+        r.session.dispatch(Action.SetCounter(r.rig.id(2), Counter.POISON, 10), 0)
+        assertEquals(KoLayout.DEAD_CAUSE, r.ko.block(2).mode)
+        r.rig.platform.invalidated.clear()
+        r.session.dispatch(Action.SetCounter(r.rig.id(2), Counter.POISON, 12), 0)
+        val ring = IRect().also { r.l.grid.toDevice(IRect().also { b -> r.ko.layout!!.detailBand(2, b) }, it) }
         assertTrue(r.rig.platform.invalidated.isNotEmpty())
         for (d in r.rig.platform.invalidated) assertTrue("$d in $ring", inside(d, ring))
         // Others' changes leave the dead tile alone.
@@ -342,6 +376,53 @@ class KoTest {
         r.session.dispatch(Action.ChangeCommanderDamage(r.rig.id(0), r.rig.id(2), Commander.PRIMARY, 21, linkLife = false), 0)
         assertTrue(r.shown(0))
         assertTrue(r.ko.quip(0) in Flavour.quippy.lines(QuipKind.KO_COMMANDER_DAMAGE).map { it.uppercase() })
+        // The cause keeps its chip (T51); a life or marked-dead KO has none.
+        assertEquals(KoLayout.DEAD_CAUSE, r.ko.block(1).mode)
+        assertEquals(KoLayout.DEAD_CAUSE, r.ko.block(0).mode)
+        r.kill(2)
+        assertEquals(KoLayout.DEAD, r.ko.block(2).mode)
+        r.session.dispatch(Action.MarkDead(r.rig.id(3)), 0)
+        assertEquals(KoLayout.DEAD, r.ko.block(3).mode)
+    }
+
+    /** [seat]'s panel as drawn by the KO and winner components alone, with every life moved by [lifeOffset]. */
+    private fun koTile(rig: au.com.josephmark.dithertracker.purity.ScreenRig, seat: Int, lifeOffset: Int): ByteArray {
+        val f = rig.frame
+        f.players = rig.session.state.players.map { it.copy(life = it.life + lifeOffset) }
+        rig.r.inverted = false
+        rig.r.clear()
+        rig.one<KoComponent>().draw(f, seat)
+        rig.one<KoWinner>().draw(f, seat)
+        val p = rig.l.panels[seat]
+        val out = ByteArray(p.width * p.height)
+        for (y in 0 until p.height) for (x in 0 until p.width) out[y * p.width + x] = rig.r.px[(p.top + y) * rig.r.width + p.left + x]
+        return out
+    }
+
+    @Test fun noLifeTotalOnDeadOrWinnerTiles() {
+        // T51 (Sam): the KO and winner tiles draw no life total — their pixels do not depend on it.
+        val rig = au.com.josephmark.dithertracker.purity.ScreenRig(1872, 1404, 4)
+        val winner = rig.one<KoWinner>()
+        rig.dispatch(Action.SetLife(rig.id(0), 0))
+        rig.dispatch(Action.MarkDead(rig.id(1)))
+        rig.dispatch(Action.SetLife(rig.id(2), -7))
+        rig.advance(10_000)
+        assertTrue(winner.showing)
+        assertEquals(3, winner.winner)
+        for (seat in 0 until 4) {
+            val a = koTile(rig, seat, 0)
+            assertTrue("seat $seat draws", a.any { it.toInt() != 0 })
+            for (d in intArrayOf(-13, 25, 999)) assertTrue("seat $seat life +$d", a.contentEquals(koTile(rig, seat, d)))
+        }
+        // A poison KO still shows its count: its tile changes with it.
+        val rig2 = au.com.josephmark.dithertracker.purity.ScreenRig(1872, 1404, 4)
+        rig2.dispatch(Action.SetCounter(rig2.id(2), Counter.POISON, 10))
+        rig2.advance(10_000)
+        assertEquals(KoLayout.DEAD_CAUSE, rig2.one<KoComponent>().block(2).mode)
+        val ten = koTile(rig2, 2, 0)
+        assertTrue(ten.contentEquals(koTile(rig2, 2, 30)))
+        rig2.dispatch(Action.SetCounter(rig2.id(2), Counter.POISON, 13))
+        assertFalse(ten.contentEquals(koTile(rig2, 2, 0)))
     }
 
     // ---- revive -------------------------------------------------------------------------------------
@@ -354,7 +435,7 @@ class KoTest {
         r.tap(panel)
         assertTrue(r.armed(3))
         // Arming redraws the hero area only (the plate replaces the quip there).
-        val area = IRect().also { r.l.grid.toDevice(IRect().also { b -> r.ko.layout!!.heroArea(3, b) }, it) }
+        val area = IRect().also { r.l.grid.toDevice(r.ko.block(3).area, it) }
         assertTrue(r.rig.platform.invalidated.isNotEmpty())
         for (d in r.rig.platform.invalidated) assertTrue("$d in $area", inside(d, area))
         assertTrue(r.session.state.isKo(r.session.state.players[3]))
@@ -586,7 +667,8 @@ class KoTest {
         assertTrue(r.rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.peeks.PeeksComponent>().single().visible(3))
         val b = r.winner.block()
         assertTrue(b.lines >= 1)
-        val area = IRect().also { r.ko.layout!!.heroArea(3, it) }
+        val area = IRect().also { r.ko.layout!!.heroArea(3, KoLayout.WINNER, it) }
+        assertEquals(KoLayout.WINNER, b.mode)
         for (i in 0 until b.lines) assertTrue(inside(b.line[i], area))
     }
 

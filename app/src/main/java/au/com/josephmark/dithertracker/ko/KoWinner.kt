@@ -18,8 +18,8 @@ import kotlin.random.Random
 /**
  * Last player standing (T15; T42: the line replaces the life total). When exactly one player is not
  * KO, a line from `Flavour.winner` in caps takes the hero position of that tile at the one quip size
- * ([KoLayout.arrange], the same layout as a dead tile's quip; T47), under a small crown emblem,
- * with the winner's final life as the small detail below (heart + `num-m`). The tile stays paper and
+ * ([KoLayout.arrange], the same layout as a dead tile's quip; T47), under the winner emblem
+ * (emblem and line centred together; T51: no life total, Sam). The tile stays paper and
  * the counter peeks and tab stay; the caption is drawn on a paper cover over the live number (so its
  * ground is that paper: the dead tile's continuous ground, with nothing round it to cut out of).
  *
@@ -59,9 +59,6 @@ class KoWinner(
 
     private val block = KoLayout.Block()
     private val band = IRect()
-    private val icon = IRect()
-    private val num = IRect()
-    private val chip = IRect()
     private val slice = TextSlice()
 
     fun block(): KoLayout.Block = block
@@ -70,7 +67,7 @@ class KoWinner(
         val nk = KoLayout(play)
         k = nk
         t = tiles
-        if (winner >= 0) nk.arrange(winner, caption, block)
+        if (winner >= 0) nk.arrange(winner, caption, block, KoLayout.WINNER)
         update(stage.session.state, null)
     }
 
@@ -84,10 +81,8 @@ class KoWinner(
     override fun prewarm(f: Frame) {
         val k = k ?: return
         f.icons.prewarm(WARM_ICONS, k.iconK)
-        f.icons.prewarm(WARM_ICONS, k.causeK)
         for (rot in k.play.rotations) {
             for (q in 1..k.warmK) f.text.draw(k.ui, warmUi(k.ui), 0, 0, q, rot)
-            f.text.draw(k.causeFont, WARM_NUM, 0, 0, k.causeK, rot)
         }
     }
 
@@ -114,7 +109,7 @@ class KoWinner(
         winner = w
         dismissed = false
         caption = if (w < 0) "" else flavour.winner(random, recent).let { recent = it.recent; it.value.uppercase() }
-        if (w >= 0) k.arrange(w, caption, block)
+        if (w >= 0) k.arrange(w, caption, block, KoLayout.WINNER)
         if (oldW >= 0 && wasShowing) invalidate(k.panels[oldW])
         if (w >= 0) invalidate(k.panels[w])
         stage.log?.invoke("winner $oldW -> $w '$caption'")
@@ -128,26 +123,20 @@ class KoWinner(
         k.winnerCover(seat, band)
         if (f.hit(band)) {
             f.r.rect(band, ink = false)
-            k.emblem(seat, icon)
-            f.icons.icon(k.iconK, Icon.MONARCH, icon, rot, invert = false, opaque = false)
+            f.icons.icon(k.iconK, EMBLEM, block.emblem, rot, invert = false, opaque = false)
             val b = block
             for (i in 0 until b.lines) {
                 val r = b.line[i]
                 f.text.draw(k.ui, slice.set(caption, b.start[i], b.end[i]), r.left, r.top, b.k, rot)
             }
         }
-        val life = f.players[seat].life
-        if (k.detail(seat, life, icon, num, chip) && f.hit(chip)) {
-            f.r.rect(chip, ink = false)
-            f.icons.icon(k.causeK, Icon.LIFE, icon, rot, invert = false, opaque = false)
-            f.text.drawInt(k.causeFont, life, num.left, num.top, k.causeK, rot)
-        }
     }
 
     companion object {
-        private val WARM_ICONS = arrayOf(Icon.MONARCH, Icon.LIFE)
+        /** The winner's emblem (T51 replaces it with a dedicated icon). */
+        val EMBLEM: Icon = Icon.MONARCH
+        private val WARM_ICONS = arrayOf(EMBLEM)
         /** Every glyph of [font] (quips use punctuation beyond A–Z 0–9; T20: those were built in onDraw). Prewarm only. */
         private fun warmUi(font: Font): String = font.glyphs.joinToString("") { it.char.toString() }
-        private const val WARM_NUM = "0123456789-"
     }
 }

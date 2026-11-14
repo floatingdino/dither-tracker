@@ -29,11 +29,14 @@ import kotlin.random.Random
  * process death; only the quip is re-picked on restore.
  *
  * - **Look** ([KoLayout], T42): the panel in `Role.DEAD` (a light dither) inset by a paper gutter
- *   and kept off the centre diamond; the tombstone as a small emblem at the top; **the quip replaces
+ *   and kept off the centre diamond; the tombstone as a small emblem above **the quip, which replaces
  *   the life total** as the hero — caps, `ui` face at one size for every line (T47), on one
- *   continuous paper ground cut out of the field (a bar per line, joined into a stepped shape); the
- *   cause as one quiet chip below (heart + life, poison + count, imp + damage). The quip is picked once when the KO happens (`Flavour.ko(reason, …)`, never the
- *   previous line), not on redraw; re-picked when the player dies again or the cause changes.
+ *   continuous paper ground cut out of the field (a bar per line, joined into a stepped shape);
+ *   emblem and quip centred together on the tile (T51). No life total anywhere (T51, Sam): only a
+ *   poison or commander-damage KO keeps one quiet cause chip below (poison + count, imp + damage)
+ *   ([KoLayout.DEAD_CAUSE]); life and marked-dead KOs show none ([KoLayout.DEAD]). The quip is
+ *   picked once when the KO happens (`Flavour.ko(reason, …)`, never the previous line), not on
+ *   redraw; re-picked when the player dies again or the cause changes.
  * - **Cover**: while a seat shows dead, [cover] hides its life, peeks, drawer, tab, readout and
  *   commander-mode content (`CONTENT | CHROME | READOUT | MODE`) — so they neither draw nor take
  *   touches, an open drawer closes and the readout commits (`Stage.setCover`). This component is
@@ -83,7 +86,6 @@ class KoComponent(
 
     // Draw scratch.
     private val slice = TextSlice()
-    private val tr = IRect()
     private val ci = IRect()
     private val cn = IRect()
     private val scratch = IRect()
@@ -111,7 +113,7 @@ class KoComponent(
         stage.log?.invoke("$k")
         for (s in 0 until P) {
             disarm(s)
-            if (s < play.playerCount && quips[s].isNotEmpty()) k.arrange(s, quips[s], blocks[s])
+            if (s < play.playerCount && quips[s].isNotEmpty()) k.arrange(s, quips[s], blocks[s], modeOf(reasons[s]))
         }
         sync(stage.session.state, invalidate = false)
     }
@@ -145,13 +147,14 @@ class KoComponent(
         if (layout == null) return
         val np = new.players
         val op = old.players
-        // A dead player's own numbers changed: redraw the detail chip.
+        // A dead player's cause count changed: redraw the detail chip (life is not shown, T51).
         val k = layout!!
         for (s in 0 until minOf(P, np.size, op.size)) {
             val a = op[s]
             val b = np[s]
             if (a === b || (shown ushr s) and 1 == 0 || new.koReason(b) != reasons[s]) continue
-            if (a.life != b.life || a.counters.poison != b.counters.poison || a.maxCommanderDamage != b.maxCommanderDamage) {
+            if (modeOf(reasons[s]) != KoLayout.DEAD_CAUSE) continue
+            if (a.counters.poison != b.counters.poison || a.maxCommanderDamage != b.maxCommanderDamage) {
                 k.detailBand(s, scratch); invalidate(scratch)
             }
         }
@@ -181,7 +184,7 @@ class KoComponent(
                 quips[s] = picked.value.uppercase()
                 val changedWhileShown = dead and bit != 0 && (shown ushr s) and 1 != 0
                 reasons[s] = reason
-                k.arrange(s, quips[s], blocks[s])
+                k.arrange(s, quips[s], blocks[s], modeOf(reason))
                 if (changedWhileShown && invalidate) invalidate(k.panels[s])
                 stage.log?.invoke("KO seat $s ($reason): '${quips[s]}'")
             }
@@ -236,7 +239,7 @@ class KoComponent(
     private fun arm(seat: Int) {
         armed = armed or (1 shl seat)
         timers.schedule(ARM_TIMER + seat, ARM_MS)
-        layout?.let { it.heroArea(seat, scratch); invalidate(scratch) }
+        invalidate(blocks[seat].area)
     }
 
     private fun disarm(seat: Int) {
@@ -244,7 +247,7 @@ class KoComponent(
         if (armed and bit == 0) return
         armed = armed and bit.inv()
         timers.cancel(ARM_TIMER + seat)
-        layout?.let { if (seat < it.play.playerCount) { it.heroArea(seat, scratch); invalidate(scratch) } }
+        layout?.let { if (seat < it.play.playerCount) invalidate(blocks[seat].area) }
     }
 
     override fun zones(seat: Int, z: ZoneSink) {
@@ -305,26 +308,20 @@ class KoComponent(
             if (x1 > x0) f.r.rect(x0, y, x1 - x0, 1, ink = false)
         }
 
-        // Emblem: the tombstone, cut out of the field in its own shape.
-        k.emblem(seat, tr)
-        if (f.hit(tr)) f.r.blitHaloed(tomb, tombHalo, tr.left, tr.top, rot)
+        // Emblem: the tombstone, cut out of the field in its own shape (placed with the quip).
+        val em = b.emblem
+        if (f.hit(em)) f.r.blitHaloed(tomb, tombHalo, em.left, em.top, rot)
 
-        // Detail: why — heart and life, poison and its count, the imp and its damage.
+        // Detail (poison / commander-damage KOs only, T51): the cause and its count. Never the life total.
         val reason = reasons[seat]
-        val value = when (reason) {
-            KoReason.POISON -> p.counters.poison
-            KoReason.COMMANDER_DAMAGE -> p.maxCommanderDamage
-            else -> p.life
-        }
-        if (k.detail(seat, value, ci, cn, chip) && f.hit(chip)) {
-            f.r.rect(chip, ink = false)
-            val icon = when (reason) {
-                KoReason.POISON -> Icon.POISON
-                KoReason.COMMANDER_DAMAGE -> Icon.COMMANDER
-                else -> Icon.LIFE
+        if (b.mode == KoLayout.DEAD_CAUSE) {
+            val poison = reason == KoReason.POISON
+            val value = if (poison) p.counters.poison else p.maxCommanderDamage
+            if (k.detail(seat, value, ci, cn, chip) && f.hit(chip)) {
+                f.r.rect(chip, ink = false)
+                f.icons.icon(k.causeK, if (poison) Icon.POISON else Icon.COMMANDER, ci, rot, invert = false, opaque = false)
+                f.text.drawInt(k.causeFont, value, cn.left, cn.top, k.causeK, rot)
             }
-            f.icons.icon(k.causeK, icon, ci, rot, invert = false, opaque = false)
-            f.text.drawInt(k.causeFont, value, cn.left, cn.top, k.causeK, rot)
         }
 
         // Hero: the armed revive plate, or the quip in ink on one continuous paper ground cut out of the field.
@@ -367,7 +364,13 @@ class KoComponent(
         /** The longest an effect may hold the dead treatment off (safety net). */
         const val HOLD_MAX_MS = 4_000L
 
-        private val CAUSE_ICONS = arrayOf(Icon.LIFE, Icon.POISON, Icon.COMMANDER)
+        private val CAUSE_ICONS = arrayOf(Icon.POISON, Icon.COMMANDER)
+
+        /** The layout mode for a KO [reason]: a chip only where the cause has its own count (T51). */
+        fun modeOf(reason: KoReason?): Int = when (reason) {
+            KoReason.POISON, KoReason.COMMANDER_DAMAGE -> KoLayout.DEAD_CAUSE
+            else -> KoLayout.DEAD
+        }
         /** Every glyph of [font] (quips use punctuation beyond A–Z 0–9; T20: those were built in onDraw). Prewarm only. */
         private fun warmUi(font: Font): String = font.glyphs.joinToString("") { it.char.toString() }
         private const val WARM_NUM = "0123456789-"
