@@ -666,3 +666,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   idle auto-close and to cut gem-open invalidation (100 % of screen) if pixel-neutral. Open question
   to Sam: open drawers/menu on touch-down instead of release (halves panel updates for those).
   Running: T51, T52, T53, T55, T56.
+- 2026-11-14 — Decision (Sam): drawers and the menu keep "press inverts, action on release" — no
+  open-on-touch-down. Remaining levers for perceived speed: smaller gem invalidation (T51), the
+  Nomad's vendor refresh modes (e-ink experiments, need slow-mo video).
