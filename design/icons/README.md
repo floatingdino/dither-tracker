@@ -86,7 +86,7 @@ On the contact sheet, each icon is drawn at 8× nearest-neighbour inside a grey 
 | `coin` | Coin at an angle: face with an embossed dot, solid edge | Coin-flip tool |
 | `coin-heads` | Heads: the imp's face — horns, slanted eyes, a grin with two fangs (not `commander`'s face: the coin imp is grinning wider) | The coin's heads face at a 1× result (the 2× landed coin is its 28-px twin, `design/tools/coin/`) |
 | `coin-tails` | Tails: the imp's tail — a 2-px S-curve ending in a barbed spade | The coin's tails face at a 1× result (as above) |
-| `timer` | Stopwatch with a solid elapsed-time wedge | Turn/game timer |
+| `timer` | Stopwatch with a solid elapsed-time wedge | Unused since the winner-screen report took the egg timer (`hourglass-2`; Sam, 2026-11-14) |
 | `turn` | Solid play triangle with an end bar (next/skip) | Turn tracker, pass turn |
 | `undo` | Hooked arrow, solid head pointing left | Undo (menu) |
 | `redo` | Hooked arrow, solid head pointing right | Redo (menu) |

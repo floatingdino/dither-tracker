@@ -242,7 +242,7 @@ class KoLayout(val play: PlayLayout) {
     // ---- time report (T66) ---------------------------------------------------------------------------
 
     /**
-     * The winner screen's time report on [seat] (T66): the `timer` icon then the [chars]-glyph time in
+     * The winner screen's time report on [seat] (T66): the egg-timer icon (`hourglass-2`) then the [chars]-glyph time in
      * [causeFont] on a paper chip — in the detail band on the winner's tile and on a dead tile without
      * a cause chip ([DEAD], [WINNER]; their hero is then arranged above the band, `reserve`), and on a
      * [DEAD_CAUSE] tile in the near band below the cause chip (the KO cover hides the tab and peeks

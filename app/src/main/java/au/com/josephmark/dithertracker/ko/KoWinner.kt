@@ -163,7 +163,7 @@ class KoWinner(
             val font = k.report(seat, KoLayout.WINNER, timeBuf.length, ti, tt, tc) ?: return
             if (!f.hit(tc)) return
             f.r.rect(tc, ink = false)
-            if (!ti.isEmpty) f.icons.icon(k.causeK, Icon.TIMER, ti, rot, invert = false, opaque = false)
+            if (!ti.isEmpty) f.icons.icon(k.causeK, Icon.HOURGLASS_2, ti, rot, invert = false, opaque = false)
             f.text.draw(font, timeBuf, tt.left, tt.top, k.causeK, rot)
         }
     }
@@ -172,7 +172,7 @@ class KoWinner(
         /** The winner's emblem: its own trophy (T51, Sam: not the monarch's crown). */
         val EMBLEM: Icon = Icon.WINNER
         private val WARM_ICONS = arrayOf(EMBLEM)
-        private val TIME_ICONS = arrayOf(Icon.TIMER)
+        private val TIME_ICONS = arrayOf(Icon.HOURGLASS_2)
         /** Every glyph of [font] (quips use punctuation beyond A–Z 0–9; T20: those were built in onDraw). Prewarm only. */
         private fun warmUi(font: Font): String = font.glyphs.joinToString("") { it.char.toString() }
     }

@@ -351,7 +351,7 @@ class KoComponent(
             }
         }
 
-        // T66: the time report (winner decided, a timer mode on): the timer icon and m:ss on a paper chip.
+        // T66: the time report (winner decided, a timer mode on): the egg-timer icon and m:ss on a paper chip.
         if (times) {
             val st = stage.session.state
             if (seat < st.players.size) {
@@ -359,7 +359,7 @@ class KoComponent(
                 val font = k.report(seat, b.mode, timeBuf.length, ti, tt, tc)
                 if (font != null && f.hit(tc)) {
                     f.r.rect(tc, ink = false)
-                    if (!ti.isEmpty) f.icons.icon(k.causeK, Icon.TIMER, ti, rot, invert = false, opaque = false)
+                    if (!ti.isEmpty) f.icons.icon(k.causeK, Icon.HOURGLASS_2, ti, rot, invert = false, opaque = false)
                     f.text.draw(font, timeBuf, tt.left, tt.top, k.causeK, rot)
                 }
             }
@@ -406,7 +406,7 @@ class KoComponent(
         const val HOLD_MAX_MS = 4_000L
 
         private val CAUSE_ICONS = arrayOf(Icon.POISON, Icon.COMMANDER)
-        private val TIME_ICONS = arrayOf(Icon.TIMER)
+        private val TIME_ICONS = arrayOf(Icon.HOURGLASS_2)
 
         /** The layout mode for a KO [reason]: a chip only where the cause has its own count (T51). */
         fun modeOf(reason: KoReason?): Int = when (reason) {
