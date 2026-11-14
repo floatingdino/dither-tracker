@@ -41,7 +41,7 @@ class LatticeSeatingTest {
         assertEquals(s.seats[1], s.panels[1])
         // Dividers: the long one whole, the near vertical under it.
         assertTrue(s.dividers.any { it == IRect(0, 175, 467, 176) })
-        assertTrue(s.dividers.any { it == IRect(233, 175, 234, 351) })
+        assertTrue("${s.dividers.toList()}", s.dividers.any { it == IRect(233, 175, 234, 351) })
         assertEquals(233, s.diamondX); assertEquals(175, s.diamondY)
     }
 
