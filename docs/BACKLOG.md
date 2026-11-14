@@ -809,3 +809,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   (`9580889`): seats are 1-px ink outlines, empty cells the `Role.EMPTY` dotted ground; selected
   stays solid ink with arrows; unavailable = dotted outlines. HEAD `6d756e9` built clean
   (`--no-build-cache --no-watch-fs`): 176 core + 3826 app; on the Nomad. No agents running.
+- 2026-11-14 — Tick 82: Sam: partner tab icons laid out like the combined `partner` icon — mini imp
+  top-left at 1×, a big `+` (9×9) / `−` (9×3) where the big imp sits. Redrawn by the coordinator,
+  176 core + 3826 app pass, on the Nomad.
