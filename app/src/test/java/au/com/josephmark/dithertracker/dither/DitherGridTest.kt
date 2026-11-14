@@ -85,4 +85,19 @@ class DitherGridTest {
         assertEquals(6, DitherGrid.chooseScale(1404, 1872, 300, override = 9))
         assertEquals(2, DitherGrid.chooseScale(1404, 1872, 300, override = 1))
     }
+
+    /** T62: a cutout's safe inset moves the grid off it; the usable area is what is measured. */
+    @Test fun insetsShiftTheGrid() {
+        val g = DitherGrid(2400 - 120, 1080, 2, insetLeft = 120)
+        assertEquals(1140, g.width)
+        assertEquals(120, g.marginLeft)
+        assertEquals(0, g.marginRight)
+        assertEquals(120 + 2 * 10, g.toDeviceX(10))
+        assertEquals(10, g.toDitherX(120 + 2 * 10 + 1))
+        assertEquals(DitherGrid(1872, 1404, 4), DitherGrid(1872, 1404, 4, 0, 0))
+        val h = DitherGrid(1001, 700, 4, insetLeft = 30, insetTop = 7)
+        assertEquals(30 + 0, h.marginLeft) // leftover 1 goes right
+        assertEquals(7 + 0, h.marginTop)
+        assertEquals(1, h.marginRight)
+    }
 }

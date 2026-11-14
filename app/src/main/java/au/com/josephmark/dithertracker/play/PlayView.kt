@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.os.Build
 import android.os.Debug
 import android.os.Handler
 import android.os.Looper
@@ -13,6 +14,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowInsets
 import au.com.josephmark.dithertracker.data.SettingsHolder
 import au.com.josephmark.dithertracker.dither.CanvasDitherRenderer
 import au.com.josephmark.dithertracker.dither.DitherGrid
@@ -202,13 +204,39 @@ class PlayView(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) = relayout(w, h)
 
+    /**
+     * Display-cutout safe insets, device px (T62): left, top, right, bottom. The grid is laid inside them
+     * (they become paper margin), so nothing sits under a notch or hole punch. Zero on screens without a
+     * cutout (the Nomad) and wherever the window does not reach one. System bars are hidden and swiped in
+     * transiently over the app, so they are not insets here.
+     */
+    private val cutout = IntArray(4)
+
+    override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
+        var l = 0; var t = 0; var rr = 0; var b = 0
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val i = insets.getInsets(WindowInsets.Type.displayCutout())
+            l = i.left; t = i.top; rr = i.right; b = i.bottom
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            insets.displayCutout?.let { l = it.safeInsetLeft; t = it.safeInsetTop; rr = it.safeInsetRight; b = it.safeInsetBottom }
+        }
+        if (l != cutout[0] || t != cutout[1] || rr != cutout[2] || b != cutout[3]) {
+            cutout[0] = l; cutout[1] = t; cutout[2] = rr; cutout[3] = b
+            if (width > 0 && height > 0) { relayout(width, height); invalidate() }
+        }
+        return insets
+    }
+
     /** Grid + layout for a [w]×[h] view at the scale the settings ask for (AUTO or a fixed S), for the game's player count. */
     private fun relayout(w: Int, h: Int) {
         val app = stage.settings.current
         val players = stage.session.state.players.size
-        val s = PlayLayout.chooseScale(w, h, resources.displayMetrics.densityDpi, app.scale, players, app.layout)
+        // The usable area: the view less the cutout's safe insets (never negative).
+        val uw = maxOf(0, w - cutout[0] - cutout[2])
+        val uh = maxOf(0, h - cutout[1] - cutout[3])
+        val s = PlayLayout.chooseScale(uw, uh, resources.displayMetrics.densityDpi, app.scale, players, app.layout)
         val t0 = SystemClock.elapsedRealtimeNanos()
-        val grid = DitherGrid(w, h, s)
+        val grid = DitherGrid(uw, uh, s, minOf(cutout[0], w), minOf(cutout[1], h))
         r.setGrid(grid)
         r.prewarm()
         val ta = SystemClock.elapsedRealtimeNanos()

@@ -37,13 +37,17 @@ class IRect(
  * - Grid size is `floor(device / scale)`; the leftover device pixels become margins, split
  *   deterministically with the extra pixel (if odd) going right/bottom.
  * - Dither pixel (0,0) is the global pattern-phase origin.
+ * - [deviceWidth] × [deviceHeight] is the *usable* area; it starts [insetLeft], [insetTop] device px
+ *   into the view (T62: a display cutout's safe inset is paper margin, never content). With no insets
+ *   (every screen without a cutout, the Nomad) the grid is exactly what it always was.
  *
  * Pure maths; immutable; safe to unit-test on the JVM.
  */
-class DitherGrid(val deviceWidth: Int, val deviceHeight: Int, val scale: Int) {
+class DitherGrid(val deviceWidth: Int, val deviceHeight: Int, val scale: Int, val insetLeft: Int = 0, val insetTop: Int = 0) {
     init {
         require(scale >= 1) { "scale must be >= 1, was $scale" }
         require(deviceWidth >= 0 && deviceHeight >= 0) { "negative device size" }
+        require(insetLeft >= 0 && insetTop >= 0) { "negative inset" }
     }
 
     /** Grid width in dither pixels. */
@@ -52,10 +56,13 @@ class DitherGrid(val deviceWidth: Int, val deviceHeight: Int, val scale: Int) {
     /** Grid height in dither pixels. */
     val height: Int = deviceHeight / scale
 
-    val marginLeft: Int = (deviceWidth - width * scale) / 2
-    val marginTop: Int = (deviceHeight - height * scale) / 2
-    val marginRight: Int = deviceWidth - width * scale - marginLeft
-    val marginBottom: Int = deviceHeight - height * scale - marginTop
+    /** Device px from the view's left / top edge to the grid (the inset plus half the leftover). */
+    val marginLeft: Int = insetLeft + (deviceWidth - width * scale) / 2
+    val marginTop: Int = insetTop + (deviceHeight - height * scale) / 2
+
+    /** Leftover device px right of / below the grid inside the usable area. */
+    val marginRight: Int = deviceWidth - width * scale - (marginLeft - insetLeft)
+    val marginBottom: Int = deviceHeight - height * scale - (marginTop - insetTop)
 
     /** Device x of the left edge of dither column [dx] (dx may equal [width] for the right edge). */
     fun toDeviceX(dx: Int): Int = marginLeft + dx * scale
@@ -94,11 +101,13 @@ class DitherGrid(val deviceWidth: Int, val deviceHeight: Int, val scale: Int) {
         out.set(marginLeft, marginTop, marginLeft + width * scale, marginTop + height * scale)
 
     override fun equals(other: Any?): Boolean =
-        other is DitherGrid && other.deviceWidth == deviceWidth && other.deviceHeight == deviceHeight && other.scale == scale
+        other is DitherGrid && other.deviceWidth == deviceWidth && other.deviceHeight == deviceHeight && other.scale == scale &&
+            other.insetLeft == insetLeft && other.insetTop == insetTop
 
-    override fun hashCode(): Int = (deviceWidth * 31 + deviceHeight) * 31 + scale
+    override fun hashCode(): Int = (((deviceWidth * 31 + deviceHeight) * 31 + scale) * 31 + insetLeft) * 31 + insetTop
     override fun toString(): String =
-        "DitherGrid(${deviceWidth}x$deviceHeight @S=$scale → ${width}x$height, margins L$marginLeft T$marginTop R$marginRight B$marginBottom)"
+        "DitherGrid(${deviceWidth}x$deviceHeight${if (insetLeft != 0 || insetTop != 0) " +$insetLeft,$insetTop" else ""} @S=$scale → ${width}x$height, " +
+            "margins L$marginLeft T$marginTop R$marginRight B$marginBottom)"
 
     companion object {
         const val MIN_SCALE = 2
