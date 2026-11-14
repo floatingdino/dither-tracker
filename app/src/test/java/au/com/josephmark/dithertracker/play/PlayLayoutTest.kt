@@ -40,14 +40,15 @@ class PlayLayoutTest {
         // Under-number row: between the number (bottom 115) and the tab's hit band (top 146).
         assertEquals(IRect(8, 176 + 121, 225, 176 + 139), l.underRow[3])
         assertEquals(IRect(72, 330, 161, 351), l.tab[3]) // 89×21 (T06: 55×12)
-        // 6 × num-m (10 wide) at k=1 (T37), its box 6 px above the number's cap top (59)
-        assertEquals(IRect(81, 176 + 39, 151, 176 + 53), l.readoutSlot[3])
-        assertEquals(1, l.readoutK); assertEquals(39, l.readoutY)
+        // 6 × num-m (10 wide) at k=1 (T37); T56: its ink (33..47) centred between the turn-tab band
+        // (0..21) and the number's cap top (59), 12 px each side (was 39, 6 px above the number).
+        assertEquals(IRect(81, 176 + 33, 151, 176 + 47), l.readoutSlot[3])
+        assertEquals(1, l.readoutK); assertEquals(33, l.readoutY)
         // Top-left seat (180°): mirrored, tab on the screen top edge.
         assertEquals(IRect(200, 78, 220, 98), l.minusGlyph[0])
         assertEquals(IRect(13, 78, 33, 98), l.plusGlyph[0])
         assertEquals(IRect(72, 0, 161, 21), l.tab[0])
-        assertEquals(IRect(82, 122, 152, 136), l.readoutSlot[0]) // "above" = towards the screen centre
+        assertEquals(IRect(82, 128, 152, 142), l.readoutSlot[0]) // "above" = towards the screen centre
         assertEquals(233, l.diamondCx); assertEquals(175, l.diamondCy)
         assertEquals(IRect(213, 155, 254, 196), l.diamond) // 41×41 (T06: 23×23)
         assertEquals(IRect(224, 166, 243, 185), l.menuBarsBacking)
@@ -224,19 +225,58 @@ class PlayLayoutTest {
         }
     }
 
-    @Test fun readoutIsOneXAndAttachedToTheNumberOnTheNomad() {
-        // T37: the small numerals at the hero's own k (1× beside it), READOUT_GAP·k above its cap top,
-        // so S = 2..4 draw it at the same physical size and distance.
+    @Test fun readoutIsOneXOnTheNomad() {
+        // T37: the small numerals at the hero's own k (1× beside it), so S = 2..4 draw them at the same physical size.
         assertEquals(listOf(2, 1, 1), nomadScales.take(3).map { it.readoutK })
-        for (l in nomadScales.take(3)) {
-            assertEquals("$l", l.kMax, l.readoutK)
-            assertEquals("$l", PlayLayout.READOUT_GAP * l.kMax, l.numberSlotY - (l.readoutY + l.readoutFont.height(l.readoutK)))
-        }
+        for (l in nomadScales.take(3)) assertEquals("$l", l.kMax, l.readoutK)
         // Clear of the diamond's touch area (not just its bounding box) on every seat.
         for (l in nomadScales.filter { it.comfortable } + layouts().filter { it.comfortable }.toList()) for (s in 0 until 4) {
             val ro = l.readoutSlot[s]
             for (y in ro.top until ro.bottom) for (x in ro.left until ro.right) assertFalse("$l $s", l.inDiamondHit(x, y))
         }
+    }
+
+    @Test fun readoutInkIsCentredBetweenTheTurnTabBandAndTheNumber() {
+        // T56: on every comfortable layout (2–6 players, both orientations, S = 2..6) the delta's ink
+        // sits midway between the turn tab's band (Chrome.tabH from the far edge, reserved on every
+        // seat so the delta never jumps when the tab arrives) and the hero's ink top (its cap top,
+        // the shadow excluded); an odd leftover px goes below it (floor towards the far edge).
+        var checked = 0
+        var centred = 0
+        for ((w, h) in listOf(1872 to 1404, 1404 to 1872, 2560 to 1600, 1280 to 800)) for (p in 2..6) for (sc in 2..6) {
+            val l = PlayLayout.compute(DitherGrid(w, h, sc), p)
+            if (!l.comfortable) continue
+            checked++
+            val f = l.readoutFont
+            val inkTop = l.readoutY + f.capTop * l.readoutK
+            val inkBottom = inkTop + f.capHeight * l.readoutK
+            val above = inkTop - l.chrome.tabH
+            val below = l.numberSlotY + l.font.capTop * l.kMax - inkBottom
+            val t = au.com.josephmark.dithertracker.turns.TurnLayout(l)
+            // Never closer to the number than T37's attached position (READOUT_GAP·k).
+            assertTrue("$l", below >= PlayLayout.READOUT_GAP * l.kMax)
+            if (l.readoutY == l.readoutCentreTop()) {
+                centred++
+                assertTrue("$l $above/$below", below - above in 0..1)
+                // Clear of the turn tab's hit pad: the tab keeps its full size (TurnLayout sizes it from readoutY).
+                assertTrue("$l", l.readoutY >= l.chrome.tabH + l.chrome.tabHitPad + PlayLayout.V_MIN)
+                assertEquals("$l", l.chrome.tabH, t.tabH); assertEquals("$l", l.chrome.tabHitPad, t.hitPad)
+            } else {
+                // No room to centre clear of the tab's hit pad and the diamond (a wide, short tile at
+                // S = 2): the T37 position, as before T56.
+                assertEquals("$l", PlayLayout.READOUT_GAP * l.kMax, below)
+                assertTrue("$l", w != 1872 && w != 1404)
+            }
+            for (s in 0 until p) {
+                assertFalse("$l $s", overlaps(l.readoutSlot[s], t.hit[s]))
+                assertFalse("$l $s", overlaps(l.readoutSlot[s], l.diamond))
+                // The dirty rect is the box of READOUT_CHARS at readoutK, as before.
+                assertEquals(f.widthOf(PlayLayout.READOUT_CHARS, l.readoutK) * f.height(l.readoutK), l.readoutSlot[s].width * l.readoutSlot[s].height)
+            }
+        }
+        assertTrue(checked > 40)
+        // Every Nomad layout (S = 2..4 × 2–6 players × both orientations) centres; only some wide, short tiles on other screens fall back.
+        assertTrue("$centred of $checked", centred >= 30)
     }
 
     @Test fun rotatedReadoutMirrorsUpright() {

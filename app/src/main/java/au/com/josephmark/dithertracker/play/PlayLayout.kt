@@ -139,7 +139,7 @@ class PlayLayout private constructor(
     /** Glyph scale of the readout (`num-m` at the hero's k: 1× beside the sticker, T37). */
     val readoutK: Int
 
-    /** Player-frame top of [readoutSlot] (the readout's box, [READOUT_GAP]·k above the number). */
+    /** Player-frame top of [readoutSlot]: centred between the turn-tab band and the number's ink (T56; [readoutCentreTop]). */
     val readoutY: Int
 
     /** Minimum hit size in dither px: ceil([MIN_TOUCH_DEVICE_PX] / S) (≈ 9 mm on the Nomad). */
@@ -212,9 +212,9 @@ class PlayLayout private constructor(
         for (s in 0 until P) toFrame(s, diamond, diamondFrame[s])
 
         // Readout (T37): the small numerals at the hero's own glyph scale (k = 1 beside a k = 1
-        // sticker, so the same physical size at every S), attached to the number: its box sits
-        // [READOUT_GAP]·k above the number slot's top (the hero's cap top), never closer than V_MIN to
-        // the far edge. Stepped down only if its width would reach the diamond corner (GAP_MIN beyond
+        // sticker, so the same physical size at every S). T56: centred between the turn-tab band and
+        // the hero's ink top ([readoutTop]), never closer to the number than the T37 [READOUT_GAP]·k
+        // nor than V_MIN to the far edge. Stepped down only if its width would reach the diamond corner (GAP_MIN beyond
         // its reach) on either side, or its height would not fit above the number. T11: where the
         // diamond sits in the middle of a far edge, the readout must also clear its [farReach]
         // (V_MIN below it); failing every readout scale, the hero steps down a k. It also steps down
@@ -330,8 +330,41 @@ class PlayLayout private constructor(
         return r
     }
 
-    /** Player-frame top of the readout box at readout scale [rk] above a number at [k] whose slot top is [slotY]. */
-    private fun readoutTop(k: Int, rk: Int, slotY: Int): Int = maxOf(V_MIN, slotY - READOUT_GAP * k - readoutFont.height(rk))
+    /**
+     * Player-frame top of the readout box at readout scale [rk] above a number at [k] whose slot top
+     * is [slotY] (T56). The delta's ink (its cap band) is centred, floor-rounded towards the far edge,
+     * in the gap between the far band the turn tab draws in ([Chrome.tabH] deep) and the hero
+     * numeral's ink top (its cap top; the sticker's shadow is below it). The band counts on every
+     * seat whether a tab shows or not: the tab moves to the active seat each turn, and a delta that
+     * jumped with it would move under a player's eyes mid-tap. Then pushed towards the number until
+     * it is [V_MIN] clear of the tab's hit pad and of the diamond's [farReach]; and never closer to
+     * the number than [readoutAttached] (the T37 position, where a cramped tile has no room to centre).
+     */
+    private fun readoutTop(k: Int, rk: Int, slotY: Int): Int {
+        val f = readoutFont
+        val band = readoutBand()
+        val inkTop = band + (slotY + font.capTop * k - band - f.capHeight * rk) / 2
+        val w = f.widthOf(READOUT_CHARS, rk)
+        val x = (panelW - w) / 2
+        val clear = maxOf(band + chrome.tabHitPad, farReach(x - GAP_MIN, x + w + GAP_MIN)) + V_MIN
+        return minOf(maxOf(inkTop - f.capTop * rk, clear), readoutAttached(k, rk, slotY))
+    }
+
+    /** Depth of the far band the readout centres below: the turn tab's visual height (T56). */
+    private fun readoutBand(): Int = minOf(chrome.tabH, panelH)
+
+    /** The T37 readout top: its box [READOUT_GAP]·k above the number's cap top, [V_MIN] from the far edge at least. */
+    private fun readoutAttached(k: Int, rk: Int, slotY: Int): Int = maxOf(V_MIN, slotY - READOUT_GAP * k - readoutFont.height(rk))
+
+    /**
+     * Player-frame y the readout's ink is centred on when it has the room (T56): midway between the
+     * turn-tab band's bottom and the hero's ink top. Tests pin [readoutY] against it.
+     */
+    fun readoutCentreTop(): Int {
+        val f = readoutFont
+        val band = readoutBand()
+        return band + (numberSlotY + font.capTop * kMax - band - f.capHeight * readoutK) / 2 - f.capTop * readoutK
+    }
 
     /** Whether that readout box comes within V_MIN (down) / GAP_MIN (across) of the diamond. */
     private fun readoutBlocked(k: Int, rk: Int, slotY: Int): Boolean {

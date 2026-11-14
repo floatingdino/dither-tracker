@@ -55,8 +55,8 @@ class CommanderLayoutTest {
         assertEquals(IRect(2, 176 + 77, 22, 176 + 97), c.partnerMinus[3 * 2])
         assertEquals(IRect(94, 176 + 77, 114, 176 + 97), c.partnerPlus[3 * 2])
         assertEquals(l.underRow[3].top + 1, c.partnerIcon[3 * 2].top)
-        // Target block: below the readout (39..53) + 4, above the tab band (154 − 8) − 4.
-        assertEquals(57, c.targetTop); assertEquals(142, c.targetBottom)
+        // Target block: below the readout (33..47, T56) + 4, above the tab band (154 − 8) − 4.
+        assertEquals(51, c.targetTop); assertEquals(142, c.targetBottom)
         assertSame(Fonts.NUM_M, c.lifeFont); assertEquals(1, c.lifeK); assertEquals(16, c.lifeRowH)
         assertEquals(6, c.ruleGap)
         // T37: every quip at k = 2 (14-px caps, the 1× life's height), the longest included.
