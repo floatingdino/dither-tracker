@@ -803,3 +803,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   unchanged. **Needs Sam:** per-seat content sizing?; `5-wide-near` as the 5-player default?;
   empty-cell ground weight; arrows vs numerals on the selected thumbnail; trim the four L variants?
   In `review`. No agents running.
+- 2026-11-14 — Tick 81: two tweaks from Sam. Partner tab icons redrawn by the coordinator as the
+  mini imp from the `partner` icon at 2× with a 6×6 `+` / 6×2 `−` at its top right (`6d756e9`; the
+  T59 squat-head drawings kept as candidates). Picker thumbnails switched by the T60 agent
+  (`9580889`): seats are 1-px ink outlines, empty cells the `Role.EMPTY` dotted ground; selected
+  stays solid ink with arrows; unavailable = dotted outlines. HEAD `6d756e9` built clean
+  (`--no-build-cache --no-watch-fs`): 176 core + 3826 app; on the Nomad. No agents running.

@@ -28,3 +28,4 @@ captures/
 
 # Private, machine-local fixtures (device ids, reference screenshots, private links)
 /local/
+__pycache__/
