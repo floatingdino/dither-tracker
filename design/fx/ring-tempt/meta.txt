@@ -6,12 +6,12 @@ role ring
 anchor centre 0 0
 tile 1 D12 paper
 hold_ms 300 450 250 0
-ink_px 362 907 56 0
-knockout_px 220 474 52 0
-tile_px 0 4192 0 0
-flips 362 2035 1626 57   # total 4080, over sticker "37" on the quad tile
-# flips on the narrow tile: 362 2110 1701 57 (total 4230)
-# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+ink_px 274 709 56 0
+knockout_px 228 474 52 0
+tile_px 0 4390 0 0
+flips 274 1882 1585 57   # total 3798, over sticker "37" on the quad tile
+# flips on the narrow tile: 274 1967 1670 57 (total 3968)
+# role: shipped (T55; app/.../fx/FxPolicy.kt plays it).
 # anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
 # symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
 # hold_ms: last frame (empty) = 0: the clean redraw is the end state.

@@ -13,7 +13,7 @@ cut_px 0 0 122 0 0
 tile_px 9752 4161 0 0 0
 flips 1024 3200 2684 450 88   # total 7446, over sticker "37" on the quad tile
 # flips on the narrow tile: 988 3241 2757 450 88 (total 7524)
-# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# role: shipped (T55; app/.../fx/FxPolicy.kt plays it).
 # anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
 # symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
 # hold_ms: last frame (empty) = 0: the clean redraw is the end state.

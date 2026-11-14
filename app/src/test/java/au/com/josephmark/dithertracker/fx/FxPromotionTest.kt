@@ -23,6 +23,20 @@ class FxPromotionTest {
         "heart" to null, "sprout" to null, "fizzle" to null,
     )
 
+    /** T55: the owner's round-three approvals, authored by design/fx/round3/author3.py into design/fx/. */
+    private val round3 = mapOf(
+        "chomp" to FxRole.DAMAGE, "slash" to FxRole.DAMAGE, "stomp" to FxRole.BIG_HIT, "crit" to FxRole.BIG_HIT,
+        "chime" to FxRole.HEAL, "heart-burst" to FxRole.HEAL,
+        "ooze" to FxRole.POISON, "brand" to FxRole.POISON, "imp-raspberry" to FxRole.COMMANDER, "imp-poke" to FxRole.COMMANDER,
+        "charge" to FxRole.ENERGY, "level-up" to FxRole.EXPERIENCE, "rad-glow" to FxRole.RAD, "storm-copy" to FxRole.STORM,
+        "crown-drop" to FxRole.MONARCH, "torch" to FxRole.INITIATIVE, "dusk" to FxRole.NIGHT, "dawn" to FxRole.DAY,
+        "ring-tempt" to FxRole.RING, "your-turn" to FxRole.TURN, "spotlight" to FxRole.TURN,
+        "start-flag" to FxRole.FIRST_PLAYER, "revive" to FxRole.REVIVE,
+    )
+
+    /** Not approved (still candidates in design/fx/round3/) or dropped on principle (coin and die: who acted?). */
+    private val notShipped = listOf("bonk", "nibble", "refill", "bunting", "crown-cut", "coin-spin", "fumble")
+
     private val roles = mapOf(
         "pow" to FxRole.DAMAGE, "crack" to FxRole.DAMAGE, "claw-cut" to FxRole.DAMAGE, "quake" to FxRole.DAMAGE,
         "fault" to FxRole.DAMAGE, "focus" to FxRole.BIG_HIT, "twinkle" to FxRole.HEAL, "rise" to FxRole.HEAL,
@@ -31,8 +45,13 @@ class FxPromotionTest {
     )
 
     @Test fun shippedSetIsExactlyTheApprovedOne() {
-        assertEquals(promoted.keys.sorted(), Fx.entries.map { it.id }.sorted())
-        assertEquals(promoted.keys.sorted(), FxSource.dirs(FxSource.shippedDir).map { it.name })
+        val all = (promoted.keys + round3.keys).sorted()
+        assertEquals(all, Fx.entries.map { it.id }.sorted())
+        assertEquals(all, FxSource.dirs(FxSource.shippedDir).map { it.name })
+        for (n in notShipped) {
+            assertNull(n, Fx.byName(n))
+            assertTrue("$n stays a candidate", File(FxSource.shippedDir, "round3/$n/meta.txt").isFile)
+        }
         for (retired in listOf("claw", "wham", "zap", "pow2", "crack2", "twinkle2", "claw-paper", "claw-swipe")) {
             assertNull(retired, Fx.byName(retired))
         }
@@ -42,7 +61,7 @@ class FxPromotionTest {
         for (src in FxSource.dirs(FxSource.shippedDir)) {
             val role = src.meta["role"]
             assertTrue("${src.name}: explicit role line", role != null && role.size == 1)
-            assertEquals(src.name, roles[src.name], Fx.byName(src.name)!!.role)
+            assertEquals(src.name, roles[src.name] ?: round3[src.name], Fx.byName(src.name)!!.role)
         }
     }
 

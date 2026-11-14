@@ -2,7 +2,7 @@
 # trigger: it becomes night (every seat at once)
 size 149 165
 frames 4
-role day-night
+role night
 anchor centre 0 0
 tile 1 D1 ink
 hold_ms 300 400 250 0
@@ -11,7 +11,7 @@ knockout_px 308 30 208 0
 tile_px 0 9867 0 0
 flips 567 1542 1169 440   # total 3718, over sticker "37" on the quad tile
 # flips on the narrow tile: 567 1526 1155 440 (total 3688)
-# role: proposed (the runtime knows damage|heal|big-hit|ko|win only).
+# role: shipped (T55; app/.../fx/FxPolicy.kt plays it).
 # anchor: frame centre = ref point + (dx, dy) in dither px, seat-upright coords.
 # symbols: # ink, o paper, x cut (invert), digits = tile layers (global phase).
 # hold_ms: last frame (empty) = 0: the clean redraw is the end state.
