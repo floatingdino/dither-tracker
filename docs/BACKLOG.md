@@ -104,7 +104,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T63 | done | T23 | GitHub release workflow: tag `v*` → tests, signed release APK, GitHub Release with the APK and its SHA-256; manual run builds an artifact only. Needs four signing secrets (README "Releases on GitHub"). | `.github/workflows/release.yml`, gradle, README |
 | T64 | todo | no agents in the source tree | Rename the code to match the application id: namespace, Kotlin packages and source directories `au.com.josephmark.dithertracker` → `com.floatingdino.dithertracker` (app and core), generated-source package names in `app/build.gradle.kts` and `design/*/author*.py`, docs; then scripts can use `$P/.MainActivity` again. Purely mechanical; every file moves, so run it alone. | whole tree |
 | T65 | review | T59 T55 | Sam: animations feel "a bit linear/sauceless", especially the first roll and dice rolls — more time on the final pose to land, push/pull on frame timings for a slow-in/slow-out feel and readability, dice and the first-roll number sit a bit longer. Timing pass over dice, coin, first player and every effect's holds; FAST/SLOW hold sets; SPEC timing note. | `tools`, `fx/`, `design/fx/*/meta.txt` |
-| T66 | wip | T17 T51 | Sam: the turn tab's bare minute count "doesn't make any sense". Replace the live clock with reports: `m:ss` shown only after a turn is passed (no ticking; TURN = the turn that just ended, GAME = total so far), measured as active (foreground) time; and on the winner screen each seat reports its total turn time (TURN) or the total game time (GAME). Per-seat totals in core, undo-aware; save format bump. | `core/`, `turns/`, `ko/` |
+| T66 | review | T17 T51 | Sam: the turn tab's bare minute count "doesn't make any sense". Replace the live clock with reports: `m:ss` shown only after a turn is passed (no ticking; TURN = the turn that just ended, GAME = total so far), measured as active (foreground) time; and on the winner screen each seat reports its total turn time (TURN) or the total game time (GAME). Per-seat totals in core, undo-aware; save format bump. | `core/`, `turns/`, `ko/` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -928,3 +928,15 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-14 — Tick 100: Sam: add a short hourglass animation that replaces the menu glyph on the
   centre diamond every 60 s while a timer mode (GAME/TURN) is on → added to T66 (one timer, active
   time only, glyph box only).
+- 2026-11-14 — Tick 101: T66 reported (core active-time accounting + save v6, `core/ActiveClock.kt`
+  as a separate commit — the first one does not build alone; tab reports; winner-screen times;
+  hourglass pulse; docs/captures). Verified by coordinator at HEAD in a clean worktree: 183 core +
+  9000 app, debug and release assemble, 8 captures pure; on the Nomad. Time is active (foreground)
+  time, seconds kept. Tab: after a pass shows `m:ss` in place of the icon for 5 s (`REPORT_MS`) —
+  TURN = the turn that just ended, GAME = game so far; the minute tick is gone. Winner screen: a
+  timer chip per seat — TURN each seat's time on turn, GAME the total on every seat. Hourglass:
+  once per active minute the diamond's glyph is replaced by a ~1 s egg-timer sequence (FAST 4 frames,
+  SLOW 3), in plain/day/night polarity, glyph box only; never with Turns OFF/ON, the menu open,
+  commander mode, overlays, roll-off, a winner, or paused. Saves v1–v5 load (old wall-clock turn
+  stamps dropped). In `review`. **Needs Sam:** GAME total on every seat or only the winner; `ui`
+  font on 6-player middle tabs; hourglass option A (shipped) vs B. No agents running.
