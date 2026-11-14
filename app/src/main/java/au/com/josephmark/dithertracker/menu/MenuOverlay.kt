@@ -266,6 +266,7 @@ class MenuOverlay(
         invalidate(g.bounds)
         if (old == MenuState.CONFIRM || new == MenuState.CONFIRM) invalidate(g.panelOuter)
         if (new == MenuState.OPEN) refreshEnabled()
+        if (new == MenuState.CLOSED && old != MenuState.CLOSED) stage.send(Events.MENU_CLOSED, Stage.SCREEN) // T66: the diamond's pulse
     }
 
     private fun layoutConfirm(g: GemLayout) {

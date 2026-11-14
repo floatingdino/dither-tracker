@@ -168,12 +168,16 @@ class BackgroundTest {
         val rig = ScreenRig(1872, 1404, 4)
         val turn = rig.stage.components.filterIsInstance<TurnTab>().single()
         rig.dispatch(Action.SetStartingPlayer(rig.id(2)))
-        for (t in TurnTimer.entries) {
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.OFF))
+        assertEquals("Turns ON, idle: nothing armed", "", armed(rig))
+        val idle = rig.platform.count
+        rig.advance(3 * 3_600_000L)
+        assertEquals("Turns ON: three idle hours, no redraw", idle, rig.platform.count)
+        for (t in listOf(TurnTimer.GAME, TurnTimer.TURN)) {
+            // (GAME / TURN arm the diamond's pulse, hourglassPulsesOncePerActiveMinute…: never the tab.)
             rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = t))
-            assertEquals("Turns $t, idle: nothing armed", "", armed(rig))
-            val before = rig.platform.count
             rig.advance(3 * 3_600_000L)
-            assertEquals("Turns $t: three idle hours, no redraw", before, rig.platform.count)
+            assertFalse("Turns $t: the tab arms nothing idle", turn.reportArmed)
         }
         rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.TURN))
         rig.tap(turn, 2, TurnTab.PASS)
@@ -185,6 +189,39 @@ class BackgroundTest {
         rig.advance(3 * 3_600_000L)
         assertEquals("nothing redraws in the background", before, rig.platform.count)
         rig.stage.send(Events.RESUME, Stage.SCREEN)
-        assertEquals("nothing armed on resume", "", armed(rig))
+        assertFalse("the report is not re-armed on resume", turn.reportArmed)
+    }
+
+    /**
+     * T66: the diamond's hourglass pulse is the turn feature's only periodic timer — exactly one pulse
+     * per active minute with GAME / TURN, nothing with OFF / ON however long, nothing while paused.
+     */
+    @Test fun hourglassPulsesOncePerActiveMinuteAndNeverPaused() {
+        val rig = ScreenRig(1872, 1404, 4)
+        val pulse = rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.chrome.HourglassPulse>().single()
+        rig.dispatch(Action.SetStartingPlayer(rig.id(0)))
+        for (t in listOf(TurnTimer.OFF)) {
+            rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = t))
+            assertFalse(pulse.armed)
+            val before = rig.platform.count
+            rig.advance(5 * 3_600_000L)
+            assertEquals("Turns ON: five idle hours, no redraw", before, rig.platform.count)
+        }
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTracker = false))
+        rig.advance(3_600_000L)
+        assertEquals(0, pulse.pulses)
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTracker = true, turnTimer = TurnTimer.GAME))
+        val p0 = pulse.pulses
+        rig.advance(30 * 60_000L)
+        assertEquals("one pulse per active minute", 30, pulse.pulses - p0)
+        rig.session.pause(rig.now)
+        rig.stage.send(Events.PAUSE, Stage.SCREEN)
+        assertEquals("timers armed after pause", "", armed(rig))
+        val before = rig.platform.count
+        rig.advance(8 * 3_600_000L)
+        assertEquals("nothing redraws in the background", before, rig.platform.count)
+        rig.session.resume(rig.now)
+        rig.stage.send(Events.RESUME, Stage.SCREEN)
+        assertTrue(pulse.armed)
     }
 }

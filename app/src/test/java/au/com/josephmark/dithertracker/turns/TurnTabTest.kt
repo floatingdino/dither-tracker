@@ -244,7 +244,9 @@ class TurnTabTest {
             assertFalse(r.armed)
             val before = r.c.platform.count
             r.c.advance(3_600_000)
-            assertEquals("an hour idle in $t: not one redraw", before, r.c.platform.count)
+            assertFalse("$t: the tab arms nothing idle", r.armed)
+            // (GAME / TURN: the diamond's hourglass pulses once a minute — chrome/HourglassPulseTest.)
+            if (t == TurnTimer.OFF) assertEquals("an hour idle with Turns ON: not one redraw", before, r.c.platform.count)
         }
         r.timer(TurnTimer.OFF)
         r.tapTab()

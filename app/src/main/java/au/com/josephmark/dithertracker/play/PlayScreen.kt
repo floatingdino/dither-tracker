@@ -1,6 +1,7 @@
 package au.com.josephmark.dithertracker.play
 
 import au.com.josephmark.dithertracker.chrome.Dividers
+import au.com.josephmark.dithertracker.chrome.HourglassPulse
 import au.com.josephmark.dithertracker.chrome.MenuDiamond
 import au.com.josephmark.dithertracker.commander.CommanderClose
 import au.com.josephmark.dithertracker.commander.CommanderTile
@@ -55,6 +56,7 @@ object PlayScreen {
         // ---- SCREEN --------------------------------------------------------------------------------
         stage.add(MenuDiamond())                  // centre diamond + menu bars; opens the menu (Kind.CHROME)
         stage.add(DayNightMark())                 // day/night on the diamond, over its bars (T14; Kind.CHROME)
+        stage.add(HourglassPulse())               // T66: the egg-timer pulse on the diamond once an active minute, a timer mode on (Kind.CHROME)
         stage.add(CommanderClose(commander))      // the mode's close X on the diamond (Kind.MODE)
 
         // ---- OVERLAY -------------------------------------------------------------------------------

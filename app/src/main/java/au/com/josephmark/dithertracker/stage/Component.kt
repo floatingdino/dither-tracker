@@ -203,4 +203,7 @@ object Events {
 
     /** [seat] was picked to start (T55: effects play `start-flag` there). */
     const val FIRST_PLAYER = 11
+
+    /** The table menu (the gem) closed (T66: the diamond may pulse again; seat = [Stage.SCREEN]). */
+    const val MENU_CLOSED = 12
 }

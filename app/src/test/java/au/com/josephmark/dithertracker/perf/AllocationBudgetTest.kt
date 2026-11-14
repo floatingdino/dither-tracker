@@ -289,4 +289,20 @@ class AllocationBudgetTest {
         assertEquals(TurnLayout.NEAR, turn.place)
         assertDrawFree(rig, "turn tab on a KO tile")
     }
+
+    /** T66: the diamond's hourglass pulse — its keyframes draw and its timer steps allocate nothing. */
+    @Test fun hourglassPulseAllocatesNothing() {
+        val rig = rig()
+        val pulse = rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.chrome.HourglassPulse>().single()
+        rig.stage.settings.update(rig.stage.settings.current.copy(turnTimer = TurnTimer.GAME))
+        rig.dispatch(Action.SetStartingPlayer(rig.id(0)))
+        rig.advance(60_000) // warm one whole pulse
+        rig.advance(2_000)
+        rig.advance(57_999)
+        assertEquals("the minute's first keyframe", 0L, bytes(warm = 0, runs = 1) { rig.advance(1) })
+        assertEquals(0, pulse.frame)
+        assertDrawFree(rig, "hourglass keyframe")
+        assertEquals("the rest of the pulse", 0L, bytes(warm = 0, runs = 1) { rig.advance(2_000) })
+        assertEquals(-1, pulse.frame)
+    }
 }
