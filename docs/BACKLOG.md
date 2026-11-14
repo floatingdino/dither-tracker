@@ -94,6 +94,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T52 | wip | T16 T30 | Sam: dice and coin need a presentation moment (instant result is anticlimactic) — keyframes, not inbetweens. Partners are undiscoverable: add a partner button on the commander-damage screen. | `tools/`, `commander/` |
 | T53 | wip | T11 T12 | Sam: settings page renamed "Counters and trackers", trackers (monarch, initiative, blessing, ring, day/night) toggleable like counters. Layout exploration à la Lotus (reference in untracked `local/reference/`): a chevron after the Players row opens the layouts for that player count. | `settings/`, `layout/`, `drawer/` |
 | T55 | wip | T28f T20 | Promote Sam's round-three effect approvals into the runtime: chomp, slash, stomp, chime, heart-burst, brand, imp-raspberry, imp-poke, every counter effect (ooze, charge, level-up, rad-glow, storm-copy), dusk, dawn, ring-tempt, your-turn, spotlight, start-flag, revive; crit repurposed as a damage effect; crown-drop with the crown lined up between frames 1 and 2; torch with its firelight circle completed (may pass behind the − glyph). Dropped: coin and die effects (can't tell which player acted). Not approved: bonk, nibble, refill, bunting, crown-cut. Needs effect types/triggers for counters, toggles, turn and first player; hit-size bands; all-seat playback. | `fx/`, `design/fx/` |
+| T56 | wip | T17 | Sam: the delta is a touch too close to the life number — centre it in the space between the number and the top of the tile. | `readout/` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -659,3 +660,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   commander screen; settings "Counters and trackers" with trackers toggleable; layout picker
   exploration behind a chevron on the Players row; effect approvals as listed in T55 (coin/die
   effects dropped on principle). Dispatched T51 (emulator 5562), T52 (5564), T53 (5566), T55 (5568).
+- 2026-11-14 — Tick 65: Sam: damage effects must play much sooner (not when the delta disappears) →
+  added to T55 (fire after a short quiet, ~250–400 ms, once per band per readout); delta centred
+  between the numeral and the tile's top → T56 (emulator 5570). T51 also told to drop the gem's 20 s
+  idle auto-close and to cut gem-open invalidation (100 % of screen) if pixel-neutral. Open question
+  to Sam: open drawers/menu on touch-down instead of release (halves panel updates for those).
+  Running: T51, T52, T53, T55, T56.
