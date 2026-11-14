@@ -896,3 +896,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-14 — Tick 94: Sam on the rest frame: the die leans one way then stands on its tip — fix
   the positioning, add one wobble/overshoot frame on fast displays only, settle sitting on a face;
   the "D20" text is unnecessary. T65 agent resumed. Running: T62, T65.
+- 2026-11-14 — Tick 95: Sam: the winner's flag wave should start on the earlier beat (the winner
+  reveal) and loop so it waves back and forth one more time → added to the T65 agent's pass.
