@@ -94,7 +94,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T52 | wip | T16 T30 | Sam: dice and coin need a presentation moment (instant result is anticlimactic) — keyframes, not inbetweens. Partners are undiscoverable: add a partner button on the commander-damage screen. | `tools/`, `commander/` |
 | T53 | wip | T11 T12 | Sam: settings page renamed "Counters and trackers", trackers (monarch, initiative, blessing, ring, day/night) toggleable like counters. Layout exploration à la Lotus (reference in untracked `local/reference/`): a chevron after the Players row opens the layouts for that player count. | `settings/`, `layout/`, `drawer/` |
 | T55 | wip | T28f T20 | Promote Sam's round-three effect approvals into the runtime: chomp, slash, stomp, chime, heart-burst, brand, imp-raspberry, imp-poke, every counter effect (ooze, charge, level-up, rad-glow, storm-copy), dusk, dawn, ring-tempt, your-turn, spotlight, start-flag, revive; crit repurposed as a damage effect; crown-drop with the crown lined up between frames 1 and 2; torch with its firelight circle completed (may pass behind the − glyph). Dropped: coin and die effects (can't tell which player acted). Not approved: bonk, nibble, refill, bunting, crown-cut. Needs effect types/triggers for counters, toggles, turn and first player; hit-size bands; all-seat playback. | `fx/`, `design/fx/` |
-| T56 | wip | T17 | Sam: the delta is a touch too close to the life number — centre it in the space between the number and the top of the tile. | `readout/` |
+| T56 | review | T17 | Sam: the delta is a touch too close to the life number — centre it in the space between the number and the top of the tile. | `readout/` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -669,3 +669,10 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 - 2026-11-14 — Decision (Sam): drawers and the menu keep "press inverts, action on release" — no
   open-on-touch-down. Remaining levers for perceived speed: smaller gem invalidation (T51), the
   Nomad's vendor refresh modes (e-ink experiments, need slow-mo video).
+- 2026-11-14 — Tick 66: T56 reported (`4e449a2`, `6450bba`), verified in a clean worktree at
+  `6450bba` (171 core + 1314 app incl. other agents' commits; captures pure). The delta is centred
+  between the turn tab's band and the numeral's cap top (12 px each side at S=4, was 6 px above the
+  numeral), one fixed position whether or not the tab shows — so on a tab-less seat it is not the
+  literal centre between numeral and tile edge (that would touch the tab when it appears). Same
+  70×14 rect. In `review`: Sam to say if the literal centre (delta jumping when the tab shows) is
+  preferred. Running: T51, T52, T53, T55.
