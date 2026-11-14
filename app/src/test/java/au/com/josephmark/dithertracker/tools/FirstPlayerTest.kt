@@ -159,7 +159,7 @@ class FirstPlayerTest {
 
     @Test fun aTouchDuringTheBeatLandsThePickAndStillActs() {
         val r = Rig()
-        r.pickFromMenu(land = false)
+        r.first.pick()
         assertTrue(r.first.isAsking)
         val z = PlayRig.mid(r.rig.l.zones[PlayLayout.zone(1, PlayLayout.PLUS)])
         r.tap(z[0], z[1])
