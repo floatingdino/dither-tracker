@@ -111,6 +111,7 @@ class FirstPlayer(
         stage.dispatch(Origin.EXTERNAL, Action.SetStartingPlayer(id))
         val st = stage.session.state
         val s = st.players.indexOfFirst { it.id == id }
+        stage.send(Events.FIRST_PLAYER, if (s >= 0) s else pendingSeat) // T55: `start-flag` on their tile
         show(if (s >= 0) s else pendingSeat, pendingCaption)
     }
 
