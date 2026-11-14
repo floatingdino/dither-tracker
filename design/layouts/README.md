@@ -356,7 +356,8 @@ at S = 2) is not comfortable and not offered.
 | Commander mode | partner numbers with ± each | partner ± hidden (two 2-digit numbers and their icons) |
 | KO / winner tile | quip at the one size | the same size; long quips wrap to more lines |
 | Effects | tile-wide | tile-wide (the narrower tile) |
-| Turn tab (T17) | 89 × 21 on the far edge, centred (beside the diamond at 2 players and the 3-player end seat); icon + minutes | 89 × 21 centred on seats clear of the diamond; **45 × 21 beside it** on the middle seats (5: seat 1; 6: seats 1 and 4), the minutes alone when the timer is on |
+| Turn tab (T17, T66) | 89 × 21 on the far edge, centred (beside the diamond at 2 players and the 3-player end seat); ▶\| icon, or for 5 s after a pass the `m:ss` / `h:mm:ss` report in `num-m` | 89 × 21 centred on seats clear of the diamond; **45 × 21 beside it** on the middle seats (5: seat 1; 6: seats 1 and 4), the report there in the `ui` face; at S = 5, 6 at least the icon's 16 px tall |
+| Winner-screen times (T66) | timer icon + `m:ss` chip in the detail band (winner, plain KO) or the near band under a cause chip, `num-m` | the same; the icon dropped, then the `ui` face, where a band is too small (some S = 2, 3 alternates) |
 
 ## Open design questions
 

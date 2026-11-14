@@ -121,7 +121,9 @@ Icons must read clearly at S=2..6 and when inverted.
 
 **Table tools (centre menu)**
 - New game / reset (with confirm), choose starting player at random, dice (d6/d20/custom), coin flip,
-  turn tracker + optional turn/game timer (minute-resolution redraws only), undo/redo, game history log.
+  turn tracker + optional turn/game time **reports** (T66: nothing ticks — `m:ss` of active time on the
+  turn tab for 5 s after each pass, each seat's turn time or the game's on the winner screen, and a
+  one-second egg-timer pulse on the centre diamond once an active minute), undo/redo, game history log.
 - The menu has **no idle timeout** (Sam, 2026-11-14): once open it waits until a tool is chosen (which
   closes it; undo/redo keep it open), its centre X is tapped or a tap lands outside it.
 

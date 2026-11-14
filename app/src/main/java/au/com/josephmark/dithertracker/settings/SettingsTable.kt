@@ -23,9 +23,12 @@ import au.com.josephmark.dithertracker.widgets.Segmented
 object SettingsTable {
 
     /**
-     * Turn tracker and its timer (T17), one row: `[OFF][ON][GAME][TURN]` — off; the turn tab only; the
-     * tab with the game clock (minutes since the first player was picked); the tab with the minutes on
-     * the current turn. Stored as `AppSettings.turnTracker` + `turnTimer` ([turnsValue] / [withTurns]).
+     * Turn tracker and its time reports (T17, T66), one row: `[OFF][ON][GAME][TURN]` — off; the turn tab
+     * only; GAME: after each pass the game's time so far on the tab for 5 s, the game's total on every
+     * seat at the winner screen; TURN: the turn that just ended, and each seat's own total at the end.
+     * Both pulse the diamond's egg timer once an active minute; nothing ticks on the tab. The labels
+     * still say it (what is timed), so they are unchanged; the row has no hint line. Stored as
+     * `AppSettings.turnTracker` + `turnTimer` ([turnsValue] / [withTurns]).
      */
     val TURNS = intArrayOf(TURNS_OFF, TURNS_ON, TURNS_GAME, TURNS_TURN)
     val TURNS_LABELS = arrayOf("OFF", "ON", "GAME", "TURN")

@@ -12,6 +12,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import au.com.josephmark.dithertracker.chrome.HourglassPulse
 import au.com.josephmark.dithertracker.data.Persistence
 import au.com.josephmark.dithertracker.core.Action
 import au.com.josephmark.dithertracker.core.Commander
@@ -70,6 +71,7 @@ class MainActivity : Activity() {
         //                       --ei fxLife N (default 37) and plays that effect / cycles them all on
         //                       all four seats, looping until a touch; see fx/README.md
         //   --ef fxHold X       (debuggable builds only) scale every effect hold by X (FxPlayer.holdScale)
+        //   --ef pulseHold X    (debuggable builds only) scale the diamond's hourglass keyframe holds by X (T66)
         //   --es displaySpeed fast|slow  (debuggable builds only) force eink/DisplaySpeed (T59): how many
         //                       keyframes the dice / first-player presentations play
         //   --ef diceHold X     (debuggable builds only) scale every dice / coin / first-player presentation
@@ -159,6 +161,7 @@ class MainActivity : Activity() {
         FxDebug.gallery = i.getStringExtra("fx")
         FxDebug.life = i.getIntExtra("fxLife", 37)
         FxDebug.holdScale = if (i.hasExtra("fxHold")) i.getFloatExtra("fxHold", 1f).coerceAtLeast(0f) else 1f
+        HourglassPulse.holdScale = if (i.hasExtra("pulseHold")) i.getFloatExtra("pulseHold", 1f).coerceAtLeast(0f) else 1f
         ToolsDebug.holdScale = if (i.hasExtra("diceHold")) i.getFloatExtra("diceHold", 1f).coerceAtLeast(0f) else 1f
     }
 

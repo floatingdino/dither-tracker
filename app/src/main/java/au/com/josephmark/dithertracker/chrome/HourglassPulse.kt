@@ -156,7 +156,7 @@ class HourglassPulse(
             return
         }
         invalidate(box)
-        timers.schedule(TICK, holds[frame])
+        timers.schedule(TICK, if (holdScale == 1f) holds[frame] else (holds[frame] * holdScale).toLong())
         armed = true
         armedFor = Long.MIN_VALUE
     }
@@ -225,6 +225,9 @@ class HourglassPulse(
         const val TICK = 0
         const val TIMERS = 1
         const val MINUTE = 60_000L
+
+        /** Debug builds only (`--ef pulseHold X`, captures): every keyframe hold scaled by X. */
+        @JvmField var holdScale = 1f
 
         /** FAST: sand on top, running (the read frame, longest), below, on its side; ≈ 0.85 s. */
         val FAST_ICONS = arrayOf(Icon.HOURGLASS_1, Icon.HOURGLASS_2, Icon.HOURGLASS_3, Icon.HOURGLASS_4)

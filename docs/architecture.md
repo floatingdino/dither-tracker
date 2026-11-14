@@ -84,7 +84,8 @@ Hit-testing is the reverse: at each touch-down the stage collects every visible 
 A `block` rect returns "nothing" (no press, nothing below). Current `TILE` order:
 `LifeComponent` (halves) < `CommanderTile` < `ReadoutComponent` < `PeeksComponent` < `BadgesComponent` (T14, no
 zones) < `DrawerComponent` (block, cells, bar) — then `DrawerTab` < `TurnTab` (T17, `TILE_CHROME`, `Kind.STATUS`:
-the active seat's turn tab), then `MenuDiamond` (block) / `DayNightMark`
+the active seat's turn tab), then `MenuDiamond` (block) / `DayNightMark` / `HourglassPulse` (T66, no zones:
+the egg-timer pulse over the diamond's glyph)
 (T14, no zones: draws day/night over the diamond) / `CommanderClose`.
 
 ## Zone ids

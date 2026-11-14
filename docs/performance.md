@@ -18,7 +18,7 @@ owner's install). Debuggable builds run interpreted/JIT, so their CPU times are 
 | Bitmaps built inside `onDraw` | 0 | 0 — purity-suite check |
 | CPU while idle, foreground or background | 0 ticks | 0 ticks over 120 s each |
 | Timers armed after the app is paused | 0 | 0 — `perf/BackgroundTest` |
-| Turn timer (T17), while on and showing | ≤ 1 redraw a minute, digits only | 1 a minute, 10×14 dither px (`turns/TurnTabTest`) |
+| Turn feature (T66), idle | 0 redraws with Turns OFF / ON; GAME / TURN: one diamond pulse per active minute, glyph box only | 0; 4 (fast) or 3 (slow) keyframes + 1 restore of 19×19 dither px a minute (`chrome/HourglassPulseTest`) |
 | Frames per quick life tap (T57: released before the 120 ms press delay) | 1 (the result) | 1 (`play/TapFramesTest`) |
 | Frames per held tap (≥ 120 ms) | ≤ 2 (press, release) | 2 |
 | StrictMode violations (debug) | 0 | 0 |
@@ -196,14 +196,17 @@ effect invalidates its own seat only, at most one panel = 25 %.)
   keyframe; 0 for press/release, gem and drawer open/close; a life tap and a tap + commit + effect
   round add nothing over `:core`'s own state change (budget 4 KB, measured 1.4 KB).
 - `perf/BackgroundTest` — after `Events.PAUSE`: readout committed, no effect playing, no timer armed,
-  no redraw over a minute; also mid-effect and mid-KO; and with the turn timer on (T17), nothing armed
-  or drawn over three paused hours, one re-synced redraw on resume, nothing armed with the timer off.
+  no redraw over a minute; also mid-effect and mid-KO; T66: the turn tab arms nothing idle in any Turns
+  mode (only a pass arms its 5 s report clear, dropped on pause and not re-armed on resume); the
+  diamond's hourglass pulses exactly once per active minute with GAME / TURN, never with OFF / ON, and
+  nothing is armed or drawn while paused (hours).
 - `perf/BackgroundTest` (T52): pausing mid-roll shows the result and arms nothing (not even the panel's
   idle timeout) for an hour, resume re-arms only the idle timeout; pausing during the first-player beat
   lands the pick with nothing armed. `perf/AllocationBudgetTest`: 0 bytes to draw every keyframe of a
   roll presentation and its result.
-- `perf/AllocationBudgetTest` also pins the turn tab (T17): 0 bytes to draw it (minutes, pressed, on a
-  KO tile) and 0 bytes per minute tick.
+- `perf/AllocationBudgetTest` also pins the turn tab (T17 / T66): 0 bytes to draw it (icon, a report,
+  pressed, on a KO tile) and to clear a report; and the hourglass pulse: 0 bytes per keyframe step
+  and per keyframe draw.
 - `perf/PrewarmPhaseTest` — the first prewarm phase covers a fresh table, KO tiles and a winner at
   S = 2..6, both orientations and colour modes; the phases add up to everything.
 - `play/TapFramesTest` (T57) — a quick life tap, drawer open and gem open flush exactly one frame;
@@ -288,16 +291,21 @@ effect invalidates its own seat only, at most one panel = 25 %.)
   large updates per ~20 counted changes, only after 2 s of quiet. Its timer is a single 2 s one-shot,
   armed only while a clean is due, dropped on pause; nothing is scheduled while it is OFF or below
   the threshold. Design unchanged.
-- **Turn tracker and timer** (T17, `turns/TurnTab`): a pass is one frame over the two tabs (old and
-  new, 89×21 dither px each at S = 4; the stage unions them into one rect, but only their pixels
-  change); a press inverts one tab. The timer (Turns = GAME / TURN, off by default) is ONE one-shot
-  armed for the next minute boundary of the clock, only while the timer is on, a tab is showing (not
-  under an overlay, in commander mode, or after the game) and the app is resumed; it redraws only the
-  digits (10×14 dither px per digit; the whole tab when 9 → 10 or 99 → 100) and re-arms. Dropped on
-  `Events.PAUSE`, re-synced from the wall clock on `RESUME` (the minutes come from `TurnState`'s
-  persisted start stamps, never a counter). A life tap does not re-arm it. With the timer off nothing
-  is ever scheduled. Known slack: while the active seat's drawer is open the tab is hidden but the
-  tick stays armed, so the panel is asked once a minute to redraw ~140 unchanged pixels there.
+- **Turn tracker, reports and the hourglass** (T17, T66; `turns/TurnTab`, `chrome/HourglassPulse`): a
+  pass is one frame over the two tabs (old and new, 89×21 dither px each at S = 4; the stage unions them
+  into one rect, but only their pixels change); a press inverts one tab. Nothing about the tab ticks
+  (T66 removed T17's minute tick): with Turns GAME / TURN a pass shows a static `m:ss` report on the
+  new tab for `TurnTab.REPORT_MS` (5 s) — one one-shot, armed only by a pass, replaced by the next,
+  dropped on pause / settings change / undo — whose clear redraws that tab once. The only periodic
+  thing left is the diamond's hourglass pulse (GAME / TURN only): ONE timer aimed at the next minute
+  boundary of active time (the game's, or the current turn's in TURN), armed only while tracking runs
+  without a winner, the app is resumed, the gem is closed and no cover hides the diamond; per minute
+  4 keyframes on a fast display (150 / 350 / 200 / 150 ms) or 3 on a slow one (300 / 450 / 300 ms)
+  plus the glyph's return, each redrawing only the 19×19 dither-px glyph box (76×76 device px; the
+  bars' plate or the sun / moon); 0 allocations. Durations are active time (core's `ActiveClock`,
+  paused with the activity, persisted as `SaveFile.activeClock`), so nothing needs re-syncing on
+  resume beyond re-aiming the pulse. With Turns OFF / ON nothing is ever scheduled. The clean cadence
+  counts a timer-driven frame at most once per burst; the pulse touches no seat panel.
 - **Roll presentation** (T52, `tools/Presentation`, `design/tools/README.md`): a die or coin roll is
   four held keyframes on the dice panel (250, 250, 250, 300 ms; the naturals' landing 400 ms) then the
   result — five panel redraws (163×111 dither px at S = 4, mostly unchanged pixels: a 24-px solid moving
