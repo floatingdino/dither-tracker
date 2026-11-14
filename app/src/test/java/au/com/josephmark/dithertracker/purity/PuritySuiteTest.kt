@@ -19,6 +19,9 @@ import au.com.josephmark.dithertracker.stage.Stage
 import au.com.josephmark.dithertracker.tools.DiceLayout
 import au.com.josephmark.dithertracker.tools.DiceOverlay
 import au.com.josephmark.dithertracker.tools.DiceState
+import au.com.josephmark.dithertracker.tools.FirstPlayer
+import au.com.josephmark.dithertracker.tools.Outcome
+import au.com.josephmark.dithertracker.tools.Presentation
 import au.com.josephmark.dithertracker.turns.TurnTab
 import au.com.josephmark.dithertracker.core.serial.TurnTimer
 import au.com.josephmark.dithertracker.dither.IRect
@@ -386,17 +389,33 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
     @Test fun diceAndFirstPlayer() = script { rig ->
         val dice = rig.dice
         rig.openFromMenu(MenuItem.DICE)
-        shot("70_dice_beat")
-        rig.advance(DiceState.BEAT_MS)
+        shot("70_dice_rolling")
+        rig.advance(DiceState.PRESENT_MAX_MS)
         shot("71_dice_d20")
-        for (b in intArrayOf(DiceLayout.D20, DiceLayout.D6, DiceLayout.COIN)) {
-            rig.tap(dice, Stage.SCREEN, b)
-            shot("72_dice_button${b}_beat")
-            rig.advance(DiceState.BEAT_MS)
-            shot("73_dice_button${b}")
+        // T52: every keyframe of every outcome's presentation (the result is fixed at the tap: roll
+        // until the outcome comes up, skipping the others' presentations with a tap).
+        val p = Presentation.TUMBLE
+        for (o in 0 until Outcome.COUNT) {
+            val button = when (o) {
+                Outcome.D6 -> DiceLayout.D6
+                Outcome.HEADS, Outcome.TAILS -> DiceLayout.COIN
+                else -> DiceLayout.D20
+            }
+            var tries = 0
+            while (true) {
+                rig.tap(dice, Stage.SCREEN, button)
+                if (dice.state.outcome == o) break
+                rig.tap(dice, Stage.SCREEN, button) // skip to the result
+                check(++tries < 500) { "outcome $o never came up" }
+            }
+            for (beat in 0 until p.beats(o)) {
+                shot("72_present_${p.scripts[o].name.replace(' ', '_')}_$beat")
+                rig.advance(p.holdMs(o, beat))
+            }
+            shot("73_result_${p.scripts[o].name.replace(' ', '_')}")
         }
         rig.tap(dice, Stage.SCREEN, DiceOverlay.AGAIN)
-        rig.advance(DiceState.BEAT_MS)
+        rig.advance(DiceState.PRESENT_MAX_MS)
         shot("74_dice_again")
         rig.press(dice, Stage.SCREEN, DiceOverlay.AGAIN)
         shot("75_press_again")
@@ -404,6 +423,8 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         rig.tap(dice, Stage.SCREEN, DiceLayout.CLOSE)
         rig.advance(1_000)
         rig.openFromMenu(MenuItem.FIRST)
+        shot("76_first_player_asking")
+        rig.advance(FirstPlayer.WHO_MS)
         shot("76_first_player")
         rig.advance(10_000)
         shot("77_first_player_gone")

@@ -7,6 +7,10 @@ import au.com.josephmark.dithertracker.purity.ScreenRig
 import au.com.josephmark.dithertracker.stage.Events
 import au.com.josephmark.dithertracker.stage.Stage
 import au.com.josephmark.dithertracker.turns.TurnTab
+import au.com.josephmark.dithertracker.menu.MenuItem
+import au.com.josephmark.dithertracker.tools.DiceLayout
+import au.com.josephmark.dithertracker.tools.DiceState
+import au.com.josephmark.dithertracker.tools.FirstPlayer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -81,6 +85,56 @@ class BackgroundTest {
         assertFalse(rig.fx.player.isPlaying(1))
         // The KO tile's own safety timer was released with the hold; nothing else remains.
         assertEquals("timers armed after pause", "", armed(rig))
+    }
+
+    /**
+     * T52: the roll presentation's one frame timer is armed only while it plays. Pausing mid-roll
+     * shows the result (one redraw, held until the app is back) and leaves nothing armed — not the
+     * frame timer, not the panel's idle timeout; resume re-arms only the idle timeout.
+     */
+    @Test fun pauseMidRollShowsTheResultAndArmsNothing() {
+        val rig = ScreenRig(1872, 1404, 4)
+        assertEquals("nothing armed before", "", armed(rig))
+        rig.openFromMenu(MenuItem.DICE)
+        val state = rig.dice.state
+        assertEquals(DiceState.ROLLING, state.phase)
+        rig.advance(300)
+        val value = state.value
+        rig.stage.send(Events.PAUSE, Stage.SCREEN)
+        assertEquals(DiceState.SHOWN, state.phase)
+        assertEquals(value, state.value)
+        assertEquals("timers armed after pause", "", armed(rig))
+        val before = rig.platform.count
+        rig.advance(60 * 60_000L)
+        assertEquals("nothing redraws in the background", before, rig.platform.count)
+        assertTrue("the panel is still there on return", state.isOpen)
+        rig.stage.send(Events.RESUME, Stage.SCREEN)
+        assertEquals(DiceState.SHOWN, state.phase)
+        rig.advance(DiceState.IDLE_MS)
+        assertFalse("the idle timeout runs again after resume", state.isOpen)
+        assertEquals("", armed(rig))
+        // A presentation that ends by itself disarms its timer too.
+        rig.openFromMenu(MenuItem.DICE)
+        rig.advance(DiceState.PRESENT_MAX_MS)
+        assertEquals(DiceState.SHOWN, state.phase)
+        rig.tap(rig.dice, Stage.SCREEN, DiceLayout.CLOSE)
+        assertEquals("", armed(rig))
+    }
+
+    /** T52: the first-player "ME?" beat lands on pause; the badge's clear timer waits for resume. */
+    @Test fun pauseDuringTheFirstPlayerBeatLandsIt() {
+        val rig = ScreenRig(1872, 1404, 4)
+        val first = rig.stage.components.filterIsInstance<FirstPlayer>().single()
+        rig.openFromMenu(MenuItem.FIRST)
+        assertTrue(first.isAsking)
+        rig.stage.send(Events.PAUSE, Stage.SCREEN)
+        assertFalse(first.isAsking)
+        assertTrue(first.seat >= 0)
+        assertEquals(rig.id(first.seat), rig.session.state.turn.startingPlayer)
+        assertEquals("timers armed after pause", "", armed(rig))
+        rig.stage.send(Events.RESUME, Stage.SCREEN)
+        rig.advance(FirstPlayer.SHOW_MS)
+        assertEquals(-1, first.seat)
     }
 
     /**

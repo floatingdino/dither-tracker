@@ -137,6 +137,37 @@ class DiceLayoutTest {
         }
     }
 
+    /**
+     * T52: every keyframe of the roll presentation stays inside its face (clear of the border and the
+     * fold) on both faces at every S, the upper face being the lower one turned about the crossing,
+     * and the landing stamp's plate too.
+     */
+    @Test fun presentationFitsEveryFace() {
+        for (s in 2..6) {
+            val l = layout(s)
+            val p = Presentation.TUMBLE
+            val ss = SpriteSet(p, l.k)
+            val placed = PresentationLayout(l, p, ss.widths, ss.heights, l.k)
+            val inner = IRect()
+            for (face in 0..1) {
+                val f = l.faces[face]
+                inner.set(f.left + 1, f.top + 1, f.right - 1, f.bottom - 1)
+                for (o in 0 until Outcome.COUNT) for (b in 0 until p.beats(o)) for (i in p.scripts[o].beats[b].places.indices) {
+                    val r = placed.rect(o, b, i, face)
+                    assertTrue("S=$s face $face outcome $o beat $b place $i $r in $inner", r.inside(inner))
+                    if (face == 1) assertEquals(l.reflect(placed.rect(o, b, i, 0), IRect()).toString(), r.toString())
+                }
+            }
+            // The tumbling solid is at most the result's height.
+            for (i in 0 until 9) assertTrue(ss.heights[i] <= l.resultBox[0].height)
+            for (v in intArrayOf(1, 7, 20)) {
+                val pl = l.plateFor(v, IRect())
+                assertTrue("S=$s plate $pl", pl.inside(l.faces[0]) && pl.top > l.faces[0].top && pl.bottom < l.faces[0].bottom)
+                assertTrue("S=$s plate clear of the text", pl.right <= l.textCol[0].left)
+            }
+        }
+    }
+
     @Test fun resultsFit() {
         for (rs in 1..2) for (s in 2..6) {
             val l = layout(s, rs)
@@ -147,12 +178,10 @@ class DiceLayoutTest {
             }
             assertEquals(l.result.height(l.resultK), box.height)
             assertEquals(14 * l.resultK, box.height)
-            // The coin and the "?" are exactly as tall as the result and fit beside it.
+            // The coin is exactly as tall as the result and fits beside it.
             val art = DiceArt(l.resultK)
             assertEquals(l.result.capHeight * l.resultK, art.diameter)
             assertTrue(art.box <= box.width && art.box <= box.height)
-            assertTrue(art.mystery[0].width <= box.width)
-            assertEquals(l.result.capHeight * l.resultK, art.mystery[0].height)
             // Every label fits (the text column beside, or the result column stacked).
             val labelCol = if (l.stacked) l.stackCol[0] else l.textCol[0]
             for (label in listOf("d20", "d6", "coin", "HEADS", "TAILS", "nat 20", "nat 1")) {

@@ -11,8 +11,7 @@ import au.com.josephmark.dithertracker.type.Fonts
  * - [coin]: a "sticker" coin as tall as a result numeral — an ink disc with a paper milled ring and
  *   the face's letter (H / T, the `ui` glyph enlarged) knocked out. No drop shadow, like the `num-m`
  *   numerals it stands in for (T46).
- * - [mystery]: the reveal beat's "?" (the `ui` glyph enlarged to the result's height), a mask filled
- *   with the shadow checker — the result "knocked back" to dither for one keyframe.
+ * (T52 retired the reveal beat's dither "?": the roll presentation's sprites are [SpriteSet].)
  *
  * Every image comes in the two face rotations: index 0 upright, 1 turned 180°.
  */
@@ -24,12 +23,7 @@ class DiceArt(val k: Int) {
     /** `coin[face * 2 + rot]`: face 0 heads, 1 tails; rot 0 upright, 1 turned. */
     val coin: Array<MonoImage> = Array(4) { i -> Turn(Coin(k, if (i / 2 == 0) 'H' else 'T'), i % 2 == 1) }
 
-    /** The "?" mask, upright and turned. */
-    val mysteryK: Int = maxOf(1, (Fonts.NUM_M.capHeight * k) / Fonts.UI.capHeight)
-    val mystery: Array<MonoImage> = Array(2) { i -> Turn(Cap(Fonts.UI.glyph('?').scaled(mysteryK), Fonts.UI.capHeight * mysteryK), i == 1) }
-
     fun coin(heads: Boolean, rotation: Int): MonoImage = coin[(if (heads) 0 else 2) + (if (rotation == 180) 1 else 0)]
-    fun mystery(rotation: Int): MonoImage = mystery[if (rotation == 180) 1 else 0]
 
     private inner class Coin(k: Int, letter: Char) : MonoImage {
         override val width = box
@@ -53,13 +47,6 @@ class DiceArt(val k: Int) {
             if (lx in 0 until glyph.width && ly in 0 until glyph.height && glyph.isInk(lx, ly)) return false
             return true
         }
-    }
-
-    /** [src]'s top [h] rows (drops a glyph's empty descender band). */
-    private class Cap(private val src: MonoImage, h: Int) : MonoImage {
-        override val width = src.width
-        override val height = minOf(h, src.height)
-        override fun isInk(x: Int, y: Int) = src.isInk(x, y)
     }
 
     /** [src] as is, or turned 180°. */

@@ -12,6 +12,7 @@ import au.com.josephmark.dithertracker.purity.ScreenRig
 import au.com.josephmark.dithertracker.stage.Stage
 import au.com.josephmark.dithertracker.tools.DiceLayout
 import au.com.josephmark.dithertracker.tools.DiceState
+import au.com.josephmark.dithertracker.tools.Presentation
 import au.com.josephmark.dithertracker.turns.TurnLayout
 import au.com.josephmark.dithertracker.turns.TurnTab
 import org.junit.Assert.assertEquals
@@ -92,8 +93,16 @@ class AllocationBudgetTest {
         assertDrawFree(rig, "history card")
         rig.tapAt(1, 1)
         rig.openFromMenu(MenuItem.DICE)
-        rig.advance(DiceState.BEAT_MS)
+        // T52: every keyframe of the presentation, then the result.
+        val o = rig.dice.state.outcome
+        for (beat in 0 until Presentation.TUMBLE.beats(o)) {
+            assertDrawFree(rig, "dice keyframe $beat")
+            rig.advance(Presentation.TUMBLE.holdMs(o, beat))
+        }
         assertDrawFree(rig, "dice result")
+        rig.tap(rig.dice, Stage.SCREEN, DiceLayout.COIN)
+        assertDrawFree(rig, "coin keyframe 0")
+        rig.advance(DiceState.PRESENT_MAX_MS)
         rig.tap(rig.dice, Stage.SCREEN, DiceLayout.CLOSE)
         rig.advance(1_000)
         rig.dispatch(Action.SetLife(rig.id(2), 0))

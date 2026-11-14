@@ -29,16 +29,17 @@ class DiceOverlayTest {
 
         fun tap(r: IRect) = tap((r.left + r.right) / 2, (r.top + r.bottom) / 2)
 
-        /** Opens the gem and taps its DICE tip. */
-        fun openFromMenu() {
+        /** Opens the gem and taps its DICE tip (and, with [present], lets the presentation play out). */
+        fun openFromMenu(present: Boolean = true) {
             tap(rig.l.diamondCx, rig.l.diamondCy)
             val g = menu.gem!!
             val s = GemLayout.slotOf(MenuItem.DICE)
             tap(g.facetX[s], g.facetY[s])
+            if (present) reveal()
         }
 
-        /** Lets the reveal beat pass. */
-        fun reveal() = rig.platform.clock.advance(DiceState.BEAT_MS)
+        /** Lets the presentation play out. */
+        fun reveal() = rig.platform.clock.advance(DiceState.PRESENT_MAX_MS)
 
         fun hit(x: Int, y: Int): String {
             val id = rig.stage.hitTest(x, y)
@@ -67,11 +68,12 @@ class DiceOverlayTest {
         assertEquals(Tool.D20, r.state.tool)
         assertTrue(r.state.value in 1..20)
         assertTrue(r.invalidatedCovers(r.l.panelOuter))
-        // The reveal: one more redraw of the panel only.
+        // The presentation: one redraw of the panel only per keyframe, then the result.
         r.rig.platform.invalidated.clear()
         r.reveal()
         assertEquals(DiceState.SHOWN, r.state.phase)
-        assertEquals(listOf(r.deviceRect(r.l.panelOuter)), r.rig.platform.invalidated)
+        val n = Presentation.TUMBLE.beats(r.state.outcome)
+        assertEquals(List(n) { r.deviceRect(r.l.panelOuter) }, r.rig.platform.invalidated)
     }
 
     @Test fun hitTestingWhileOpen() {
@@ -102,25 +104,36 @@ class DiceOverlayTest {
         r.openFromMenu()
         r.tap(r.l.button[DiceLayout.D6])
         assertEquals(Tool.D6, r.state.tool)
-        assertEquals(DiceState.BEAT, r.state.phase)
+        assertEquals(DiceState.ROLLING, r.state.phase)
         r.reveal()
         assertTrue(r.state.value in 1..6)
         val n = r.state.rolls
         r.tap(r.l.cx, r.l.cy)
         assertEquals(Tool.D6, r.state.tool)
         assertEquals(n + 1, r.state.rolls)
+        r.reveal()
         r.tap(r.l.button[DiceLayout.COIN])
         r.reveal()
         assertEquals(Tool.COIN, r.state.tool)
         assertTrue(r.dice.label() == DiceOverlay.HEADS || r.dice.label() == DiceOverlay.TAILS)
+        r.reveal()
         r.tap(r.l.button[DiceLayout.D20])
         assertEquals(Tool.D20, r.state.tool)
         assertEquals("d20", r.dice.label())
-        // A tap during the beat starts a fresh roll; the panel is redrawn once per tap.
-        r.rig.platform.invalidated.clear()
+        // A tap during the presentation (anywhere but ×) jumps to the result and does nothing else.
+        assertEquals(DiceState.ROLLING, r.state.phase)
+        val rolls = r.state.rolls
+        r.tap(r.l.button[DiceLayout.D6])
+        assertEquals(DiceState.SHOWN, r.state.phase)
+        assertEquals(Tool.D20, r.state.tool)
+        assertEquals(rolls, r.state.rolls)
+        // AGAIN replays the presentation with a fresh roll.
         r.tap(r.l.cx, r.l.cy)
-        assertEquals(DiceState.BEAT, r.state.phase)
-        r.reveal()
+        assertEquals(DiceState.ROLLING, r.state.phase)
+        assertEquals(rolls + 1, r.state.rolls)
+        // A tap outside during it shows the result rather than closing.
+        r.tap(r.l.panelOuter.left - 2, r.l.cy)
+        assertTrue(r.state.isOpen)
         assertEquals(DiceState.SHOWN, r.state.phase)
     }
 
@@ -139,8 +152,8 @@ class DiceOverlayTest {
             assertEquals(40, r.life(seat))
             r.openFromMenu()
         }
-        // Idle.
-        r.rig.platform.clock.advance(DiceState.IDLE_MS - 1)
+        // Idle (the open's presentation already took its share of it).
+        r.rig.platform.clock.advance(DiceState.IDLE_MS - 1 - DiceState.PRESENT_MAX_MS)
         assertTrue(r.state.isOpen)
         r.tap(r.l.button[DiceLayout.D6]) // a touch re-arms
         r.rig.platform.clock.advance(DiceState.IDLE_MS - 1)
@@ -173,6 +186,7 @@ class DiceOverlayTest {
             assertTrue("S=$s", r.state.isOpen)
             r.tap(r.l.button[DiceLayout.COIN])
             assertEquals(Tool.COIN, r.state.tool)
+            r.reveal()
             r.tap(r.l.cx, r.l.cy)
             assertEquals(2, r.state.rolls - 1)
             r.tap(r.l.button[DiceLayout.CLOSE])
@@ -188,6 +202,7 @@ class DiceOverlayTest {
         }
         r.openFromMenu()
         r.tap(r.l.button[DiceLayout.D6])
+        r.reveal()
         r.tap(r.l.button[DiceLayout.COIN])
         assertEquals(3, heard.size)
         assertEquals("COIN:${r.state.value}", heard.last())

@@ -38,6 +38,7 @@ class FirstPlayerLayout(val play: PlayLayout) {
     val padV: Int = Chrome.size(PAD_V, s)
     val lineGap: Int = Chrome.size(LINE_GAP, s)
     val kMax: Int = maxOf(1, play.tk)
+    val askKMax: Int = 2 * kMax
 
     /** Arranged result ([arrange]). */
     val band = IRect()
@@ -86,6 +87,24 @@ class FirstPlayerLayout(val play: PlayLayout) {
     fun bandRect(seat: Int, out: IRect): IRect {
         play.mapRect(seat, left, top, maxOf(0, right - left), maxOf(0, bottom - top), out)
         return out
+    }
+
+    /**
+     * The "ME?" beat's text (T52): [len] `ui` glyphs centred on [seat]'s band at the largest scale
+     * ≤ [askKMax] (twice the badge's: three glyphs, to be read from across the table) that fits inside the dotted outline with [padH]/[padV] clear. Writes the text's
+     * footprint (screen) into [out]; returns the scale, or 0 when not even 1× fits (cramped S: the
+     * dotted outline alone asks).
+     */
+    fun askFootprint(seat: Int, len: Int, out: IRect): Int {
+        val w = right - left - 2 * padH - 2
+        val h = bottom - top - 2 * padV - 2
+        var kk = askKMax
+        while (kk > 1 && (ui.widthOf(len, kk) > w || ui.capHeight * kk > h)) kk--
+        if (ui.widthOf(len, kk) > w || ui.height(kk) > bottom - top - 2) return 0
+        val tw = ui.widthOf(len, kk)
+        val capTop = top + (bottom - top - ui.capHeight * kk) / 2
+        play.mapRect(seat, left + (right - left - tw) / 2, capTop - ui.capTop * kk, tw, ui.height(kk), out)
+        return kk
     }
 
     private fun blockH(k: Int, n: Int): Int = if (n <= 0) 0 else n * ui.capHeight * k + (n - 1) * lineGap

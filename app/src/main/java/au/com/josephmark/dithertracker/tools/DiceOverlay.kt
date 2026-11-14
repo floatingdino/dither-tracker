@@ -5,13 +5,13 @@ import au.com.josephmark.dithertracker.core.flavour.Flavour
 import au.com.josephmark.dithertracker.core.flavour.QuipKind
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.Icon
-import au.com.josephmark.dithertracker.dither.Role
 import au.com.josephmark.dithertracker.menu.GemPainter
 import au.com.josephmark.dithertracker.menu.MenuDestination
 import au.com.josephmark.dithertracker.menu.MenuItem
 import au.com.josephmark.dithertracker.play.PlayLayout
 import au.com.josephmark.dithertracker.play.TileSlots
 import au.com.josephmark.dithertracker.stage.Component
+import au.com.josephmark.dithertracker.stage.Events
 import au.com.josephmark.dithertracker.stage.Frame
 import au.com.josephmark.dithertracker.stage.Kind
 import au.com.josephmark.dithertracker.stage.Layer
@@ -26,8 +26,13 @@ import kotlin.random.Random
  * the **coin** at once (the current tool is solid), the centre diamond (`dice` knocked out) rolls the
  * current tool again, and **×** closes.
  *
- * - Every roll is one redraw of the panel — two with the [DiceState.beat] keyframe (the hero knocked
- *   back to a dither "?" for [DiceState.BEAT_MS]); a tap during the beat starts a fresh roll.
+ * - Every roll plays its **presentation** (T52, [Presentation.TUMBLE]): the die or coin tumbles
+ *   across each face in three held keyframes, then the result lands (a stamp, with a little
+ *   character for natural 20 / natural 1 / heads / tails), then the plain result with its label and
+ *   quip — one redraw of the panel per keyframe, ~1.05–1.15 s in all. A tap anywhere during it (but
+ *   ×) jumps to the result; AGAIN replays it with a fresh roll. One frame timer, armed only while a
+ *   presentation plays; [Events.PAUSE] shows the result and disarms everything (the idle timeout is
+ *   re-armed on [Events.RESUME]).
  * - Like the menu (no [au.com.josephmark.dithertracker.stage.Cover]: the life totals stay readable),
  *   while open a full-screen dismiss zone under the panel swallows any tap outside it and closes the
  *   panel without touching a life total. [DiceState.IDLE_MS] without a touch closes it too.
@@ -46,6 +51,16 @@ class DiceOverlay(
         private set
 
     private var art: DiceArt? = null
+    private var sprites: SpriteSet? = null
+    private var placed: PresentationLayout? = null
+
+    /** The roll presentation (null: results at once). Tests swap in variant B for the design sheet. */
+    var presentation: Presentation?
+        get() = state.presentation
+        set(v) {
+            state.presentation = v
+            layout?.let { place(it) }
+        }
 
     /** Where results go besides the screen (the future game log). */
     var results: ToolResults
@@ -71,13 +86,24 @@ class DiceOverlay(
         val l = DiceLayout(play)
         layout = l
         if (art?.k != l.resultK) art = DiceArt(l.resultK)
+        place(l)
         screen.set(0, 0, play.grid.width, play.grid.height)
         if (state.isOpen) arrange(l)
+    }
+
+    /** Builds the presentation's sprites at the chrome scale and places them on [l] (off the draw path). */
+    private fun place(l: DiceLayout) {
+        val p = state.presentation
+        if (p == null) { sprites = null; placed = null; return }
+        val ss = sprites?.takeIf { it.presentation === p && it.k == l.k } ?: SpriteSet(p, l.k)
+        sprites = ss
+        placed = PresentationLayout(l, p, ss.widths, ss.heights, l.k)
     }
 
     override fun prewarm(f: Frame) {
         val l = layout ?: return
         val a = art ?: return
+        sprites?.let { ss -> for (sp in ss.sprites) for (rot in ROTATIONS) sp.draw(f.r, 0, 0, rot) }
         for (rot in ROTATIONS) {
             f.text.draw(l.result, DIGITS, 0, 0, l.resultK, rot, shadow = false)
             for (t in Tool.entries) f.text.draw(l.ui, t.label, 0, 0, l.k, rot)
@@ -85,7 +111,6 @@ class DiceOverlay(
             f.text.draw(l.ui, TAILS, 0, 0, l.k, rot)
             f.text.draw(l.ui, NAT_20, 0, 0, l.k, rot)
             for (kind in KINDS) for (line in flavour.lines(kind)) f.text.draw(l.ui, line, 0, 0, l.k, rot)
-            f.r.fillMask(a.mystery(rot), 0, 0, Role.SHADOW)
             f.r.blit(a.coin(true, rot), 0, 0)
             f.r.blit(a.coin(false, rot), 0, 0)
         }
@@ -112,7 +137,7 @@ class DiceOverlay(
         if (!state.isOpen) return
         val l = layout ?: return
         val a = art ?: return
-        painter.draw(f, l, a, state, label())
+        painter.draw(f, l, a, state, label(), sprites, placed)
         if (stage.isPressed(this, Stage.SCREEN, AGAIN)) {
             gem.compensate(f.r, l.foldRect, l.cx, l.cy) { dy -> l.foldRowHalf(dy) }
         }
@@ -153,6 +178,11 @@ class DiceOverlay(
 
     override fun onTap(seat: Int, local: Int) {
         state.touched()
+        // A tap during the presentation shows the result now (× still closes).
+        if (state.rolling && local != DiceLayout.CLOSE) {
+            state.skip()
+            return
+        }
         when (local) {
             DISMISS, DiceLayout.CLOSE -> state.close()
             AGAIN -> state.again()
@@ -163,6 +193,13 @@ class DiceOverlay(
     // ---- notifications ---------------------------------------------------------------------------
 
     override fun onTimer(id: Int) = state.onTimer(id)
+
+    override fun onEvent(event: Int, seat: Int) {
+        when (event) {
+            Events.PAUSE -> state.pause()
+            Events.RESUME -> state.resume()
+        }
+    }
 
     override fun onDetach() = state.close()
 

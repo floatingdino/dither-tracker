@@ -16,7 +16,7 @@ class DiceStateTest {
         val timers = FakeScheduler(DiceState.TIMERS)
         val changes = mutableListOf<Pair<Int, Int>>()
         val rolled = mutableListOf<Pair<Tool, Int>>()
-        val state = DiceState(timers, Random(seed), { o, n -> changes += o to n }, beat = beat).also {
+        val state = DiceState(timers, Random(seed), { o, n -> changes += o to n }, presentation = if (beat) Presentation.TUMBLE else null).also {
             it.results = object : ToolResults {
                 override fun onRoll(tool: Tool, value: Int) { rolled += tool to value }
             }
@@ -25,26 +25,114 @@ class DiceStateTest {
         init { timers.target = au.com.josephmark.dithertracker.play.Scheduler.Target { state.onTimer(it) } }
     }
 
-    @Test fun opensOnAFreshD20BehindOneBeat() {
+    /** Plays the current roll's presentation through, beat by beat, checking each hold. */
+    private fun playThrough(r: Rig) {
+        val p = Presentation.TUMBLE
+        val o = r.state.outcome
+        for (i in 0 until p.beats(o)) {
+            assertEquals(DiceState.ROLLING, r.state.phase)
+            assertEquals(i, r.state.beat)
+            r.timers.advance(p.holdMs(o, i) - 1)
+            assertEquals("beat $i holds", i, r.state.beat)
+            assertEquals(DiceState.ROLLING, r.state.phase)
+            r.timers.advance(1)
+        }
+        assertEquals(DiceState.SHOWN, r.state.phase)
+        assertFalse("no frame timer after the result", r.timers.isArmed(DiceState.TIMER_FRAME))
+    }
+
+    @Test fun opensOnAFreshD20AndPresentsItInHeldKeyframes() {
         val r = Rig()
         r.state.open()
-        assertEquals(DiceState.BEAT, r.state.phase)
+        assertEquals(DiceState.ROLLING, r.state.phase)
         assertEquals(Tool.D20, r.state.tool)
         assertTrue(r.state.value in 1..20)
         assertTrue(r.state.caption.isNotEmpty())
         assertEquals(1, r.rolled.size) // the result is fixed (and reported) at the tap, not at the reveal
-        r.timers.advance(DiceState.BEAT_MS - 1)
-        assertEquals(DiceState.BEAT, r.state.phase)
-        r.timers.advance(1)
+        assertEquals(Outcome.of(Tool.D20, r.state.value), r.state.outcome)
+        val n = Presentation.TUMBLE.beats(r.state.outcome)
+        playThrough(r)
+        // One change per keyframe: open, n − 1 beat steps, the result.
+        assertEquals(DiceState.CLOSED to DiceState.ROLLING, r.changes.first())
+        assertEquals(n - 1, r.changes.count { it == DiceState.ROLLING to DiceState.ROLLING })
+        assertEquals(DiceState.ROLLING to DiceState.SHOWN, r.changes.last())
+        assertEquals(n + 1, r.changes.size)
+    }
+
+    @Test fun everyOutcomeHasItsOwnLandingAndStaysInBudget() {
+        val p = Presentation.TUMBLE
+        for (o in 0 until Outcome.COUNT) {
+            val total = p.totalMs(o)
+            assertTrue("outcome $o: $total ms", total in 800L..1500L)
+            for (i in 0 until p.beats(o)) assertTrue(p.holdMs(o, i) >= Presentation.MIN_HOLD_MS)
+            assertTrue("2–4 tumbling keyframes then a landing", p.beats(o) in 3..5)
+        }
+        assertEquals(Outcome.NAT_20, Outcome.of(Tool.D20, 20))
+        assertEquals(Outcome.NAT_1, Outcome.of(Tool.D20, 1))
+        assertEquals(Outcome.D20, Outcome.of(Tool.D20, 7))
+        assertEquals(Outcome.D6, Outcome.of(Tool.D6, 6))
+        assertEquals(Outcome.HEADS, Outcome.of(Tool.COIN, 1))
+        assertEquals(Outcome.TAILS, Outcome.of(Tool.COIN, 2))
+        // Naturals and coin faces land differently from a plain d20.
+        val land = { o: Int -> p.scripts[o].beats.last() }
+        assertTrue(land(Outcome.NAT_20) !== land(Outcome.D20))
+        assertTrue(land(Outcome.NAT_1).result == Beat.PLAIN && land(Outcome.D20).result == Beat.PLATE)
+        assertTrue(land(Outcome.HEADS) !== land(Outcome.TAILS))
+        // Nothing before the landing shows the result.
+        for (o in 0 until Outcome.COUNT) for (i in 0 until p.beats(o) - 1) assertEquals(Beat.NONE, p.scripts[o].beats[i].result)
+    }
+
+    @Test fun skipJumpsToTheResultAndAgainReplays() {
+        val r = Rig()
+        r.state.open()
+        r.timers.advance(300)
+        val v = r.state.value
+        r.state.skip()
         assertEquals(DiceState.SHOWN, r.state.phase)
-        assertEquals(listOf(DiceState.CLOSED to DiceState.BEAT, DiceState.BEAT to DiceState.SHOWN), r.changes)
+        assertEquals(v, r.state.value)
+        assertFalse(r.timers.isArmed(DiceState.TIMER_FRAME))
+        r.state.skip() // no-op once shown
+        assertEquals(DiceState.ROLLING to DiceState.SHOWN, r.changes.last())
+        r.state.again()
+        assertEquals(DiceState.ROLLING, r.state.phase)
+        assertEquals(0, r.state.beat)
+        assertEquals(2, r.state.rolls)
+        playThrough(r)
+    }
+
+    @Test fun pauseMidRollShowsTheResultAndLeavesNothingArmed() {
+        val r = Rig()
+        r.state.open()
+        r.timers.advance(400)
+        assertEquals(DiceState.ROLLING, r.state.phase)
+        r.state.pause()
+        assertEquals(DiceState.SHOWN, r.state.phase)
+        assertFalse(r.timers.isArmed(DiceState.TIMER_FRAME))
+        assertFalse(r.timers.isArmed(DiceState.TIMER_IDLE))
+        r.timers.advance(3_600_000)
+        assertTrue("still open, showing the result", r.state.phase == DiceState.SHOWN)
+        r.state.resume()
+        assertEquals(DiceState.SHOWN, r.state.phase)
+        assertTrue(r.timers.isArmed(DiceState.TIMER_IDLE))
+        assertFalse(r.timers.isArmed(DiceState.TIMER_FRAME))
+    }
+
+    @Test fun holdScaleStretchesEveryKeyframe() {
+        val r = Rig()
+        ToolsDebug.holdScale = 4f
+        try {
+            r.state.open()
+            assertEquals(4 * Presentation.TUMBLE.holdMs(r.state.outcome, 0), r.timers.dueAt(DiceState.TIMER_FRAME))
+        } finally {
+            ToolsDebug.holdScale = 1f
+        }
     }
 
     @Test fun withoutTheBeatEveryRollIsOneChange() {
         val r = Rig(beat = false)
         r.state.open()
         assertEquals(DiceState.SHOWN, r.state.phase)
-        assertFalse(r.timers.isArmed(DiceState.TIMER_BEAT))
+        assertFalse(r.timers.isArmed(DiceState.TIMER_FRAME))
         r.state.roll(Tool.D6)
         assertEquals(listOf(DiceState.CLOSED to DiceState.SHOWN, DiceState.SHOWN to DiceState.SHOWN), r.changes)
     }
@@ -66,18 +154,19 @@ class DiceStateTest {
         assertEquals(5, r.state.rolls)
     }
 
-    @Test fun aRollDuringTheBeatStartsAFreshOneNeverQueues() {
+    @Test fun aRollDuringThePresentationStartsAFreshOneNeverQueues() {
         val r = Rig()
         r.state.open()
-        r.timers.advance(100)
+        r.timers.advance(260) // into the second keyframe
+        assertEquals(1, r.state.beat)
         r.state.roll(Tool.D6)
-        assertEquals(DiceState.BEAT, r.state.phase)
-        assertEquals(100 + DiceState.BEAT_MS, r.timers.dueAt(DiceState.TIMER_BEAT))
-        r.timers.advance(DiceState.BEAT_MS)
-        assertEquals(DiceState.SHOWN, r.state.phase)
+        assertEquals(DiceState.ROLLING, r.state.phase)
+        assertEquals(0, r.state.beat)
+        assertEquals(260 + Presentation.TUMBLE.holdMs(r.state.outcome, 0), r.timers.dueAt(DiceState.TIMER_FRAME))
+        playThrough(r)
         assertEquals(Tool.D6, r.state.tool)
-        // Exactly one reveal: the first beat was replaced, not queued.
-        assertEquals(1, r.changes.count { it == DiceState.BEAT to DiceState.SHOWN })
+        // Exactly one reveal: the first presentation was replaced, not queued.
+        assertEquals(1, r.changes.count { it == DiceState.ROLLING to DiceState.SHOWN })
     }
 
     @Test fun idleTimeoutClosesAndTouchesReArmIt() {
@@ -97,7 +186,7 @@ class DiceStateTest {
         r.state.open()
         r.state.close()
         assertEquals(DiceState.CLOSED, r.state.phase)
-        assertFalse(r.timers.isArmed(DiceState.TIMER_BEAT))
+        assertFalse(r.timers.isArmed(DiceState.TIMER_FRAME))
         assertFalse(r.timers.isArmed(DiceState.TIMER_IDLE))
         val n = r.changes.size
         r.state.again()

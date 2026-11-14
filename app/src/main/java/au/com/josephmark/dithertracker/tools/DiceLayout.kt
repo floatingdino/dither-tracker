@@ -99,6 +99,7 @@ class DiceLayout(val play: PlayLayout, resultScale: Int = RESULT_K) {
     val lineGap: Int = Chrome.size(LINE_GAP, scale)
     val underlineGap: Int = Chrome.size(UNDERLINE_GAP, scale)
     val labelGap: Int = Chrome.size(LABEL_GAP, scale)
+    val platePad: Int = Chrome.size(PLATE_PAD, scale)
 
     init {
         val resH = result.height(resultK)
@@ -163,6 +164,24 @@ class DiceLayout(val play: PlayLayout, resultScale: Int = RESULT_K) {
             val bt = button[i]
             buttonHit[i].set(bt.left - half, fold.top, bt.right + half, fold.bottom)
         }
+    }
+
+    /**
+     * The landing stamp's ink plate (T52) behind a die result of [value] on the lower face: the
+     * numerals' footprint (centred in the result box, as drawn) plus [platePad] round it — less
+     * above and below when the face has no room (it never touches the face's border).
+     */
+    fun plateFor(value: Int, out: IRect): IRect {
+        val box = resultBox[0]
+        val face = faces[0]
+        val tw = result.measureInt(value, resultK)
+        val padY = maxOf(0, minOf(platePad, box.top - face.top - 1, face.bottom - box.bottom - 1))
+        val padX = platePad + 1
+        val x = box.left + (box.width - tw) / 2 - padX
+        return out.set(
+            maxOf(face.left + 1, x), box.top - padY,
+            minOf(face.right - 1, x + tw + 2 * padX), box.bottom + padY,
+        )
     }
 
     /** Whether (gx, gy) is on the roll-again diamond. */
@@ -318,5 +337,6 @@ class DiceLayout(val play: PlayLayout, resultScale: Int = RESULT_K) {
         const val LINE_GAP = 3
         const val UNDERLINE_GAP = 2
         const val LABEL_GAP = 4
+        const val PLATE_PAD = 2
     }
 }

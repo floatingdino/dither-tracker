@@ -30,11 +30,18 @@ class FirstPlayerTest {
             rig.stage.up(0)
         }
 
-        fun pickFromMenu() {
+        fun pickFromMenu(land: Boolean = true) {
             tap(rig.l.diamondCx, rig.l.diamondCy)
             val g = menu.gem!!
             val s = GemLayout.slotOf(MenuItem.FIRST)
             tap(g.facetX[s], g.facetY[s])
+            if (land) rig.platform.clock.advance(FirstPlayer.WHO_MS)
+        }
+
+        /** [FirstPlayer.pick] and let the "ME?" beat pass. */
+        fun pick() {
+            first.pick()
+            rig.platform.clock.advance(FirstPlayer.WHO_MS)
         }
 
         fun device(r: IRect) = IRect().also { rig.l.grid.toDevice(r, it) }
@@ -50,8 +57,23 @@ class FirstPlayerTest {
         r.rig.platform.invalidated.clear()
         val g = r.menu.gem!!
         val s = GemLayout.slotOf(MenuItem.FIRST)
+        val before = r.turn
         r.tap(g.facetX[s], g.facetY[s])
         assertEquals(MenuState.CLOSED, r.menu.state.phase)
+        // First the "ME?" beat on every live seat: nothing picked on screen, nothing in the game yet.
+        assertTrue(r.first.isAsking)
+        assertEquals(0b1111, r.first.asking)
+        assertEquals(-1, r.first.seat)
+        assertEquals(before, r.turn)
+        for (i in 0..3) {
+            val b = r.device(r.l.bandRect(i, IRect()))
+            assertTrue(r.rig.platform.invalidated.any { it.left <= b.left && it.top <= b.top && it.right >= b.right && it.bottom >= b.bottom })
+        }
+        r.rig.platform.clock.advance(FirstPlayer.WHO_MS - 1)
+        assertTrue(r.first.isAsking)
+        r.rig.platform.clock.advance(1)
+        assertFalse(r.first.isAsking)
+        assertEquals(0, r.first.asking)
         val seat = r.first.seat
         assertTrue(seat in 0..3)
         val id = r.rig.id(seat)
@@ -101,14 +123,14 @@ class FirstPlayerTest {
         s.dispatch(Action.SetLife(r.rig.id(2), 0), 0)
         s.dispatch(Action.MarkDead(r.rig.id(3)), 0)
         repeat(12) {
-            r.first.pick()
+            r.pick()
             assertEquals(1, r.first.seat)
             assertEquals(r.rig.id(1), r.turn.startingPlayer)
         }
         // Over many picks with everyone alive, every seat comes up.
         val r2 = Rig()
         val seen = HashSet<Int>()
-        repeat(60) { r2.first.pick(); seen += r2.first.seat }
+        repeat(60) { r2.pick(); seen += r2.first.seat }
         assertEquals(setOf(0, 1, 2, 3), seen)
     }
 
@@ -116,7 +138,7 @@ class FirstPlayerTest {
         val r = Rig()
         var last = ""
         repeat(30) {
-            r.first.pick()
+            r.pick()
             assertFalse(r.first.caption == last)
             last = r.first.caption
         }
@@ -129,7 +151,54 @@ class FirstPlayerTest {
             override fun onStartingPlayer(id: Int) { heard += id }
         }
         r.first.pick()
+        assertTrue("heard when it lands, not before", heard.isEmpty())
+        r.rig.platform.clock.advance(FirstPlayer.WHO_MS)
         assertEquals(listOf(r.rig.id(r.first.seat)), heard)
+    }
+
+    @Test fun aTouchDuringTheBeatLandsThePickAndStillActs() {
+        val r = Rig()
+        r.pickFromMenu(land = false)
+        assertTrue(r.first.isAsking)
+        val z = PlayRig.mid(r.rig.l.zones[PlayLayout.zone(1, PlayLayout.PLUS)])
+        r.tap(z[0], z[1])
+        assertEquals(41, r.rig.session.state.players[1].life)
+        r.rig.platform.clock.advance(0)
+        assertFalse(r.first.isAsking)
+        assertTrue(r.first.seat >= 0)
+        assertEquals(r.rig.id(r.first.seat), r.turn.startingPlayer)
+    }
+
+    @Test fun onlyLiveSeatsAskAndPauseLandsWithNothingArmed() {
+        val r = Rig()
+        r.rig.session.dispatch(Action.MarkDead(r.rig.id(2)), 0)
+        r.first.pick()
+        assertEquals(0b1011, r.first.asking)
+        r.rig.stage.send(au.com.josephmark.dithertracker.stage.Events.PAUSE, au.com.josephmark.dithertracker.stage.Stage.SCREEN)
+        assertFalse(r.first.isAsking)
+        assertTrue(r.first.seat >= 0)
+        assertEquals(r.rig.id(r.first.seat), r.turn.startingPlayer)
+        assertFalse("nothing armed after pause", r.rig.stage.timersPending())
+        val seat = r.first.seat
+        r.rig.platform.clock.advance(60_000)
+        assertEquals("the badge waits for the player to come back", seat, r.first.seat)
+        r.rig.stage.send(au.com.josephmark.dithertracker.stage.Events.RESUME, au.com.josephmark.dithertracker.stage.Stage.SCREEN)
+        r.rig.platform.clock.advance(FirstPlayer.SHOW_MS)
+        assertEquals(-1, r.first.seat)
+    }
+
+    @Test fun askTextFitsEveryBand() {
+        for (s in 2..6) {
+            val p = PlayLayout.compute(DitherGrid(1872, 1404, s))
+            val l = FirstPlayerLayout(p)
+            if (!l.enabled) continue
+            val out = IRect()
+            for (seat in 0 until p.playerCount) {
+                val k = l.askFootprint(seat, FirstPlayer.ME.length, out)
+                if (s <= 4) assertTrue("S=$s: shown", k >= l.kMax)
+                if (k > 0) assertTrue("S=$s seat $seat $out", out.inside(l.bandRect(seat, IRect())))
+            }
+        }
     }
 
     /** The band sits in the under row between the peek corners, clear of the number and the tab. */

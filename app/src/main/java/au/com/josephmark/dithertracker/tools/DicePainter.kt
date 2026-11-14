@@ -20,12 +20,18 @@ internal class DicePainter {
     private val gem = GemPainter()
     private val slice = TextSlice()
     private val tmp = IRect()
+    private val tmp2 = IRect()
 
     /**
      * The whole panel for [state]'s current result. [art] matches the layout's result scale. While the
-     * state is in its beat the result shows the dither "?" and the caption is held back.
+     * state is [DiceState.ROLLING] the faces show the presentation's current keyframe ([sprites] placed
+     * by [placed]): the label and caption are held back, and the result shows only from the landing
+     * beat on.
      */
-    fun draw(f: Frame, l: DiceLayout, art: DiceArt, state: DiceState, labelText: CharSequence) {
+    fun draw(
+        f: Frame, l: DiceLayout, art: DiceArt, state: DiceState, labelText: CharSequence,
+        sprites: SpriteSet?, placed: PresentationLayout?,
+    ) {
         if (!f.hit(l.panelOuter)) return
         val r = f.r
         val o = l.panelOuter
@@ -37,14 +43,19 @@ internal class DicePainter {
         r.rect(l.fold, ink = false)
         r.fill(Role.DOTTED, l.fold.left, l.cy, l.fold.width, 1)
 
-        val beat = state.phase == DiceState.BEAT
+        val p = state.presentation
+        val rolling = state.rolling && p != null && sprites != null && placed != null &&
+            sprites.presentation === p && placed.p === p
         for (face in 0 until 2) {
             if (!f.hit(l.faces[face])) continue
             val rot = l.rotation(face)
-            result(f, l, art, state, face, rot, beat)
+            if (rolling) {
+                keyframe(f, l, art, state, p!!, sprites!!, placed!!, face, rot)
+                continue
+            }
+            result(f, l, art, state, face, rot, plate = false)
             f.text.draw(l.ui, labelText, l.label[face].left, l.label[face].top, l.k, rot)
             r.rect(l.underline[face], ink = true)
-            if (beat) continue
             for (i in 0 until l.lines) {
                 val lr = l.line[face * DiceLayout.MAX_LINES + i]
                 slice.set(state.caption, l.lineStart[i], l.lineEnd[i])
@@ -69,21 +80,45 @@ internal class DicePainter {
         f.icons.icon(l.k, Icon.DICE, tmp, 0, invert = true, opaque = false)
     }
 
-    private fun result(f: Frame, l: DiceLayout, art: DiceArt, state: DiceState, face: Int, rot: Int, beat: Boolean) {
+    /** One presentation keyframe on [face]: the landing's result (if this beat shows it), then its sprites. */
+    private fun keyframe(
+        f: Frame, l: DiceLayout, art: DiceArt, state: DiceState, p: Presentation, sprites: SpriteSet,
+        placed: PresentationLayout, face: Int, rot: Int,
+    ) {
+        val o = state.outcome
+        val beat = p.scripts[o].beats[state.beat]
+        if (beat.result != Beat.NONE) result(f, l, art, state, face, rot, plate = beat.result == Beat.PLATE)
+        val places = beat.places
+        for (i in places.indices) {
+            val at = placed.rect(o, state.beat, i, face)
+            sprites.sprites[places[i].sprite].draw(f.r, at.left, at.top, rot)
+        }
+    }
+
+    /**
+     * The result in [face]'s box: the coin sticker, or the die's numerals — with [plate], in paper on
+     * an ink plate (a stamp: the landing beat), the plate [DiceLayout.plateFor] the numerals.
+     */
+    private fun result(f: Frame, l: DiceLayout, art: DiceArt, state: DiceState, face: Int, rot: Int, plate: Boolean) {
         val box = l.resultBox[face]
         val r = f.r
-        if (beat) {
-            val m = art.mystery(rot)
-            r.fillMask(m, box.left + (box.width - m.width) / 2, centredTop(l, box, m.height, rot), Role.SHADOW)
-            return
-        }
         if (state.tool.isCoin) {
             val heads = Tool.coinFace(state.value) == CoinFace.HEADS
             val c = art.coin(heads, rot)
             r.blit(c, box.left + (box.width - c.width) / 2, centredTop(l, box, c.height, rot))
             return
         }
-        f.text.drawIntIn(l.result, state.value, box.left, box.top, box.width, box.height, l.resultK, rot, shadow = false)
+        if (plate) {
+            l.plateFor(state.value, tmp)
+            if (face == 1) l.reflect(tmp, tmp2) else tmp2.set(tmp.left, tmp.top, tmp.right, tmp.bottom)
+            r.rect(tmp2, ink = true)
+            // Round the plate's corners by one pixel.
+            r.rect(tmp2.left, tmp2.top, 1, 1, ink = false)
+            r.rect(tmp2.right - 1, tmp2.top, 1, 1, ink = false)
+            r.rect(tmp2.left, tmp2.bottom - 1, 1, 1, ink = false)
+            r.rect(tmp2.right - 1, tmp2.bottom - 1, 1, 1, ink = false)
+        }
+        f.text.drawIntIn(l.result, state.value, box.left, box.top, box.width, box.height, l.resultK, rot, invert = plate, shadow = false)
     }
 
     /** Top of an [h]-tall cap-band mask centred on the result's cap band in [box] (turned with [rot]). */
