@@ -598,7 +598,7 @@ class Stage(
             val n = minOf(l.playerCount, f.players.size, seats)
             val covered = anyCover
             for (s in 0 until n) {
-                if (!f.hit(l.panels[s])) continue
+                if (!f.hit(l.seats[s])) continue // T60: the whole tile (a bigger seat's paper round its frame)
                 for (c in cs) if (!covered || isVisible(c, s)) c.draw(f, s)
             }
         } else {

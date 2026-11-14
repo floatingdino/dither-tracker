@@ -116,18 +116,22 @@ class SeatingTest {
                 val fw = if (sideways(l.rotation[s])) p.height else p.width
                 val fh = if (sideways(l.rotation[s])) p.width else p.height
                 assertEquals("$l seat $s", l.panelW, fw); assertEquals("$l seat $s", l.panelH, fh)
-                assertTrue(inside(p, l.cells[s]))
+                assertTrue("$l seat $s frame in cell ${l.cells[s]}", inside(p, l.cells[s]))
                 for (o in 0 until n) if (o != s) {
                     assertFalse("$l $s/$o", overlaps(p, l.panels[o]))
                     assertFalse("$l cells $s/$o", overlaps(l.cells[s], l.cells[o]))
                 }
-                for (d in l.dividers) assertFalse("$l divider $d over seat $s", overlaps(d, p))
-                // Halves tile the panel exactly.
+                for (d in l.dividers) assertFalse("$l divider $d over seat $s", overlaps(d, l.seats[s]))
+                // Halves tile the seat's whole tile exactly (T60: the tile holds the content frame).
+                val t = l.seats[s]
+                assertTrue("$l seat $s frame in tile", inside(p, t))
                 val a = l.zones[zone(s, MINUS)]
                 val b = l.zones[zone(s, PLUS)]
-                assertFalse(overlaps(a, b))
-                assertTrue(inside(a, p) && inside(b, p))
-                assertEquals(p.width * p.height, a.width * a.height + b.width * b.height)
+                assertFalse("$l seat $s halves $a $b overlap", overlaps(a, b))
+                assertTrue("$l seat $s halves $a $b in $t", inside(a, t) && inside(b, t))
+                assertEquals(t.width * t.height, a.width * a.height + b.width * b.height)
+                for (o in 0 until n) if (o != s) assertFalse("$l tiles $s/$o", overlaps(t, l.seats[o]))
+                for (e in l.empties) assertFalse("$l seat $s over a hole", overlaps(t, e))
                 if (!l.comfortable) continue // tiny screens: content may touch (never offered)
                 // Every per-seat rect sits inside its own panel.
                 val rects = mutableListOf(l.numberSlot[s], l.readoutSlot[s], l.tab[s], l.tabHit[s], l.tabDotsBacking[s])

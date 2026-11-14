@@ -176,14 +176,17 @@ class KoLayout(val play: PlayLayout) {
         textTop = top(ik)
     }
 
-    /** The panels (screen), for the dead fill and the touch zone. */
-    val panels: Array<IRect> get() = play.panels
+    /**
+     * The seats' whole tiles (screen), for the dead fill and the touch zone (T60: on a lattice
+     * arrangement a bigger seat's tile is more than its content frame; the whole seat is out).
+     */
+    val panels: Array<IRect> get() = play.seats
 
     // ---- field --------------------------------------------------------------------------------------
 
     /** The dead dither's rect on [seat] (screen): the panel inset by [gutter]. */
     fun field(seat: Int, out: IRect): IRect {
-        val p = play.panels[seat]
+        val p = play.seats[seat]
         return out.set(p.left + gutter, p.top + gutter, p.right - gutter, p.bottom - gutter)
     }
 
@@ -201,7 +204,7 @@ class KoLayout(val play: PlayLayout) {
 
     /** True where a dead [seat]'s field may put dither ink (screen px): inside [field], outside the ring. */
     fun fieldInk(seat: Int, gx: Int, gy: Int): Boolean {
-        val p = play.panels[seat]
+        val p = play.seats[seat]
         if (gx < p.left + gutter || gx >= p.right - gutter || gy < p.top + gutter || gy >= p.bottom - gutter) return false
         val hw = ringRowHalf(gy - play.diamondCy)
         return hw < 0 || gx < play.diamondCx - hw || gx > play.diamondCx + hw

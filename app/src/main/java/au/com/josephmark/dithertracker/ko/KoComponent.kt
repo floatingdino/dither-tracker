@@ -295,7 +295,7 @@ class KoComponent(
         val rot = l.rotation[seat]
 
         // Field: paper, the dead dither inset by the gutter, a paper ring round the diamond.
-        val panel = l.panels[seat]
+        val panel = l.seats[seat] // T60: the whole tile
         f.r.rect(panel, ink = false)
         f.r.fill(Role.DEAD, k.field(seat, scratch))
         val cy = l.diamondCy
