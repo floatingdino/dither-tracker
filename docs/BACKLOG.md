@@ -99,7 +99,9 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T58 | review | T19b | Faster display modes: the Nomad's framework has a per-View e-ink mode (`View.setEinkUpdateMode`, DU/A2/…); the call succeeds from our debug build (`--ei einkMode N`, `eink/EinkViewMode.kt`). To find out: does the panel respond faster, which mode, ghosting cost, per-region modes (fast for taps, GC for cleans), and whether a release build is allowed to call it. | `eink/` |
 | T59 | review | T52 T58 | Sam's review of T52: a global fast/slow display flag, and a couple more in-between poses for die and coin on a fast display; the dice panel opens empty (no automatic d20); first player re-imagined as simultaneous d20 rolls on every live tile, results in the life-total digits, a sting and a "FIRST" flag on the winner, more informative quips ("On the play", "First out the gates"); PARTNER tab on the dither ground with halo/tape, new small-partner + / − icons instead of the big imp. | `tools`, `commander/`, `eink/`, `design/icons/` |
 | T60 | review | T53 | Sam's review of the layout picker ("a good start"): allow different-sized tiles within one game; thumbnails shrink so more options fit a page; each seat drawn as an inset dithered ground rather than outlined; no layout names; no drawer-tab mark in the thumbnails; add layouts with an empty seat (e.g. L shapes with any corner missing). Second reference in untracked `local/reference/`. | `layout/`, `settings/`, every N-seat component |
-| T61 | todo | T59 | Sam: heads / tails coin icons. Today the coin result is shown by the coin sprite's face and the word; draw a distinct heads icon and tails icon in the icon family's style (2–3 options each), use them on the dice panel's coin result (and the coin sprite's two faces if they differ), keep them readable from both faces of the panel. | `design/icons/`, `tools` |
+| T61 | wip | T59 | Sam: heads / tails coin icons. Today the coin result is shown by the coin sprite's face and the word; draw a distinct heads icon and tails icon in the icon family's style (2–3 options each), use them on the dice panel's coin result (and the coin sprite's two faces if they differ), keep them readable from both faces of the panel. | `design/icons/`, `tools` |
+| T62 | wip | T60 T58 | Screen size validation (Sam: "pay particular attention to any android based e-ink devices"): run the app at the real resolutions/densities of Android e-ink devices (Supernote, Boox by size incl. Palma, Bigme, Meebook, Hisense) and then phones and LCD tablets; AUTO scale vs physical size; cutouts, gesture edges, multi-window; `DisplaySpeed` on non-Supernote e-ink; `docs/compatibility.md`. Nomad must stay pixel-identical. | `play/PlayLayout`, `eink/`, docs |
+| T63 | done | T23 | GitHub release workflow: tag `v*` → tests, signed release APK, GitHub Release with the APK and its SHA-256; manual run builds an artifact only. Needs four signing secrets (README "Releases on GitHub"). | `.github/workflows/release.yml`, gradle, README |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -837,3 +839,11 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   verbatim poison quote would restore both. The three new quotes' sources are marked "not
   re-checked". New ticket T61 (heads/tails coin icons). Sam asked about publishing on Google Play —
   answered in chat; no ticket yet.
+- 2026-11-14 — Tick 86: Sam: Play Store is too much hassle for now; instead publish APKs to GitHub
+  Releases, and run agents for the coin icons and screen-size validation. T63 written by the
+  coordinator (`.github/workflows/release.yml`; version from `-Pdither.versionName/Code`; README
+  section) and pushed; a manual run with publishing off started on GitHub to prove the build there.
+  **Needs Sam:** create the release keystore and add the four repository secrets before the first
+  tag (publishing refuses to run without them). Note: a release-key APK cannot install over the
+  debug build on the Nomad without an uninstall (save lost). Dispatched T61 (coin faces, emulator
+  5562) and T62 (screen sizes, e-ink first, emulator 5564). Running: T61, T62.
