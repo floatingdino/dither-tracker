@@ -104,6 +104,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T63 | done | T23 | GitHub release workflow: tag `v*` → tests, signed release APK, GitHub Release with the APK and its SHA-256; manual run builds an artifact only. Needs four signing secrets (README "Releases on GitHub"). | `.github/workflows/release.yml`, gradle, README |
 | T64 | todo | no agents in the source tree | Rename the code to match the application id: namespace, Kotlin packages and source directories `au.com.josephmark.dithertracker` → `com.floatingdino.dithertracker` (app and core), generated-source package names in `app/build.gradle.kts` and `design/*/author*.py`, docs; then scripts can use `$P/.MainActivity` again. Purely mechanical; every file moves, so run it alone. | whole tree |
 | T65 | review | T59 T55 | Sam: animations feel "a bit linear/sauceless", especially the first roll and dice rolls — more time on the final pose to land, push/pull on frame timings for a slow-in/slow-out feel and readability, dice and the first-roll number sit a bit longer. Timing pass over dice, coin, first player and every effect's holds; FAST/SLOW hold sets; SPEC timing note. | `tools`, `fx/`, `design/fx/*/meta.txt` |
+| T66 | wip | T17 T51 | Sam: the turn tab's bare minute count "doesn't make any sense". Replace the live clock with reports: `m:ss` shown only after a turn is passed (no ticking; TURN = the turn that just ended, GAME = total so far), measured as active (foreground) time; and on the winner screen each seat reports its total turn time (TURN) or the total game time (GAME). Per-seat totals in core, undo-aware; save format bump. | `core/`, `turns/`, `ko/` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -922,3 +923,5 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   seat's old roll, so low re-rolls could tie with seats already out (a low tie re-rolled, and a
   loser could even win). It now judges only the seats that rolled this round; three regression
   tests. 176 core + 8957 app; on the Nomad.
+- 2026-11-14 — Tick 99: Sam on the turn timer → T66 to the T17 agent (resumed; emulator 5564): no
+  live clock; `m:ss` reports on pass and per-seat times on the winner screen. Running: T66.
