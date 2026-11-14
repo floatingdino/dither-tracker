@@ -247,8 +247,9 @@ class KoTest {
             k.arrange(3, "STAY A WHILE... STAY FOREVER!", b, mode)
             val capBottom = b.ly[b.lines - 1] + (k.ui.capTop + k.ui.capHeight) * b.k
             val above = b.ey - k.emblemTop
-            val below = k.textBottomOf(mode) - capBottom
-            assertTrue("mode $mode: $above above, $below below", Math.abs(above - below) <= 1)
+            val below = k.centreBottomOf(mode) - capBottom
+            val clamped = b.ly[b.lines - 1] + k.ui.height(b.k) == k.textBottomOf(mode)
+            assertTrue("mode $mode: $above above, $below below", clamped || Math.abs(above - below) <= 1)
             assertEquals(b.ly[0] - b.ey - k.iconSize, k.emblemGap)
         }
         k.arrange(3, "OOF", b, KoLayout.DEAD)

@@ -140,6 +140,13 @@ class KoLayout(val play: PlayLayout) {
         maxOf(textBottom, b)
     }
 
+    /**
+     * Bottom of the room the emblem + quip group is centred in: the hero bottom, except on the
+     * winner's tile, where the empty detail band between the peek corners counts too (the group then
+     * sits as low as the peek corners let it, so no hole is left where the life chip was).
+     */
+    fun centreBottomOf(mode: Int): Int = if (mode == WINNER) maxOf(textBottomWinner, detailBottom - halo) else textBottomOf(mode)
+
     fun textBottomOf(mode: Int): Int = when (mode) {
         DEAD -> textBottomDead
         WINNER -> textBottomWinner
@@ -263,7 +270,7 @@ class KoLayout(val play: PlayLayout) {
         // below), centred in [emblemTop, bottom); every glyph box stays inside the text box.
         val capBlock = blockH(k, n) - (lh - ui.capHeight * k - ui.capTop * k)
         val group = iconSize + emblemGap + capBlock
-        var ey = emblemTop + maxOf(0, (bottom - emblemTop - group) / 2)
+        var ey = emblemTop + maxOf(0, (centreBottomOf(mode) - emblemTop - group) / 2)
         var y0 = ey + iconSize + emblemGap
         if (y0 < textTop) y0 = textTop
         if (y0 + blockH(k, n) > bottom) y0 = maxOf(textTop, bottom - blockH(k, n))

@@ -133,8 +133,8 @@ class KoWinner(
     }
 
     companion object {
-        /** The winner's emblem (T51 replaces it with a dedicated icon). */
-        val EMBLEM: Icon = Icon.MONARCH
+        /** The winner's emblem: its own trophy (T51, Sam: not the monarch's crown). */
+        val EMBLEM: Icon = Icon.WINNER
         private val WARM_ICONS = arrayOf(EMBLEM)
         /** Every glyph of [font] (quips use punctuation beyond A–Z 0–9; T20: those were built in onDraw). Prewarm only. */
         private fun warmUi(font: Font): String = font.glyphs.joinToString("") { it.char.toString() }

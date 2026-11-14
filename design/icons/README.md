@@ -78,6 +78,7 @@ On the contact sheet, each icon is drawn at 8× nearest-neighbour inside a grey 
 | `initiative` | Torch: solid flame with a white inner flame, cup and handle, one spark | Initiative toggle (dungeon), panel badge |
 | `citys-blessing` | Solid castle: flagged keep between two towers, with an arched gate | City's blessing toggle (panel badge) |
 | `ring` | 2-px ring with a solid round gem and a sparkle (option A; T14's 3-px band B was reverted in T51) | Ring-bearer toggle (panel badge, drawer cell) |
+| `winner` | Solid trophy cup with loop handles, a glint, stem and foot (T51 option A; `candidates/t51/`) | The winner's tile emblem (was the monarch crown) |
 | `day` | Solid sun with a glint and eight block rays | Day state (global day/night: drawer cell, centre diamond) |
 | `night` | Solid crescent moon with a twinkle | Night state (global day/night: drawer cell, centre diamond) |
 | `dead` | Tombstone outline with a solid cross, on grassy ground | Auto-KO marker and toggle |
@@ -132,3 +133,11 @@ Options for `initiative`, `citys-blessing`, `ring` and `day` are in [`candidates
 tile badge, an ON drawer cell and an OFF drawer cell, at device size). T14 wired `ring` B (the 2-px ring
 was the last thin outline among the badges); Sam's review (T51, 2026-11-14): **all option A**, so
 `ring` is back to A and `initiative`, `citys-blessing`, `day` keep A.
+
+## T51 winner emblem (2026-11-14)
+
+Sam: "Add a new icon for winner so we're not repurposing the monarch icon." Three options in
+[`candidates/t51/`](candidates/t51/), shown as the winner's tile emblem at device size in
+`design/captures/t51-winner-icons.png`: **a** trophy cup (wired as `winner`), **b** medal on a
+ribbon with a star knocked out, **c** a foam "#1" finger. Pick: **a** — the plainest "you won" at
+arm's length, and its solid cup carries the weight of the other badges.
