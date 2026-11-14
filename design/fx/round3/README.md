@@ -1,5 +1,18 @@
 # Effects, round three (T28f): candidates, design only
 
+**T55: the owner's review.** Approved and moved to the shipped set (`design/fx/<name>/`, authored
+there by `author3.py` with the role the runtime plays them for; policy in `design/fx/README.md`):
+`chomp`, `slash`, `stomp`, `chime`, `heart-burst`, `ooze`, `brand`, `imp-raspberry`, `imp-poke`,
+`charge`, `level-up`, `rad-glow`, `storm-copy`, `dusk`, `dawn`, `ring-tempt`, `your-turn`,
+`spotlight`, `start-flag`, `revive`; `crit` repurposed as a damage effect (the crit band, 20+ in one
+readout); `crown-drop` and `torch` with the owner's art fixes, each with a `-narrow` twin. Dropped on
+principle ("impossible to tell which player is acting"): `coin-spin`, `fumble`. Not approved, still
+candidates here: `bonk`, `nibble`, `refill`, `bunting`, `crown-cut`. The tables below are the T28f
+design notes as written (their frames for `crown-drop` and `torch` are the pre-fix ones; the strips
+in `design/captures/t55-*-before-after.png` show both). The runtime work listed under "Needs from the
+runtime" is done (T55): roles and triggers, size bands, all-seat playback, and the memory question
+(masks for `#`/`o`/`x`/fill layers replaced by rects, `app/.../fx/README.md`).
+
 New effects in the round-two style: dither shading inside the overlays, cut-outs that meet the
 numeral, reach across the tile, open space. Nothing here is wired into the app. The build reads
 `design/fx/<name>/` one level deep, so `design/fx/round3/<name>/` is never picked up (same as

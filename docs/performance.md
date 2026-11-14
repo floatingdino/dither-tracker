@@ -161,6 +161,34 @@ effect invalidates its own seat only, at most one panel = 25 %.)
    the gallery) and, with that seat masked, have the same keyframe sets (claw-cut and fault caught one
    more keyframe than the before run: timing). The JVM purity suite's 1280 shots are byte-identical.
 
+8. **Round three's effects without the memory** (T55). 25 more effects (23 approved, two narrow
+   twins) through the existing path took every scaled-mask cache from 10.3 to **25.9 MB** at S = 4
+   (emulator, 4 players; ~15 MB of it the new effects' ink and knock-out masks). The device effect
+   target now draws `#`, `o`, `x` (in-place invert, API 29+) and `fill` tile layers from each layer's
+   rects (`FxLayer.rects`, runs merged down the rows: 82 a frame on average, 883 at most) with
+   `rect` / `invertRect` / `fill`; only `ink`/`paper` tile layers (a sparse tile through a shape)
+   keep a mask. Pixel-identical (`fx/FxSpansTest`: every frame, rotation and colour mode both ways).
+
+   Emulator (debug, cold start with `--ez trace true`, 7–8 runs; relative numbers only):
+
+   | | before T55 (`b7c2c6e`) | T55, masks | T55, rects (shipped) |
+   |---|---:|---:|---:|
+   | effects in the policy (prewarmed) | 14 | 39 | 39 |
+   | scaled masks after the post-first-frame prewarm | 435, 10.3 MB | 712, 25.9 MB | 498, **8.2 MB** |
+   | prewarm after the first frame (`prewarm later`), median | ~500 ms | ~460 ms | ~440 ms |
+   | effect keyframe `onDraw` (gallery, four seats), median | 0.33–0.38 ms | – | 0.29–0.96 ms |
+
+   (The prewarm runs are noisy on the emulator: 0.13–1.3 s either side. Keyframes drawn from rects cost
+   more record calls on the busiest frames — `winner` 0.38 → 0.72 ms, `ko-shatter` 0.35 → 0.96 ms
+   median on the emulator — still far below a frame; masks built in `onDraw`: 0, allocations per draw:
+   0.) The first-frame prewarm is unchanged (effects are `LATER`).
+
+   **Timing** (T55, the owner: waiting for the readout was too slow): a life effect now starts 300 ms
+   after the seat's last change, from one per-seat one-shot timer in the effects component (no
+   allocation, cancelled on pause); counters and toggles the same. **All seats at once** (day/night):
+   one timer steps every seat's keyframe, so each beat is one flush of the union of the seats'
+   footprints (on four seats most of the screen) — the same masks as one seat, ~4–6× one seat's flips.
+
 ## Regression tests
 
 - `perf/AllocationBudgetTest` — `ThreadMXBean` per-thread allocated bytes over the real Play screen
@@ -186,6 +214,11 @@ effect invalidates its own seat only, at most one panel = 25 %.)
 - Purity suite (`purity/PuritySuiteTest`): every image or sparse tile paint a shot draws must have
   been built by the host's prewarm (`RasterRenderer.warm` / `cold`), so the device never builds a
   bitmap in `onDraw`. (The `effects` script is exempt: it plays the gallery's non-policy effects.)
+- T55: `perf/AllocationBudgetTest` — a counter gain, a toggle and day/night (all seats) with their
+  quiet timer, keyframes and clean frame add nothing over core; `perf/BackgroundTest` — a pending
+  counter or day/night effect, the quiet timer and an all-seat effect leave nothing armed on pause;
+  `purity/FxTiersPurityTest` — every keyframe of every effect on the narrow tier (6 players) and
+  sideways seats (3), S = 2..6, inside its own panel, and what the triggers play there prewarmed.
 - Test infrastructure made allocation-free so these can measure: `RasterRenderer` no longer builds a
   string per pixel or an `IRect` per clip; `FakePlatform.record = false` only counts invalidations.
 
@@ -212,7 +245,7 @@ effect invalidates its own seat only, at most one panel = 25 %.)
   save thread) so a swipe-away right after a tap cannot lose it. Saves are otherwise debounced (1 s
   quiet, at most every 10 s while tapping), written off the main thread, atomically (temp, `fsync`,
   rename) — one ~290-byte write per burst.
-- **Effect masks stay resident** (~9.2 MB of the 10.3 MB) for the whole session, so an effect never
+- **Effect masks stay resident** (since T55 only the `ink`/`paper` tile layers': most of the 8.2 MB) for the whole session, so an effect never
   stalls the tap that triggers it. Building each effect's masks on first use instead would save
   that memory at the cost of a stall (and allocation) at the first commit of each effect.
 - **First frames of a mode still allocate a few objects** (debug trace: up to 52 objects on the

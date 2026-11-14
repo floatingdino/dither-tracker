@@ -1,4 +1,4 @@
-# fx: hit/heal effect engine (T28b, round-two support T28e, wired T28c)
+# fx: effect engine (T28b, round-two support T28e, wired T28c, round three and its triggers T55)
 
 Source art and rules: `design/fx/README.md` (the shipped set, the policy table) and, for the
 round-two format, `design/fx/options/README.md` and `design/fx/options/render2.py` (the reference
@@ -10,9 +10,9 @@ compositor); SPEC rule 4. Effects are always on (no setting).
 | `FxSpec` | Everything about one effect. Each frame is split by symbol into disjoint `FxLayer`s. |
 | `FxOptions` (test-only, `:app:generateFxOptions`) | The same generator run over `design/fx/options/` (the archive), compiled into the unit tests only. |
 | `FxComponent` | The play-screen component (T28c): triggers, cancels, the KO/winner hand-shake, invalidation, drawing, the debug gallery. See "The component". |
-| `FxPolicy` | Which effect: `trigger(net, ko)` and `choose(seat, net, ko, compact)` from per-trigger pools (full / compact seat); a random pick (injected `Random`) that never repeats the seat's previous one. Table in `design/fx/README.md`. |
-| `FxPlayer` | Pure per-seat playback: `play`, `cancel`, `cancelAll`, `current(seat)`, `frame(seat)`, `holdScale`, `maxConcurrent` (2). |
-| `FxRenderer` | Draws one frame: cut, tile layers, knock-out, ink (see "Draw order"); `draw(..., clip)` clips to the seat panel when a footprint crosses it. `prewarm`, `cutUnderlay`. |
+| `FxPolicy` | Which effect: `trigger(net, ko, commander)` (size bands), `escalates`, `choose(seat, trigger, compact, narrowTier)` from per-trigger weighted pools (full / compact seat); a weighted random pick (injected `Random`) that never repeats the seat's previous one; `variant` (a `-narrow` twin on the narrow tier); `counterTrigger` / `toggleTrigger`. Table and weights in `design/fx/README.md`. |
+| `FxPlayer` | Pure per-seat playback: `play`, `playAll` (one effect on many seats, one timer), `cancel`, `cancelAll`, `current(seat)`, `frame(seat)`, `group`, `holdScale`, `maxConcurrent` (2). |
+| `FxRenderer` | Draws one frame: cut, tile layers, knock-out, ink (see "Draw order"); `draw(..., clip)` clips to the seat panel (or a compact seat's area above its drawer) when a footprint crosses it. On the device `#`, `o`, `x` and `fill` tile layers are drawn from rects (`FxLayer.rects`), not masks (see "Memory"). `prewarm`, `cutUnderlay`. |
 | `FxLayout` | Pure placement maths: `place` (the frame footprint from the anchor box, plus the tile rect for `anchor tile`, and the rotation) and `textInkBox`. |
 | `FxDebug` | Debug hooks set by `MainActivity` from intent extras (debuggable builds only). |
 
@@ -58,6 +58,36 @@ before the KO tile. Timers: one per seat for `FxPlayer` (ids = seats) plus one f
   taps come 150–250 ms apart, so a burst stays one group; on the panel a beat is ~250 ms, so the
   first keyframe lands about when the tap's own update settles. Tuned on the emulator (not e-ink):
   confirm on the Nomad.
+- **Other triggers (T55)**, from the state diffs of a seat's **own** actions (`origin == seat`; so
+  never undo, redo, a restore or a menu action, which are `Origin.EXTERNAL`): a counter gained
+  (poison, energy, experience, rad, storm; tickets and generic play nothing), a toggle turned on
+  (monarch, initiative, ring-bearer; the city's blessing plays nothing), day/night set to night or day
+  (from either other state; unset plays nothing), and a revive (the KO tile's tap-tap: KO → alive
+  with no life change). Each waits for the same 300 ms quiet as life, then plays if it is still a
+  gain against the seat's player before the burst (a +1 −1 burst plays nothing), once per trigger
+  per burst (until `BURST_MS` = 3 s pass without a change; a hold plays once). Life wins when both
+  are pending. A counter the drawer doesn't list (`AppSettings.drawerCounters`) or a tracker the
+  settings hide (`AppSettings.shows(Tracker)`, T53) plays nothing. **Commander damage taken**: the
+  target's group (an `Origin.ATTRIBUTED` loss that changed its commander damage) plays the
+  commander pool instead of a hit (a KO still plays the KO flourish); in commander mode it is kept
+  and played when the number is back, like any commit there. **Turn passed** and **first player
+  picked** dispatch as `EXTERNAL` (like an undo), so their components send `Events.TURN_PASSED`
+  (turn tab, seat = screen: the new active seat plays) and `Events.FIRST_PLAYER` (seat = the pick,
+  when it lands) — one line each. A held correction of the turn (`SetActivePlayer`) plays nothing.
+- **All seats at once (T55)**: night and day play `dusk` / `dawn` on every seat that can show an
+  effect (alive, not covered, number visible) through `FxPlayer.playAll`: past the 2-seat cap,
+  replacing plain effects there (a KO or winner flourish keeps its seat), stepped by **one** timer
+  (`FxPlayer.groupTimer`), so each keyframe is one entry point, one invalidation union and one flush
+  for the whole table. Cost: the same masks as one seat (one effect, the layout's rotations), and
+  per keyframe a redraw of the union of the seats' footprints — on 4 seats most of the screen
+  (as a gallery frame; each footprint is clipped to its panel) — once per keyframe, 4 keyframes; the
+  panel only drives the changed pixels (dusk 567 / 1542 / 1169 / 440 flips per seat on the quad
+  tile, so up to ~6 k a beat on 4 seats, ~9 k on 6). A touch on a seat stops it there only.
+- **Compact seats** (drawer open): every effect is clipped to the area above the drawer (the union
+  of `TileSlots.lifeFeedback` halves, i.e. the drawer's upper area), so it never draws over the
+  drawer the player is using; life bands use the light number-anchored pools there.
+- **Narrow tier**: a `<name>-narrow` twin, when there is one, replaces `<name>` (`crown-drop`,
+  `torch`; `FxPolicy.variant`, by `PlayLayout.tier`).
 - **External changes**: a commit that happens while another state change is being dispatched (the
   readout commits everything on undo, redo, new game, a menu action) is ignored, and the
   `Origin.EXTERNAL` change then stops every effect and quiet timer. So do a layout change, a
@@ -77,7 +107,10 @@ before the KO tile. Timers: one per seat for `FxPlayer` (ids = seats) plus one f
   last KO's flourish (or at once for a KO without one, or when the survivor's number is visible
   again). A restored or undone finished game does not celebrate again.
 - **Cap**: `FxPlayer.maxConcurrent` = 2; a third seat just stays clean. KO and winner flourishes
-  make room by stopping a plain hit/heal.
+  make room by stopping another effect (not a KO or winner one). Day/night is the one exception (all
+  seats, above).
+- **Paused**: between `Events.PAUSE` and `Events.RESUME` nothing starts and nothing is armed (a
+  first-player pick landing on pause plays nothing).
 - **Invalidation**: when an effect starts its footprint is stored per seat (`FxLayout.place`,
   clipped to the panel; the whole panel for tile-scale effects) and invalidated on every keyframe and
   on the clean step. Drawing culls by it.
@@ -87,10 +120,17 @@ before the KO tile. Timers: one per seat for `FxPlayer` (ids = seats) plus one f
 - **Draw**: `FxRenderer.draw(spec, frame, footprint, panel, rotation, clip = panel)`, in the same
   pass after the number, so `x` cuts invert the drawn number. Dark mode needs nothing. On API < 29
   `cutUnderlay` is unset, so `x` layers are skipped there (the Nomad is API 30).
-- **Prewarm**: only what `FxPolicy` can pick (every effect while the gallery is requested), on the
-  layout's own rotations. Memory: masks are full-frame ALPHA_8 at S², about 30 MB at S = 4 for the
-  policy's 14 effects (a tile-scale layer is 650 KB; `x` and tile layers twice, for the turned
-  seats). Cropping masks to each layer's ink bounds would cut most of that (for T20).
+- **Prewarm**: only what `FxPolicy` can pick, narrow twins included (every effect while the gallery
+  is requested), on the layout's own rotations, after the first frame (`Prewarm.LATER`).
+- **Memory (T55)**: the renderer caches a scaled ALPHA_8 mask (S² bytes per dither px of the ink
+  box) per image. Round three would have taken the effect masks from ~9 MB to ~24 MB at S = 4
+  (emulator trace: 10.3 → 25.9 MB in all). So on the device `FxRenderer` draws the `#`, `o`, `x`
+  (where the renderer inverts in place: API 29+, the Nomad) and `fill` tile layers from each layer's
+  rects (`FxLayer.rects`: runs merged down the rows; 82 rects per frame on average, 883 at most,
+  `winner`) with `rect`, `invertRect` and `fill`; only `ink` / `paper` tile layers (a sparse tile
+  through a shape) keep a mask. Every mask cache in all: **8.2 MB** (was 10.3 before T55),
+  prewarm after the first frame about the same (emulator, `docs/performance.md`). Pixel identity:
+  `FxSpansTest` draws every frame of every effect at every rotation in both colour modes both ways.
 - **No allocation** per keyframe or draw (`FxComponentTest` measures it).
 
 ## Debug gallery (debuggable builds only)
@@ -101,6 +141,7 @@ Intent extras, read by `MainActivity` into `FxDebug`; never reachable from the U
 |---|---|
 | `--es fx <name>` | Sets every life to `fxLife` and plays that effect on all four seats at once, then 2 s clean, repeating until a touch. |
 | `--es fx all` | The same, cycling through every shipped effect in `Fx` order (alphabetical), looping. |
+| (T55) | The gallery plays every effect on every seat, `dusk`/`dawn` included; in play those two are the only all-seat effects. |
 | `--ei fxLife N` | The gallery's life total (default 37, the total the designs were drawn over). |
 | `--ef fxHold X` | Every hold × X (`FxPlayer.holdScale`), in the gallery and in normal play. |
 
@@ -117,7 +158,8 @@ $A -s <serial> shell am start -S -n $P/.MainActivity --es fx all --ef fxHold 1.5
 ## Adding an effect
 
 Put the folder in `design/fx/<name>/` with an explicit `role` line, then add it to a pool in
-`FxPolicy` (or leave it for the gallery). `FxGeneratedTest` covers it automatically; update the
+`FxPolicy.DEFAULT_FULL` (and `DEFAULT_COMPACT` where the compact pool differs) with a weight, or leave
+it for the gallery. A `<name>-narrow` folder is that effect's narrow-tier twin (no pool entry). `FxGeneratedTest` covers it automatically; update the
 expected set in `FxPromotionTest`. Candidates stay in `design/fx/options/` until promoted.
 
 ## meta.txt as parsed

@@ -60,7 +60,7 @@ def main():
         for name, info in author3.EFFECTS.items():
             if info['group'] != g:
                 continue
-            p = os.path.join(HERE, name)
+            p = author3.effect_dir(name)   # promoted ones live in design/fx/ (T55)
             lab = [f'{info["size"]} / {info["role"]}', short(info['trigger']),
                    'hold ' + ' '.join(holds(p)), tiers(p)]
             rows.append((p, name, lab))
@@ -70,7 +70,7 @@ def main():
         print('wrote', out)
     if not a.only or 'narrow' in a.only:
         out = os.path.join(a.out, 't28f-narrow.png')
-        rows = allrows or [(os.path.join(HERE, n), n, []) for n in author3.EFFECTS]
+        rows = allrows or [(author3.effect_dir(n), n, []) for n in author3.EFFECTS]
         render3.sheet(rows, render3.NARROW, out, 't28f all candidates: narrow tile 155x175, s=4',
                       a.number, cols=3)
         print('wrote', out)

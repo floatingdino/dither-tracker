@@ -23,6 +23,15 @@ ROWS = [
     ('sunrise', 'big heal|tile'), ('vines', 'big heal|tile'),
     ('ko-shatter', 'ko|tile'), ('fizzle', 'ko|compact'), ('winner', 'last standing|tile'),
     ('fault', 'damage|tile, unused'),
+    # Round three (T55)
+    ('slash', 'damage'), ('chomp', 'damage|big, rare'), ('stomp', 'big hit|huge'), ('crit', 'big hit|crit 20+'),
+    ('chime', 'heal'), ('heart-burst', 'heal|huge'),
+    ('imp-raspberry', 'commander'), ('imp-poke', 'commander'), ('ooze', 'poison'), ('brand', 'poison'),
+    ('charge', 'energy'), ('level-up', 'experience'), ('rad-glow', 'rad'), ('storm-copy', 'storm'),
+    ('crown-drop', 'monarch'), ('crown-drop-narrow', 'monarch|narrow tier'),
+    ('torch', 'initiative'), ('torch-narrow', 'initiative|narrow tier'), ('ring-tempt', 'ring'),
+    ('dusk', 'night|all seats'), ('dawn', 'day|all seats'), ('your-turn', 'turn'), ('spotlight', 'turn, rare'),
+    ('start-flag', 'first player'), ('revive', 'revive'),
 ]
 
 
