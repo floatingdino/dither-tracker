@@ -58,6 +58,17 @@ before the KO tile. Timers: one per seat for `FxPlayer` (ids = seats) plus one f
   taps come 150–250 ms apart, so a burst stays one group; on the panel a beat is ~250 ms, so the
   first keyframe lands about when the tap's own update settles. Tuned on the emulator (not e-ink):
   confirm on the Nomad.
+- **Never under a finger** (T55 follow-up, the owner: "Effects should not trigger while a hold is in
+  progress within that tile"): while any pointer is down on one of a seat's zones — life halves,
+  commander quarters, drawer cells, the turn tab, pressed or not yet (`PlayInput.zoneOf` per pointer,
+  `Stage.zoneSeat`) — that seat's quiet timer does not fire: it looks again every `HELD_POLL_MS`
+  (100 ms, the same one timer) and, once the finger has lifted, runs a full 300 ms quiet from there.
+  So a hold plays once, 300–400 ms after the release, sized by the whole group (a −30 hold: one crit,
+  not one per step and none mid-hold); a hold that starts during an effect cancels it at touch-down
+  and nothing replays until the release (and then only a bigger band). A group that commits while
+  the finger is still down is kept and played after the release. Counter, toggle and commander
+  effects the same. Other seats are unaffected; an all-seat effect (dusk/dawn) skips a held tile,
+  as do the turn and first-player effects. Nothing is armed while paused.
 - **Other triggers (T55)**, from the state diffs of a seat's **own** actions (`origin == seat`; so
   never undo, redo, a restore or a menu action, which are `Origin.EXTERNAL`): a counter gained
   (poison, energy, experience, rad, storm; tickets and generic play nothing), a toggle turned on

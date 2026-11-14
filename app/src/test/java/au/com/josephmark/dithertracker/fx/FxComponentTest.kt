@@ -150,23 +150,25 @@ class FxComponentTest {
         rig.stage.up(p)
     }
 
-    @Test fun aLongHoldPlaysOnceNotPerRepeatStep() {
+    @Test fun aLongHoldPlaysOnceAfterItsReleaseNotPerRepeatStep() {
         val (rig, fx) = rig()
         val r = rig.l.zones[PlayLayout.zone(2, PlayLayout.PLUS)]
         rig.stage.down(0, r.right - 8, (r.top + r.bottom) / 2, 0)
+        repeat(80) {
+            rig.platform.clock.advance(100) // hold steps every second (+10 each)
+            assertNull("nothing while the finger is down", fx.player.current(2))
+        }
+        rig.stage.up(0)
+        assertTrue(rig.session.state.players[2].life > 40)
         var starts = 0
         var was: Fx? = null
-        repeat(80) {
-            rig.platform.clock.advance(100) // hold steps every second (+10 each): one band from the first step on
+        repeat(60) {
+            rig.platform.clock.advance(50)
             val now = fx.player.current(2)
             if (now != null && was == null) starts++
             was = now
         }
-        rig.stage.up(0)
-        assertTrue(rig.session.state.players[2].life > 40)
-        assertEquals("one effect for the whole hold", 1, starts)
-        rig.platform.clock.advance(window)
-        assertNull(fx.player.current(2))
+        assertEquals("one effect for the whole hold, after it", 1, starts)
     }
 
     @Test fun aHoldThatCrossesZeroStopsAtTheKoAndPlaysKoShatterOnceWithTheDeadTileHeld() {
@@ -174,13 +176,13 @@ class FxComponentTest {
         val ko = rig.stage.components.filterIsInstance<au.com.josephmark.dithertracker.ko.KoComponent>().single()
         val r = rig.l.zones[PlayLayout.zone(2, PlayLayout.MINUS)]
         rig.stage.down(0, r.left + 8, (r.top + r.bottom) / 2, 0)
-        rig.platform.clock.advance(500 + quiet) // 40 → 30, quiet: the huge hit plays mid-hold, once
-        assertEquals(FxRole.BIG_HIT, fx.player.current(2)!!.role)
-        rig.platform.clock.advance(3 * 1_000 - quiet) // → 20 → 10 → 0: KO (no replay for −20, −30)
+        rig.platform.clock.advance(500 + quiet) // 40 → 30: the finger is down, nothing plays
+        assertNull(fx.player.current(2))
+        rig.platform.clock.advance(3 * 1_000 - quiet) // → 20 → 10 → 0: KO; the KO tile takes the seat's touches
         assertEquals(0, rig.session.state.players[2].life)
         assertTrue("dead tile held off at the KO (KO_HOLD)", (ko.held ushr 2) and 1 != 0)
         assertNull(fx.player.current(2))
-        rig.platform.clock.advance(quiet)
+        rig.platform.clock.advance(quiet + FxComponent.HELD_POLL_MS)
         assertEquals("the KO flourish a short quiet after the KO", Fx.byName("ko-shatter"), fx.player.current(2))
         assertTrue("still held while it plays", (ko.held ushr 2) and 1 != 0)
         rig.platform.clock.advance(2_000)
@@ -430,6 +432,111 @@ class FxComponentTest {
         rig.cmd.mode.exit()
         assertEquals(listOf(target), playing(fx))
         assertEquals(FxRole.COMMANDER, fx.player.current(target)!!.role)
+    }
+
+    // ---- no effect under a finger (T55 follow-up, the owner) -------------------------------------------
+
+    private fun press(rig: PlayRig, pointer: Int, seat: Int, side: Int) {
+        val r = rig.l.zones[PlayLayout.zone(seat, side)]
+        val x = if ((side == PlayLayout.MINUS) == (rig.l.rotation[seat] == 0)) r.left + 8 else r.right - 8
+        rig.stage.down(pointer, x, (r.top + r.bottom) / 2, 0)
+    }
+
+    @Test fun aHoldPlaysExactlyOneEffectAfterTheRelease() {
+        val (rig, fx) = rig()
+        press(rig, 0, 2, PlayLayout.MINUS)
+        var starts = 0
+        var was: Fx? = null
+        repeat(30) { // 3 s down: −10 at 0.5, 1.5 and 2.5 s
+            rig.platform.clock.advance(100)
+            assertNull("nothing while the finger is down (${it * 100 + 100} ms)", fx.player.current(2))
+        }
+        assertEquals(10, rig.session.state.players[2].life)
+        rig.stage.up(0)
+        repeat(40) {
+            rig.platform.clock.advance(50)
+            val now = fx.player.current(2)
+            if (now != null && was == null) starts++
+            was = now
+        }
+        assertEquals("one effect for the whole hold", 1, starts)
+        rig.stage.up(0)
+        // Sized by the whole group (−30: the crit band), and nothing more until the next group.
+        assertEquals(1, starts)
+        rig.platform.clock.advance(10_000)
+        assertNull(fx.player.current(2))
+    }
+
+    @Test fun theEffectStartsAQuietAfterTheReleaseNotBefore() {
+        val (rig, fx) = rig()
+        press(rig, 0, 1, PlayLayout.MINUS)
+        rig.platform.clock.advance(1_200) // one step (−10), then the finger stays down
+        rig.stage.up(0)
+        rig.platform.clock.advance(quiet - 1)
+        assertNull("not before a full quiet after the release", fx.player.current(1))
+        rig.platform.clock.advance(FxComponent.HELD_POLL_MS + 1)
+        assertEquals(FxRole.BIG_HIT, fx.player.current(1)!!.role) // −10: the huge band (focus/stomp)
+    }
+
+    @Test fun tapsThenAHoldPlayTheTapsThenOnceMoreAfterTheHoldOnlyIfItEscalated() {
+        val (rig, fx) = rig()
+        tap(rig.stage, rig.l, 3, PlayLayout.MINUS, times = 2)
+        rig.platform.clock.advance(quiet)
+        assertEquals("the taps' small hit", FxRole.DAMAGE, fx.player.current(3)!!.role)
+        press(rig, 0, 3, PlayLayout.MINUS)
+        assertNull("the hold's touch-down cancels it cleanly", fx.player.current(3))
+        rig.platform.clock.advance(1_800) // −12 so far, finger down
+        assertNull(fx.player.current(3))
+        rig.stage.up(0)
+        rig.platform.clock.advance(quiet + FxComponent.HELD_POLL_MS)
+        assertEquals("escalated: one bigger effect after the release", FxRole.BIG_HIT, fx.player.current(3)!!.role)
+    }
+
+    @Test fun aHoldOnOneSeatLeavesTheOthersAlone() {
+        val (rig, fx) = rig()
+        press(rig, 5, 0, PlayLayout.PLUS) // its own pointer (the tap helper uses pointer 0)
+        tap(rig.stage, rig.l, 2, PlayLayout.MINUS)
+        rig.platform.clock.advance(quiet)
+        assertEquals("seat 2 plays while seat 0 is held", FxRole.DAMAGE, fx.player.current(2)!!.role)
+        assertNull(fx.player.current(0))
+        // An all-seat effect skips the held tile only.
+        rig.platform.clock.advance(5_000)
+        rig.stage.dispatch(1, Action.SetDayNight(DayNight.NIGHT))
+        rig.platform.clock.advance(quiet)
+        assertEquals(listOf(1, 2, 3), playing(fx))
+        rig.stage.up(5)
+    }
+
+    @Test fun aHeldDrawerCellPlaysItsCounterEffectOnlyAfterTheRelease() {
+        val (rig, fx) = rig()
+        // The finger is down on seat 2 (a life half stands in for any of its zones) while its poison goes up.
+        press(rig, 0, 2, PlayLayout.PLUS)
+        rig.stage.dispatch(2, Action.ChangeCounter(rig.id(2), Counter.POISON, 1))
+        rig.platform.clock.advance(450) // before its first repeat: no life change
+        assertNull(fx.player.current(2))
+        rig.stage.cancel() // lifted without applying
+        rig.platform.clock.advance(quiet + FxComponent.HELD_POLL_MS)
+        assertTrue(fx.player.current(2)?.id in listOf("ooze", "brand"))
+    }
+
+    @Test fun pauseDuringAHoldLeavesNoQuietTimerArmedAndTheLookAgainAllocatesNothing() {
+        val (rig, fx) = rig()
+        press(rig, 0, 2, PlayLayout.MINUS)
+        rig.platform.clock.advance(600)
+        val id = rig.stage.timerId(fx, fx.quietTimer(2))
+        assertTrue("the quiet timer looks again while held", rig.platform.clock.isArmed(id))
+        val bean = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
+        val tid = Thread.currentThread().id
+        repeat(20) { fx.onTimer(fx.quietTimer(2)) } // warm
+        var best = Long.MAX_VALUE
+        repeat(5) {
+            val before = bean.getThreadAllocatedBytes(tid)
+            repeat(100) { fx.onTimer(fx.quietTimer(2)) }
+            best = minOf(best, bean.getThreadAllocatedBytes(tid) - before)
+        }
+        assertEquals("bytes per 100 held looks", 0L, best)
+        rig.stage.send(Events.PAUSE, Stage.SCREEN)
+        assertTrue(!rig.platform.clock.isArmed(id))
     }
 
     // ---- KO and winner -------------------------------------------------------------------------------

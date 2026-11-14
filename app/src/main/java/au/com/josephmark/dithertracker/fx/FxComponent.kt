@@ -16,6 +16,7 @@ import au.com.josephmark.dithertracker.stage.Frame
 import au.com.josephmark.dithertracker.stage.Kind
 import au.com.josephmark.dithertracker.stage.Layer
 import au.com.josephmark.dithertracker.stage.Origin
+import au.com.josephmark.dithertracker.stage.PlayInput
 import kotlin.random.Random
 
 /**
@@ -30,6 +31,9 @@ import kotlin.random.Random
  *   so taps or a hold that stay in a band never replay. The net is mirrored from the state diffs the
  *   readout itself adds (the seat's own taps; [Origin.ATTRIBUTED] life loss, i.e. commander damage on
  *   the target). A group that commits before it went quiet plays at the commit. [FxPolicy] picks.
+ *   **Never under a finger** (T55, the owner): while a pointer is down on any of the seat's zones
+ *   (a hold, a held drawer cell…) its quiet timer only looks again every [HELD_POLL_MS]; the full
+ *   quiet starts from the release, so a hold plays once, after it, sized by the whole group.
  * - **KO**: when a seat's life group KOs it, [Events.KO_HOLD] keeps the dead treatment off while the
  *   group is still open; once it is quiet `ko-shatter` (or `fizzle` when compact) plays and
  *   [Events.KO_RELEASE] follows when it ends, is cancelled or can't play. **Last player standing**:
@@ -206,8 +210,12 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
 
     /** A life change on [seat]: (re)start its quiet timer; the effect starts when it fires. */
     private fun armQuiet(seat: Int) {
+        heldSeats = heldSeats and (1 shl seat).inv() // a full quiet from now (held: it looks again)
         if (!paused) timers.schedule(QUIET_TIMER + seat, quietMs)
     }
+
+    /** Tests: [seat]'s quiet timer as a local timer id. */
+    internal fun quietTimer(seat: Int): Int = QUIET_TIMER + seat
 
     /** Between [Events.PAUSE] and [Events.RESUME]: nothing starts, nothing is armed. */
     private var paused = false
@@ -218,6 +226,18 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
      * keep the total in the same band play nothing more; escalating into a bigger band plays again.
      */
     private fun onQuiet(seat: Int) {
+        // A finger still down on this tile (a ±10 hold, a held drawer cell…): nothing starts until
+        // it lifts (T55, the owner). Look again shortly; the full quiet then runs from the release.
+        if (held(seat)) {
+            heldSeats = heldSeats or (1 shl seat)
+            timers.schedule(QUIET_TIMER + seat, HELD_POLL_MS)
+            return
+        }
+        if (heldSeats and (1 shl seat) != 0) {
+            heldSeats = heldSeats and (1 shl seat).inv()
+            armQuiet(seat) // released since the last look: the quiet starts now
+            return
+        }
         val state = stage.session.state
         val p = pending[seat]
         val b = base[seat]
@@ -228,7 +248,34 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
         if (!stage.isVisible(content, seat)) return // the number is hidden: kept for the commit / the mode closing
         val n = net[seat]
         if (n != 0 && fire(seat, n, state)) return
+        val d = deferred[seat]
+        if (n == 0 && d != 0) { // committed while the finger was still down
+            deferred[seat] = 0
+            val c = deferredCmdr and (1 shl seat) != 0
+            deferredCmdr = deferredCmdr and (1 shl seat).inv()
+            fire(seat, d, state, commander = c)
+            fired[seat] = 0
+            return
+        }
         if (p >= 0) firePending(seat, TRIGGERS[p], b, state)
+    }
+
+    /** Seats whose quiet timer found a finger down at its last look (it re-arms in full on release). */
+    private var heldSeats = 0
+
+    /**
+     * Whether a pointer is down on one of [seat]'s zones — any component's (life halves, commander
+     * quarters, drawer cells, the turn tab…), pressed or not yet (T57's `PlayInput.isDown` per zone).
+     * No allocation: the stage's pointer table.
+     */
+    private fun held(seat: Int): Boolean {
+        val input = stage.input
+        if (input.downCount == 0) return false
+        for (pointer in 0 until PlayInput.MAX_POINTERS) {
+            val z = input.zoneOf(pointer)
+            if (z >= 0 && stage.zoneSeat(z) == seat) return true
+        }
+        return false
     }
 
     /**
@@ -262,7 +309,7 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
     private fun fireNow(seat: Int, trigger: FxPolicy.Trigger) {
         val state = stage.session.state
         if (seat !in 0 until minOf(P, state.players.size)) return
-        if (!shows(seat, state)) return
+        if (!shows(seat, state) || held(seat)) return
         val fx = policy.choose(seat, trigger, t?.compact(seat) == true, narrowTier()) ?: return
         start(seat, fx, priority = false)
     }
@@ -277,7 +324,7 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
         val fx0 = policy.choose(-1, trigger, false, narrowTier()) ?: return // one effect for the table
         var mask = 0
         for (s in 0 until minOf(P, state.players.size)) {
-            if (!shows(s, state)) continue
+            if (!shows(s, state) || held(s)) continue // not over a tile a finger is holding
             // A KO or winner flourish keeps its seat; a compact seat plays it above its drawer (place).
             if (player.current(s)?.let { it.role == FxRole.KO || it.role == FxRole.WIN } == true) continue
             place(s, fx0)
@@ -311,6 +358,13 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
         if (state !== seen) return
         if (n == 0 || seat >= state.players.size || played) {
             if (koHeld and bit != 0) release(seat)
+            return
+        }
+        if (held(seat) && visible(seat) && stage.isVisible(content, seat) && koHeld and bit == 0) {
+            // Committed under a finger still down on the tile: play it a quiet after the release.
+            deferred[seat] += n
+            if (wasCmdr) deferredCmdr = deferredCmdr or bit
+            armQuiet(seat)
             return
         }
         // Nothing played yet for this group (committed before it went quiet, or hidden meanwhile).
@@ -546,6 +600,7 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
         burstFired.fill(0)
         cmdr = 0
         deferredCmdr = 0
+        heldSeats = 0
         for (s in 0 until P) if ((koHeld or koPlaying) and (1 shl s) != 0) stage.send(Events.KO_RELEASE, s)
         koHeld = 0
         koPlaying = 0
@@ -630,6 +685,9 @@ class FxComponent(random: Random = Random(System.nanoTime())) :
 
         /** A counter / toggle burst plays each trigger once until this long passes without a change (the readout's window). */
         const val BURST_MS = 3_000L
+
+        /** While a finger is down on a seat with an effect waiting, how often its quiet timer looks again. */
+        const val HELD_POLL_MS = 100L
 
         private val TRIGGERS = FxPolicy.Trigger.values()
         private val COUNTERS = Counter.values()
