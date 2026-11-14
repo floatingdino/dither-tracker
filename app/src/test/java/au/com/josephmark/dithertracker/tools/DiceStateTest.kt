@@ -67,8 +67,13 @@ class DiceStateTest {
         for (o in 0 until Outcome.COUNT) {
             for ((p, min, beats) in listOf(Triple(slow, Presentation.MIN_HOLD_MS, 3..5), Triple(fast, Presentation.MIN_HOLD_FAST_MS, 5..7))) {
                 val total = p.totalMs(o)
-                assertTrue("outcome $o: $total ms", total in 800L..1500L)
+                assertTrue("outcome $o: $total ms", total in 800L..1700L)
                 for (i in 0 until p.beats(o)) assertTrue(p.holdMs(o, i) >= min)
+                // T65: uneven on purpose — the landing holds longest, the tumble is not one beat.
+                val n = p.beats(o)
+                for (i in 0 until n - 1) assertTrue("the landing sits longest", p.holdMs(o, n - 1) > p.holdMs(o, i))
+                assertTrue("not a uniform tumble", (0 until n - 1).map { p.holdMs(o, it) }.distinct().size > 1)
+                assertTrue("the landing sits ≥ 600 ms", p.holdMs(o, n - 1) >= 600)
                 assertTrue("tumbling keyframes then a landing: ${p.beats(o)}", p.beats(o) in beats)
             }
             // T59: the fast display gets more poses, never a longer roll.
@@ -181,12 +186,13 @@ class DiceStateTest {
     @Test fun aRollDuringThePresentationStartsAFreshOneNeverQueues() {
         val r = Rig()
         r.state.open()
-        r.timers.advance(260) // into the second keyframe
+        val into = Presentation.SLOW_TOSS + 10
+        r.timers.advance(into) // into the second keyframe
         assertEquals(1, r.state.beat)
         r.state.roll(Tool.D6)
         assertEquals(DiceState.ROLLING, r.state.phase)
         assertEquals(0, r.state.beat)
-        assertEquals(260 + r.state.presentation!!.holdMs(r.state.outcome, 0), r.timers.dueAt(DiceState.TIMER_FRAME))
+        assertEquals(into + r.state.presentation!!.holdMs(r.state.outcome, 0), r.timers.dueAt(DiceState.TIMER_FRAME))
         playThrough(r)
         assertEquals(Tool.D6, r.state.tool)
         // Exactly one reveal: the first presentation was replaced, not queued.

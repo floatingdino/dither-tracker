@@ -53,18 +53,30 @@ class Presentation internal constructor(
         /** Variant A, "tumble across the face" (the shipped one), for a slow display: 3 tumbling poses. */
         val TUMBLE: Presentation get() = Built.slow
 
-        /** The same for a fast display (T59): 5 tumbling poses at 150 ms, the same total time. */
+        /** The same for a fast display (T59): 5 tumbling poses, uneven holds (T65). */
         val TUMBLE_FAST: Presentation get() = Built.fast
 
         /** [TUMBLE_FAST] or [TUMBLE] for `eink.DisplaySpeed` [speed]. */
         fun tumble(speed: Int): Presentation = if (speed == au.com.josephmark.dithertracker.eink.DisplaySpeed.FAST) TUMBLE_FAST else TUMBLE
 
-        private const val TOSS = 250L
-        private const val BOUNCE = 250L
-        private const val SKID = 250L
-        private const val LAND = 300L
-        private const val LAND_BIG = 400L
-        private const val POSE_FAST = 150L
+        // ---- Timing (T65): uneven on purpose — anticipate, move fast, settle, hold the read. --------
+        // Slow display (every hold ≥ MIN_HOLD_MS): the toss and the skid (slowing down) a touch longer
+        // than the bounce, then the landing stamp held clearly longest.
+        const val SLOW_TOSS = 300L
+        const val SLOW_BOUNCE = 250L
+        const val SLOW_SKID = 300L
+        const val SLOW_LAND = 600L
+        const val SLOW_LAND_BIG = 750L
+
+        // Fast display (≥ MIN_HOLD_FAST_MS): a wind-up, three quick middle poses (the throw), a slower
+        // last pose, then the landing — the stamp sits.
+        const val FAST_TOSS = 200L
+        const val FAST_FLY = 130L
+        const val FAST_BOUNCE = 120L
+        const val FAST_TUMBLE = 130L
+        const val FAST_SKID = 200L
+        const val FAST_LAND = 650L
+        const val FAST_LAND_BIG = 800L
 
         /** Both share one sprite table (one [SpriteSet], one set of masks). */
         private object Built {
@@ -96,18 +108,20 @@ class Presentation internal constructor(
                 // result box and lands there (it travels towards the face's start, so the speed ticks
                 // trail to its right). Fast: the same path in five poses.
                 fun tumbleBeats(first: Int, mid: Int): Array<Beat> = if (!fast) arrayOf(
-                    Beat(TOSS, Beat.NONE, Place(first, t, 1000, 0, 1000, 0, dx = -10), Place(trail, t, 1000, 0, 1000, 0, dy = 8)),
-                    Beat(BOUNCE, Beat.NONE, Place(first + 1, t, 560, 1000, 500, 1000), Place(dust, t, 560, 1000, 500, 1000, dy = 1)),
-                    Beat(SKID, Beat.NONE, Place(first + 2, t, 250, 300, 500, 300), Place(trail, t, 250, 300, 0, 300, dx = 15)),
+                    Beat(SLOW_TOSS, Beat.NONE, Place(first, t, 1000, 0, 1000, 0, dx = -10), Place(trail, t, 1000, 0, 1000, 0, dy = 8)),
+                    Beat(SLOW_BOUNCE, Beat.NONE, Place(first + 1, t, 560, 1000, 500, 1000), Place(dust, t, 560, 1000, 500, 1000, dy = 1)),
+                    Beat(SLOW_SKID, Beat.NONE, Place(first + 2, t, 250, 300, 500, 300), Place(trail, t, 250, 300, 0, 300, dx = 15)),
                 ) else arrayOf(
-                    Beat(POSE_FAST, Beat.NONE, Place(first, t, 1000, 0, 1000, 0, dx = -10), Place(trail, t, 1000, 0, 1000, 0, dy = 8)),
-                    Beat(POSE_FAST, Beat.NONE, Place(mid, t, 780, 500, 500, 500), Place(trail, t, 780, 500, 0, 500, dx = 15)),
-                    Beat(POSE_FAST, Beat.NONE, Place(first + 1, t, 560, 1000, 500, 1000), Place(dust, t, 560, 1000, 500, 1000, dy = 1)),
-                    Beat(POSE_FAST, Beat.NONE, Place(mid + 1, t, 400, 550, 500, 550), Place(trail, t, 400, 550, 0, 550, dx = 15)),
-                    Beat(POSE_FAST, Beat.NONE, Place(first + 2, t, 250, 300, 500, 300), Place(trail, t, 250, 300, 0, 300, dx = 15)),
+                    Beat(FAST_TOSS, Beat.NONE, Place(first, t, 1000, 0, 1000, 0, dx = -10), Place(trail, t, 1000, 0, 1000, 0, dy = 8)),
+                    Beat(FAST_FLY, Beat.NONE, Place(mid, t, 780, 500, 500, 500), Place(trail, t, 780, 500, 0, 500, dx = 15)),
+                    Beat(FAST_BOUNCE, Beat.NONE, Place(first + 1, t, 560, 1000, 500, 1000), Place(dust, t, 560, 1000, 500, 1000, dy = 1)),
+                    Beat(FAST_TUMBLE, Beat.NONE, Place(mid + 1, t, 400, 550, 500, 550), Place(trail, t, 400, 550, 0, 550, dx = 15)),
+                    Beat(FAST_SKID, Beat.NONE, Place(first + 2, t, 250, 300, 500, 300), Place(trail, t, 250, 300, 0, 300, dx = 15)),
                 )
                 fun land(hold: Long, result: Int, vararg extra: Place) = Beat(hold, result, *extra)
                 val impactRight = Place(impact, b, 1000, 500, 0, 500, dx = 3)
+                val LAND = if (fast) FAST_LAND else SLOW_LAND
+                val LAND_BIG = if (fast) FAST_LAND_BIG else SLOW_LAND_BIG
 
                 val d20Land = land(LAND, Beat.PLATE, impactRight)
                 val nat20 = land(
@@ -121,20 +135,20 @@ class Presentation internal constructor(
                     Place(sweat, b, 1000, 0, 0, 0, dx = 2, dy = 1), Place(puff, b, 1000, 1000, 0, 1000, dx = 2),
                 )
                 val coinBeats = if (!fast) arrayOf(
-                    Beat(TOSS, Beat.NONE, Place(coin, t, 1000, 500, 1000, 500, dx = -2),
+                    Beat(SLOW_TOSS, Beat.NONE, Place(coin, t, 1000, 500, 1000, 500, dx = -2),
                         Place(arcUp, t, 1000, 0, 1000, 0, dx = -6), Place(arcDown, t, 1000, 1000, 1000, 1000, dx = -6)),
-                    Beat(BOUNCE, Beat.NONE, Place(coin + 1, t, 600, 0, 500, 0, dy = 3),
+                    Beat(SLOW_BOUNCE, Beat.NONE, Place(coin + 1, t, 600, 0, 500, 0, dy = 3),
                         Place(arcDown, t, 600, 0, 500, 0, dy = 10)),
-                    Beat(SKID, Beat.NONE, Place(coin + 2, t, 260, 1000, 500, 1000),
+                    Beat(SLOW_SKID, Beat.NONE, Place(coin + 2, t, 260, 1000, 500, 1000),
                         Place(trail, t, 260, 1000, 0, 1000, dx = 12, dy = -3)),
                 ) else arrayOf(
-                    Beat(POSE_FAST, Beat.NONE, Place(coin, t, 1000, 500, 1000, 500, dx = -2),
+                    Beat(FAST_TOSS, Beat.NONE, Place(coin, t, 1000, 500, 1000, 500, dx = -2),
                         Place(arcUp, t, 1000, 0, 1000, 0, dx = -6), Place(arcDown, t, 1000, 1000, 1000, 1000, dx = -6)),
-                    Beat(POSE_FAST, Beat.NONE, Place(coinMid, t, 800, 250, 500, 250), Place(arcUp, t, 800, 0, 500, 0, dy = -1)),
-                    Beat(POSE_FAST, Beat.NONE, Place(coin + 1, t, 600, 0, 500, 0, dy = 3),
+                    Beat(FAST_FLY, Beat.NONE, Place(coinMid, t, 800, 250, 500, 250), Place(arcUp, t, 800, 0, 500, 0, dy = -1)),
+                    Beat(FAST_BOUNCE, Beat.NONE, Place(coin + 1, t, 600, 0, 500, 0, dy = 3),
                         Place(arcDown, t, 600, 0, 500, 0, dy = 10)),
-                    Beat(POSE_FAST, Beat.NONE, Place(coinMid + 1, t, 430, 600, 500, 500)),
-                    Beat(POSE_FAST, Beat.NONE, Place(coin + 2, t, 260, 1000, 500, 1000),
+                    Beat(FAST_TUMBLE, Beat.NONE, Place(coinMid + 1, t, 430, 600, 500, 500)),
+                    Beat(FAST_SKID, Beat.NONE, Place(coin + 2, t, 260, 1000, 500, 1000),
                         Place(trail, t, 260, 1000, 0, 1000, dx = 12, dy = -3)),
                 )
                 val heads = land(LAND, Beat.PLAIN, impactRight, Place(twinkle, b, 500, 0, 0, 0, dx = 8, dy = -1))
