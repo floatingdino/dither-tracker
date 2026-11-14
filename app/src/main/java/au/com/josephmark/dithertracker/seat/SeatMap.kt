@@ -115,6 +115,7 @@ class SeatMap private constructor(
         fun positions(len: Int): IntArray {
             val b0 = bounds.first()
             val s = bounds.last() - b0
+            if (s <= 0.0) return IntArray(bounds.size) // T62: a degenerate table (a window a few px across) has no extent
             return IntArray(bounds.size) { ((bounds[it] - b0) / s * (len - 1)).roundToInt() }
         }
 
