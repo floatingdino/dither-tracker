@@ -64,12 +64,25 @@ times in the same place (more ghosting risk on the panel, and it hides the box t
 and "travel then land" reads as a throw from across the table; B's still-life rattle reads as
 waiting. B is cheaper in time (950 ms) if A feels long on the Nomad.
 
-## First player: the "ME?" beat
+## First player: the d20 roll-off (T59)
 
-The FIRST facet picks at once but first holds one keyframe (450 ms): every live seat's badge band
-outlined in dots with "ME?" facing its player. Then the pick lands — turn tracking starts (so the turn
-tab cannot give it away early) and the chosen seat gets its badge; the other bands clear in the same
-redraw. A touch, the menu or a pause lands it at once.
+"Re-imagine first player as simultaneous d20 rolls — take over the player tiles for the animation, then
+life total digits are repurposed for the result." The FIRST facet makes every live seat roll a d20 at
+once, on its own tile (KO'd seats sit it out):
+
+| beat | every rolling tile | hold |
+|---|---|---|
+| take-over | the life total, ±, peeks, badges, drawer, readout, effects and turn tab give way (a cover); the tile gets a **double ink frame** and "D20" where the readout sits — unmistakably not a life total | — |
+| tumble | the dice panel's d20 tumbling across the tile, scaled to two thirds of the hero numerals and turned with the seat; each seat starts on a different pose | slow 3 × 250 ms, fast 5 × 150 ms |
+| landed | every roll in the hero numerals, where the life total was; the highest gets the **FIRST flag** — an ink pennant (notched ends) in the under-number row with the line, e.g. "ON THE PLAY" | 1600 ms |
+| tie | the tied seats' bands outlined in dots with "TIE!", then only they roll again (as above); at most 3 rounds, then a random pick among them | 700 ms |
+| back | the tiles return to their life totals; turn tracking starts from the winner (one undo step); T55's `start-flag` effect plays on the winner's tile as the **sting**; the FIRST flag stays on | 4 s, or the next touch |
+
+A tap during the tumble lands every roll at once; a tap on the landing goes straight back; pause
+finishes it. The "ME?" beat and the old badge are gone (the flag replaces the badge). The first-player
+lines were retuned to say who starts: "On the play", "First out the gates", "You lead off", "Kick us
+off", "Top of the order", "Floor's yours", "Opening act", "Turn one is yours", "Set the pace", "Lead the
+charge". Code: `tools/FirstRoll` (state), `tools/TileRollLayout` (geometry), `tools/FirstPlayer`.
 
 ## Partner tab (commander-damage mode)
 

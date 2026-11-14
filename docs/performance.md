@@ -307,9 +307,13 @@ effect invalidates its own seat only, at most one panel = 25 %.)
   armed only while a presentation plays; a tap skips to the result; `Events.PAUSE` shows the result and
   drops it and the panel's 30 s idle timeout (re-armed on `RESUME`). The sprites are built at layout
   (scaled, both face rotations) and prewarmed after the first frame with the other overlays; drawing a
-  keyframe allocates nothing. The first-player pick holds one "ME?" keyframe (450 ms, dotted bands on the
-  live seats), then lands: two redraws of the bands, one timer, landed on pause (its badge's 5 s clear
-  timer waits for resume).
+  keyframe allocates nothing. The first-player roll-off (T59) takes over the live tiles: one redraw of
+  those panels per tumbling pose (3 slow, 5 fast), one at the landing (and per tie beat), one when the
+  tiles come back — a whole panel each, though only the die, the numerals and the frame change. One
+  step timer while it runs, the flag's 4 s clear timer after; pause finishes it with nothing armed
+  (the clear timer waits for resume). Its sprites (the d20's five poses, ticks, dust at about twice the
+  panel's scale, in the layout's rotations) are built at layout and prewarmed LATER: ~1–2 MB of masks
+  at S = 4.
 - **Keep awake** holds `FLAG_KEEP_SCREEN_ON` on the play window only while resumed and the setting is
   on; no wake locks otherwise (`dumpsys power`: none while idle).
 

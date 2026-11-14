@@ -143,14 +143,15 @@ class BackgroundTest {
         assertEquals("", armed(rig))
     }
 
-    /** T52: the first-player "ME?" beat lands on pause; the badge's clear timer waits for resume. */
-    @Test fun pauseDuringTheFirstPlayerBeatLandsIt() {
+    /** T59: the first-player roll-off lands on pause, uncovers the tiles; the flag's clear timer waits for resume. */
+    @Test fun pauseDuringTheFirstPlayerRollOffLandsIt() {
         val rig = ScreenRig(1872, 1404, 4)
         val first = rig.stage.components.filterIsInstance<FirstPlayer>().single()
         rig.openFromMenu(MenuItem.FIRST)
-        assertTrue(first.isAsking)
+        assertTrue(first.roll.active)
+        rig.advance(200)
         rig.stage.send(Events.PAUSE, Stage.SCREEN)
-        assertFalse(first.isAsking)
+        assertFalse(first.roll.active)
         assertTrue(first.seat >= 0)
         assertEquals(rig.id(first.seat), rig.session.state.turn.startingPlayer)
         assertEquals("timers armed after pause", "", armed(rig))

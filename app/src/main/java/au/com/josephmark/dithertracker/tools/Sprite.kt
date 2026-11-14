@@ -12,39 +12,57 @@ import au.com.josephmark.dithertracker.dither.Tile
  * never allocates). Symbols as `DiceSprites`: paper (`o`), tile layers (`1` D4, `2` D8, `3` D12,
  * `v` VLINES, at global phase) and ink (`#`), drawn in that order; `.` is left alone.
  */
-internal class Sprite(rows: Array<String>, val k: Int) {
+internal class Sprite(rows: Array<String>, val k: Int, allTurns: Boolean = false) {
+    /** Upright size (at rotation 0 / 180; turned a quarter it is [height] × [width]). */
     val width: Int = rows[0].length * k
     val height: Int = rows.size * k
 
-    private val paper = arrayOfNulls<MonoImage>(2)
-    private val ink = arrayOfNulls<MonoImage>(2)
-    private val tiles = arrayOfNulls<MonoImage>(2 * TILE_CODES.length)
+    private val paper = arrayOfNulls<MonoImage>(4)
+    private val ink = arrayOfNulls<MonoImage>(4)
+    private val tiles = arrayOfNulls<MonoImage>(4 * TILE_CODES.length)
 
     init {
-        for (rot in 0..1) {
-            paper[rot] = mask(rows, 'o', rot == 1)
-            ink[rot] = mask(rows, '#', rot == 1)
-            for (t in TILE_CODES.indices) tiles[rot * TILE_CODES.length + t] = mask(rows, TILE_CODES[t], rot == 1)
+        for (q in 0 until 4) {
+            if (!allTurns && q % 2 == 1) continue
+            paper[q] = mask(rows, 'o', q)
+            ink[q] = mask(rows, '#', q)
+            for (t in TILE_CODES.indices) tiles[q * TILE_CODES.length + t] = mask(rows, TILE_CODES[t], q)
         }
     }
 
-    private fun mask(rows: Array<String>, c: Char, turned: Boolean): MonoImage? {
-        val bits = BooleanArray(width * height)
+    /** The symbol [c]'s mask turned [q] quarter turns clockwise, or null when the sprite has none. */
+    private fun mask(rows: Array<String>, c: Char, q: Int): MonoImage? {
+        val w = if (q % 2 == 0) width else height
+        val h = if (q % 2 == 0) height else width
+        val bits = BooleanArray(w * h)
         var any = false
-        for (y in 0 until height) for (x in 0 until width) {
-            val sx = if (turned) width - 1 - x else x
-            val sy = if (turned) height - 1 - y else y
-            if (rows[sy / k][sx / k] == c) { bits[y * width + x] = true; any = true }
+        for (y in 0 until h) for (x in 0 until w) {
+            val sx: Int
+            val sy: Int
+            when (q) {
+                0 -> { sx = x; sy = y }
+                1 -> { sx = y; sy = height - 1 - x }
+                2 -> { sx = width - 1 - x; sy = height - 1 - y }
+                else -> { sx = width - 1 - y; sy = x }
+            }
+            if (rows[sy / k][sx / k] == c) { bits[y * w + x] = true; any = true }
         }
-        return if (any) BitMask(width, height, bits) else null
+        return if (any) BitMask(w, h, bits) else null
     }
 
-    /** Draws the sprite with its top-left at (x, y); [rotation] 0 or 180. Allocation-free. */
+    /** Width / height on screen at [rotation]. */
+    fun widthAt(rotation: Int): Int = if (rotation == 90 || rotation == 270) height else width
+    fun heightAt(rotation: Int): Int = if (rotation == 90 || rotation == 270) width else height
+
+    /**
+     * Draws the sprite with its (turned) top-left at (x, y); [rotation] 0 / 180, or 90 / 270 when built
+     * with all turns. Allocation-free.
+     */
     fun draw(r: DitherRenderer, x: Int, y: Int, rotation: Int) {
-        val rot = if (rotation == 180) 1 else 0
-        paper[rot]?.let { r.blit(it, x, y, invert = true) }
-        for (t in TILE_CODES.indices) tiles[rot * TILE_CODES.length + t]?.let { r.fillMask(it, x, y, TILE[t]) }
-        ink[rot]?.let { r.blit(it, x, y) }
+        val q = (rotation / 90) and 3
+        paper[q]?.let { r.blit(it, x, y, invert = true) }
+        for (t in TILE_CODES.indices) tiles[q * TILE_CODES.length + t]?.let { r.fillMask(it, x, y, TILE[t]) }
+        ink[q]?.let { r.blit(it, x, y) }
     }
 
     companion object {

@@ -9,7 +9,7 @@ import au.com.josephmark.dithertracker.type.Fonts
 import au.com.josephmark.dithertracker.widgets.TextWrap
 
 /**
- * Where the first-player highlight goes (T16, pure): an inked band in the chosen tile's under-number
+ * Where the first player's FIRST flag goes (T16, the flag since T59; pure): an inked band in the chosen tile's under-number
  * row — the free middle between the counter-peek corners, the same place the T15 winner caption
  * uses (peek corners + [PlayLayout.V_MIN]) — with the caption in paper caps, wrapped to at most
  * [MAX_LINES] lines at the largest `ui` scale that fits, in the player's own orientation (mapped
@@ -40,6 +40,9 @@ class FirstPlayerLayout(val play: PlayLayout) {
     val kMax: Int = maxOf(1, play.tk)
     val askKMax: Int = 2 * kMax
 
+    /** How deep the FIRST flag's pennant notches cut into its ends (T59). */
+    val notch: Int = Chrome.size(NOTCH, s)
+
     /** Arranged result ([arrange]). */
     val band = IRect()
     var k = 1
@@ -59,7 +62,7 @@ class FirstPlayerLayout(val play: PlayLayout) {
         bandRect(seat, band)
         lines = 0
         if (!enabled) return
-        val w = right - left - 2 * padH
+        val w = right - left - 2 * (padH + notch)
         val h = bottom - top - 2 * padV
         var kk = kMax
         while (true) {
@@ -90,22 +93,27 @@ class FirstPlayerLayout(val play: PlayLayout) {
     }
 
     /**
-     * The "ME?" beat's text (T52): [len] `ui` glyphs centred on [seat]'s band at the largest scale
+     * A short word on a band (T59: the "TIE!" flag): [len] `ui` glyphs centred on [seat]'s band at the largest scale
      * ≤ [askKMax] (twice the badge's: three glyphs, to be read from across the table) that fits inside the dotted outline with [padH]/[padV] clear. Writes the text's
      * footprint (screen) into [out]; returns the scale, or 0 when not even 1× fits (cramped S: the
      * dotted outline alone asks).
      */
-    fun askFootprint(seat: Int, len: Int, out: IRect): Int {
+    fun shortFootprint(seat: Int, len: Int, out: IRect): Int {
         val w = right - left - 2 * padH - 2
-        val h = bottom - top - 2 * padV - 2
         var kk = askKMax
-        while (kk > 1 && (ui.widthOf(len, kk) > w || ui.capHeight * kk > h)) kk--
-        if (ui.widthOf(len, kk) > w || ui.height(kk) > bottom - top - 2) return 0
-        val tw = ui.widthOf(len, kk)
-        val capTop = top + (bottom - top - ui.capHeight * kk) / 2
-        play.mapRect(seat, left + (right - left - tw) / 2, capTop - ui.capTop * kk, tw, ui.height(kk), out)
-        return kk
+        while (kk >= 1) {
+            val tw = ui.widthOf(len, kk)
+            val capTop = top + (bottom - top - ui.capHeight * kk) / 2
+            val boxTop = capTop - ui.capTop * kk
+            if (tw <= w && boxTop >= top + 1 && boxTop + ui.height(kk) <= bottom - 1) {
+                play.mapRect(seat, left + (right - left - tw) / 2, boxTop, tw, ui.height(kk), out)
+                return kk
+            }
+            kk--
+        }
+        return 0
     }
+
 
     private fun blockH(k: Int, n: Int): Int = if (n <= 0) 0 else n * ui.capHeight * k + (n - 1) * lineGap
 
@@ -114,5 +122,6 @@ class FirstPlayerLayout(val play: PlayLayout) {
         const val PAD_H = 3
         const val PAD_V = 2
         const val LINE_GAP = 3
+        const val NOTCH = 4
     }
 }

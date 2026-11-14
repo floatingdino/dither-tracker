@@ -123,9 +123,9 @@ class TurnTabTest {
         assertNull(r.c.pointOf(r.turn, 0, TurnTab.PASS))
         // The menu's FIRST tool picks someone and starts tracking from them.
         r.c.one<FirstPlayer>().pick()
-        // T52: the pick lands after the "ME?" beat; until then no tab gives it away.
+        // T59: the pick lands after the d20 roll-off; until then no tab gives it away.
         assertEquals(-1, r.turn.shownSeat)
-        r.c.advance(FirstPlayer.WHO_MS)
+        r.c.advance(10 * au.com.josephmark.dithertracker.tools.FirstRoll.LANDED_MS)
         val seat = r.active()
         assertEquals(seat, r.turn.shownSeat)
         assertEquals(1, r.c.session.state.turn.number)

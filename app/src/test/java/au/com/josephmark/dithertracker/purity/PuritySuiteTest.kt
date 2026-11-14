@@ -21,6 +21,7 @@ import au.com.josephmark.dithertracker.tools.DiceOverlay
 import au.com.josephmark.dithertracker.tools.DiceState
 import au.com.josephmark.dithertracker.eink.DisplaySpeed
 import au.com.josephmark.dithertracker.tools.FirstPlayer
+import au.com.josephmark.dithertracker.tools.FirstRoll
 import au.com.josephmark.dithertracker.tools.Outcome
 import au.com.josephmark.dithertracker.tools.Presentation
 import au.com.josephmark.dithertracker.turns.TurnTab
@@ -440,12 +441,27 @@ class PuritySuiteTest(private val w: Int, private val h: Int, private val s: Int
         rig.cancel()
         rig.tap(dice, Stage.SCREEN, DiceLayout.CLOSE)
         rig.advance(1_000)
-        rig.openFromMenu(MenuItem.FIRST)
-        shot("76_first_player_asking")
-        rig.advance(FirstPlayer.WHO_MS)
-        shot("76_first_player")
-        rig.advance(10_000)
-        shot("77_first_player_gone")
+        // T59: the d20 roll-off on the tiles — every keyframe, both display speeds, the landing with
+        // the FIRST flag, the tiles back with the flag, then gone.
+        val first = rig.stage.components.filterIsInstance<FirstPlayer>().single()
+        for (speed in intArrayOf(DisplaySpeed.SLOW, DisplaySpeed.FAST)) try {
+            DisplaySpeed.override = speed
+            val sp = DisplaySpeed.name(speed)
+            rig.openFromMenu(MenuItem.FIRST)
+            var i = 0
+            while (first.roll.active && i < 30) {
+                val ph = first.roll.phase
+                shot("76_first_${sp}_${i}_${if (ph == FirstRoll.ROLLING) "pose${first.roll.beat}" else if (ph == FirstRoll.TIE) "tie" else "landed"}")
+                rig.advance(if (ph == FirstRoll.ROLLING) 100 else 400)
+                i++
+            }
+            rig.advance(700) // past an overlay-close screen clean, if one runs
+            shot("76_first_${sp}_flag")
+            rig.advance(10_000)
+            shot("77_first_${sp}_gone")
+        } finally {
+            DisplaySpeed.override = DisplaySpeed.NO_OVERRIDE
+        }
     }
 
     // ---- T17: turn tracker and timer ---------------------------------------------------------------------------

@@ -109,16 +109,18 @@ internal object QuipTables {
 
     // --- Table tools ---------------------------------------------------------------------------
 
-    /** Caption under the chosen player's name (the name is drawn separately). */
+    /** The FIRST flag on the roll-off's winner (T59: informative — who starts — in the table's voice). */
     val startingPlayer = listOf(
-        "Goes first. No pressure",
-        "Don't blow it",
-        "Opens. Make it a good land",
-        "First in, first targeted",
-        "Off you go then",
-        "Goes first. Everyone noticed",
-        "Clock's ticking",
-        "Chosen at random. Honestly",
+        "On the play",
+        "First out the gates",
+        "You lead off",
+        "Kick us off",
+        "Top of the order",
+        "Floor's yours",
+        "Opening act",
+        "Turn one is yours",
+        "Set the pace",
+        "Lead the charge",
     )
 
     val d20Natural1 = listOf(

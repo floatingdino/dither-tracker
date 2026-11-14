@@ -168,7 +168,7 @@ tap 1182 702; sleep 1               # close X
 
 # --- first player ----------------------------------------------------------------------------------------
 tap 934 702; sleep 1; tap 934 934   # gem -> FIRST
-sleep 1.5                           # T52: the "ME?" beat (450 ms), then the badge
+sleep 3                             # T59: the d20 roll-off on the tiles (~2.4 s), then the FIRST flag
 cap 28_first_player
 sleep 6                             # the badge clears after 5 s
 

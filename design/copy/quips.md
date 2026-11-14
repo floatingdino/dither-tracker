@@ -126,15 +126,17 @@ strings at the bottom are used instead.
 - Leave at once!
 - It's a secret to everybody.
 
-### Starting player *(under name)*
-- Goes first. No pressure
-- Don't blow it
-- Opens. Make it a good land
-- First in, first targeted
-- Off you go then
-- Goes first. Everyone noticed
-- Clock's ticking
-- Chosen at random. Honestly
+### Starting player *(the FIRST flag on the roll-off winner, T59)*
+- On the play
+- First out the gates
+- You lead off
+- Kick us off
+- Top of the order
+- Floor's yours
+- Opening act
+- Turn one is yours
+- Set the pace
+- Lead the charge
 
 ### d20: natural 1
 - Yikes
