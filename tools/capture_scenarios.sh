@@ -150,25 +150,27 @@ sleep 1
 cap_pressed 22_press_gem_dice 702 702 # DICE held; release opens the dice panel
 
 # --- dice / coin panel ---------------------------------------------------------------------------------
-sleep 1
+# T52: each roll first plays its ~1.1 s presentation (a tap during it only skips to the result), so
+# every capture waits 2 s for the result; the keyframes themselves are tools/capture_t52.sh's.
+sleep 2
 cap 23_dice_d20
-tap 810 702; sleep 1                # d6
+tap 810 702; sleep 2                # d6
 cap 24_dice_d6
-tap 1058 702; sleep 1               # coin
+tap 1058 702; sleep 2               # coin
 cap 25_coin
 cap_pressed 26_press_again 934 702  # AGAIN held; release flips again
-sleep 1
+sleep 2
 cap 27_coin_again
 tap 1182 702; sleep 1               # close X
 
 # --- first player ----------------------------------------------------------------------------------------
-tap 934 702; sleep 1; tap 934 934   # gem -> FIRST
-sleep 1
+tap 934 934                         # FIRST (T51: the gem is still open under the closed dice panel)
+sleep 1.5                           # T52: the "ME?" beat (450 ms), then the badge
 cap 28_first_player
 sleep 6                             # the badge clears after 5 s
 
 # --- settings card (opened from the SETUP facet) --------------------------------------------------------
-tap 934 702; sleep 1; tap 1050 818
+tap 1050 818                        # SETUP (the gem is still open)
 sleep 1
 cap 29_settings
 cap_pressed 30_press_settings_row 934 702   # "Invert" row held; release toggles it (dark mode)
@@ -186,10 +188,12 @@ tap 1514 1278                       # its close X, turned with it to the lower r
 sleep 1
 
 # --- history card -----------------------------------------------------------------------------------------
-tap 934 702; sleep 1; tap 818 586   # gem -> LOG
+tap 818 586                         # LOG (the gem is still open under the closed settings card)
 sleep 1
 cap 34_history
 tap 2 2                             # outside the card: closed
+sleep 1
+tap 934 702                         # T51: the gem is still open under the card; its centre X closes it
 sleep 1
 
 # --- KO and winner -------------------------------------------------------------------------------------------
