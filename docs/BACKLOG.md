@@ -96,7 +96,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T55 | wip | T28f T20 | Promote Sam's round-three effect approvals into the runtime: chomp, slash, stomp, chime, heart-burst, brand, imp-raspberry, imp-poke, every counter effect (ooze, charge, level-up, rad-glow, storm-copy), dusk, dawn, ring-tempt, your-turn, spotlight, start-flag, revive; crit repurposed as a damage effect; crown-drop with the crown lined up between frames 1 and 2; torch with its firelight circle completed (may pass behind the − glyph). Dropped: coin and die effects (can't tell which player acted). Not approved: bonk, nibble, refill, bunting, crown-cut. Needs effect types/triggers for counters, toggles, turn and first player; hit-size bands; all-seat playback. | `fx/`, `design/fx/` |
 | T56 | review | T17 | Sam: the delta is a touch too close to the life number — centre it in the space between the number and the top of the tile. | `readout/` |
 | T57 | wip | T51 T55 | Tap responsiveness on the panel (slow-mo, `docs/eink.md`): the press inversion holds a region busy ~450 ms before the result can show. Proposal: show press feedback only after a touch has been down ≈100–150 ms, so quick taps go straight to the result in one update (action still on release); try the vendor fast waveform for our window; consider a faster hold repeat. | `stage/`, `play/PlayInput`, `eink/` |
-| T58 | wip | T19b | Faster display modes: the Nomad's framework has a per-View e-ink mode (`View.setEinkUpdateMode`, DU/A2/…); the call succeeds from our debug build (`--ei einkMode N`, `eink/EinkViewMode.kt`). To find out: does the panel respond faster, which mode, ghosting cost, per-region modes (fast for taps, GC for cleans), and whether a release build is allowed to call it. | `eink/` |
+| T58 | review | T19b | Faster display modes: the Nomad's framework has a per-View e-ink mode (`View.setEinkUpdateMode`, DU/A2/…); the call succeeds from our debug build (`--ei einkMode N`, `eink/EinkViewMode.kt`). To find out: does the panel respond faster, which mode, ghosting cost, per-region modes (fast for taps, GC for cleans), and whether a release build is allowed to call it. | `eink/` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -732,3 +732,16 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   are off by one — mapping in empty commit `b20af43`. 5-player wide near pair not built (needs two
   tile sizes in one game). **Needs Sam:** which arrangements to keep; 5p wide pair; end seats read
   the gem/dice sideways; thumbnails size. In `review`. Running: T55, T57, T58.
+- 2026-11-14 — Tick 73: T58 reported (`66c9701`, `0280fee`, `47057b6`, `292fc66`); code commits
+  covered by the coordinator's clean build at `47057b6` (176 core + 2068 app). Fast e-ink mode is a
+  feature: `eink/EinkViewMode` + `ViewModeGuard` (Supernote only, reflection resolved once, any
+  failure disables for the session), DU by default (`AppSettings.fastDisplay`, a flag bit, no format
+  bump), applied after `setContentView`, on resume and on setting change; setting lives on a SCREEN
+  page behind `›` on the Screen clean row (Supernote only). **A non-debuggable release build may make
+  the call** (checked on the Nomad with a side-by-side `.t58` package: mode read back 1, no hidden-API
+  warning). Optional GC clean behind `--ez gcClean true` (default stays the black flash). The mode
+  sticks across pause/resume and sleep. `docs/eink.md` has "Display modes (T58, as built)".
+  Note: the Nomad's save changed at 10:59 (Scale 3, fresh game) before the agent's first action —
+  presumably Sam using the device; the earlier state is in `local/nomad-save-backup/save-t58.dtsv`.
+  **Needs Sam's eyes:** GC clean vs flash; whether FAST wants a lower clean threshold; A2/DUX.
+  In `review`. Running: T55, T57.
