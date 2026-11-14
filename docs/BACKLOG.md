@@ -95,6 +95,7 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
 | T53 | wip | T11 T12 | Sam: settings page renamed "Counters and trackers", trackers (monarch, initiative, blessing, ring, day/night) toggleable like counters. Layout exploration à la Lotus (reference in untracked `local/reference/`): a chevron after the Players row opens the layouts for that player count. | `settings/`, `layout/`, `drawer/` |
 | T55 | wip | T28f T20 | Promote Sam's round-three effect approvals into the runtime: chomp, slash, stomp, chime, heart-burst, brand, imp-raspberry, imp-poke, every counter effect (ooze, charge, level-up, rad-glow, storm-copy), dusk, dawn, ring-tempt, your-turn, spotlight, start-flag, revive; crit repurposed as a damage effect; crown-drop with the crown lined up between frames 1 and 2; torch with its firelight circle completed (may pass behind the − glyph). Dropped: coin and die effects (can't tell which player acted). Not approved: bonk, nibble, refill, bunting, crown-cut. Needs effect types/triggers for counters, toggles, turn and first player; hit-size bands; all-seat playback. | `fx/`, `design/fx/` |
 | T56 | review | T17 | Sam: the delta is a touch too close to the life number — centre it in the space between the number and the top of the tile. | `readout/` |
+| T57 | todo (needs Sam's call) | T51 T55 | Tap responsiveness on the panel (slow-mo, `docs/eink.md`): the press inversion holds a region busy ~450 ms before the result can show. Proposal: show press feedback only after a touch has been down ≈100–150 ms, so quick taps go straight to the result in one update (action still on release); try the vendor fast waveform for our window; consider a faster hold repeat. | `stage/`, `play/PlayInput`, `eink/` |
 | T43 | done | T08 T37 | **Drawer counters need an obvious way to go down / reset** (Sam, 2026-11-14). Today the left half of a cell decrements but nothing shows it. Give each counter cell visible − and + affordances (at least once the value is non-zero), and a quick reset to zero (e.g. hold on −), with the press model unchanged (act on release; slow hold-repeat). Emulator 5568. | `drawer/` |
 
 ### Phase 3 — Table tools
@@ -676,3 +677,8 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   literal centre between numeral and tile edge (that would touch the tab when it appears). Same
   70×14 rect. In `review`: Sam to say if the literal centre (delta jumping when the tab shows) is
   preferred. Running: T51, T52, T53, T55.
+- 2026-11-14 — Tick 67: Sam sent slow-mo clips 1–4 (taps, drawer/menu, hold, hits). Analysed frame by
+  frame; findings in `docs/eink.md` "Slow-motion findings". Headline: partial updates confirmed, no
+  full flash on big diffs, optical change ~85 ms, but every press inversion stays ~450 ms before the
+  result appears (panel busy), so a tap takes ~0.7–0.8 s to show. T57 proposed (delay press feedback
+  so quick taps skip the inversion). Running: T51, T52, T53, T55.

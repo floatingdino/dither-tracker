@@ -299,3 +299,35 @@ capture passes `tools/check_1bit.py --scale 4`. Not judged: anything about the p
    flash for the session). Seat cleans always use the black flash.
 7. Battery (T20): with the setting on and the table idle, `dumpsys alarm` / CPU stay flat — at most one
    2 s timer after the last action while a clean is due, none otherwise.
+
+## Slow-motion findings (2026-11-14, clips 1–4)
+
+Source: four phone clips of the Nomad (240 fps capture; the exported files are 30 fps at quarter
+speed, so one exported frame = 1/120 s — calibrated against the 1000 ms hold repeat, which measures
+131 frames). Build on the device predates T55/T56. Measured from frame differences on fixed regions;
+the instant of finger contact cannot be seen from the camera angle, so touch-to-ink figures are
+estimates from when the finger stops moving.
+
+| Question | Finding |
+|---|---|
+| E1 partial updates | Confirmed. Nothing outside the touched seat changes during taps, holds or effects. |
+| E8 large diffs | A drawer opening and the gem opening/closing do **not** trigger a full-screen flash; they cross-fade (old image ghosted for ~1 frame of the strip) in roughly 70–130 ms. |
+| Optical transition time | A press inversion goes light→dark in about 10 frames ≈ 85 ms. The panel's visible change is fast. |
+| Touch → first ink | Roughly 0.2–0.25 s (estimate). |
+| **Press → result** | **The press inversion stays on screen for 54–56 frames ≈ 450–470 ms on every tap measured (four life taps, the gem diamond), including one where the finger had already left the frame.** That is too constant to be finger time: the panel does not start the release frame on a region until the press frame's update has finished. So a quick tap costs touch → ~0.2 s → inversion → ~0.45 s → result: about 0.7–0.8 s to see the number change or the drawer/menu open. |
+| Coalescing | Three quick taps showed one inversion and then jumped straight to −3: frames arriving while the region is busy are dropped and the latest wins. |
+| E6 hold repeat | Steps land cleanly at the 1000 ms cadence with the half still inverted; nothing merges or smears. There is room to go faster (a step is visible well inside 500 ms). |
+| Effects | Keyframes land as distinct, crisp frames (pow burst, dotted ring); a faint ghost of the ring remains for a moment after it clears. The 3-damage hit waited ~2 s (the readout commit) before the effect began — T55 moves the trigger earlier. |
+
+**Consequence.** Our drawing is not the bottleneck (1–7 ms), nor is the optical transition (~85 ms);
+it is the ~450 ms the panel holds a region busy after the press inversion. Levers, in order:
+1. Don't spend an update on the inversion for quick taps: show press feedback only once a touch has
+   been down longer than a short threshold (≈100–150 ms), so a tap goes straight to its result in one
+   update, and a hold still inverts. Action stays on release. (Decision pending — it changes the
+   "press = inversion" rule for quick taps.)
+2. A faster waveform for our window (vendor refresh mode, E4/E10) would shorten the busy time itself.
+3. Press feedback that doesn't overlap the pixels the result changes would let both updates run at
+   once — hard for life halves (the numeral is inside the half), plausible for the drawer tab and gem.
+
+Still to film: clean flash (E3/E4), effects gallery and lightest dithers after T55 lands, stills of
+ghost build-up, system Auto Refresh on/off (E7).
