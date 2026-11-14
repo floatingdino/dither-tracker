@@ -5,7 +5,7 @@ frames 4
 role heal
 anchor centre 0 0
 tile 1 D2 ink
-hold_ms 350 350 250 0
+hold_ms 400 300 250 0
 ink_px 348 936 234 0
 knockout_px 558 440 146 0
 tile_px 10376 0 0 0

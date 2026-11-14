@@ -4,7 +4,7 @@ frames 3
 role heal
 anchor tile 0 0
 tile 1 D4 ink
-hold_ms 300 350 0
+hold_ms 250 400 0
 ink_px 0 156 0
 knockout_px 0 101 0
 tile_px 1144 3774 0

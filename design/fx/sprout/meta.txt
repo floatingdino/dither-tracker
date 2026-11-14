@@ -3,7 +3,7 @@ size 32 28
 frames 4
 role heal
 anchor top 0 -14
-hold_ms 300 350 250 0
+hold_ms 250 400 250 0
 ink_px 52 136 8 0
 knockout_px 56 96 0 0
 flips 52 164 144 8   # total 368 dither px = 5888 device px, over sample "37"

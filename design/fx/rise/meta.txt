@@ -3,7 +3,7 @@ size 233 175
 frames 4
 role heal
 anchor tile 0 0
-hold_ms 300 300 250 0
+hold_ms 250 350 250 0
 ink_px 342 430 20 0
 knockout_px 248 396 0 0
 flips 342 772 450 20   # total 1584 dither px = 25344 device px, over sticker "37" in a full tile
