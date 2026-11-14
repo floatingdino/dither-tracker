@@ -6,9 +6,14 @@ anti-aliasing, and shading comes from dither patterns at an integer scale. The a
 animations beyond short frame-by-frame hit effects, so the e-ink panel redraws as little as
 possible.
 
-It covers four players around one device: life totals, commander damage, commander tax, poison and
-other counters, a game log with undo and redo, dice and a coin, and a first-player pick. Saves are
-kept on the device and survive the app being killed.
+It covers two to six players around one device, in a choice of seating layouts: life totals,
+commander damage and partners, commander tax, poison and other counters, monarch, initiative and
+day/night, a turn tracker with optional turn or game times, a game log with undo and redo, dice and
+a coin, and a d20 roll-off for who goes first. Saves are kept on the device and survive the app
+being killed.
+
+Releases, with a signed APK to sideload: the repository's Releases page. What changed in each:
+[CHANGELOG.md](CHANGELOG.md).
 
 Which other devices it works on: [docs/compatibility.md](docs/compatibility.md).
 
@@ -145,7 +150,8 @@ itself: the name from the tag, the code from the workflow run number.
 
 `.github/workflows/release.yml` builds the signed release APK and attaches it to a GitHub Release.
 
-To cut a release, push a tag that starts with `v`:
+To cut a release, either publish a release drafted on GitHub with a new tag that starts with `v`
+(the workflow attaches the APK to it), or push such a tag yourself:
 
 ```bash
 git tag v0.2.0

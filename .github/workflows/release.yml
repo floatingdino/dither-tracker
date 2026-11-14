@@ -1,6 +1,7 @@
 # Builds the release APK and publishes it to GitHub Releases.
 #
 #   - Push a tag like v0.2.0  → tests, signed release APK, GitHub Release "v0.2.0" with the APK attached.
+#   - Or publish a release drafted on GitHub with a new tag v0.2.0 → the same run attaches the APK to it.
 #   - Run manually (Actions → Release APK → Run workflow) → same build, APK kept as a workflow
 #     artifact only; tick "publish" to also create a Release from the chosen ref.
 #
@@ -104,10 +105,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then tag="${GITHUB_REF_NAME}"; else tag="build-${GITHUB_RUN_NUMBER}"; fi
-          gh release create "$tag" "$APK" "$APK.sha256" \
-            --target "${GITHUB_SHA}" \
-            --title "Dither ${{ steps.version.outputs.name }}" \
-            --generate-notes
+          # A release drafted by hand and then published creates the tag, which starts this run: the
+          # release already exists, so attach the APK to it. Otherwise create the release.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$APK" "$APK.sha256" --clobber
+          else
+            gh release create "$tag" "$APK" "$APK.sha256" \
+              --target "${GITHUB_SHA}" \
+              --title "Dither ${{ steps.version.outputs.name }}" \
+              --generate-notes
+          fi
 
       - name: Remove the signing key
         if: always()
