@@ -354,5 +354,5 @@ drop rather than "fix" one. The wider bench (with spares for dice, reset and his
 | Go home and be a family man! | Go home and be a family man! | Street Fighter II (1991, arcade) | Legends of Localization (?p=944) (original casing unconfirmed) | Winner |
 | How are you gentlemen !! | HOW ARE YOU GENTLEMEN !! | Zero Wing (1991, Mega Drive) | Wikiquote: Zero Wing | Winner |
 | Fatality | FATALITY | Mortal Kombat (1992, arcade) | Added by Sam 2026-11-14; announcer line and on-screen text, not re-checked against a source | KO: life |
-| Hurt by poison! | <NAME>'s hurt by poison! | Pokemon Red / Blue (Game Boy) | Added by Sam 2026-11-14 as the tail of the battle message; exact wording not re-checked against pokered | KO: poison |
+| Hurt by poison! | <NAME>'s hurt by poison! | Pokemon Red / Blue (Game Boy) | Source confirmed by Sam 2026-11-14 (Pokemon Red); the tail of the battle message, shown without the name | KO: poison |
 | Flawless victory | FLAWLESS VICTORY | Mortal Kombat (1992, arcade) | Added by Sam 2026-11-14; announcer line and on-screen text, not re-checked against a source | Winner |
