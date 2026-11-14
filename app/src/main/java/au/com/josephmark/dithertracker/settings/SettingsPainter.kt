@@ -3,7 +3,6 @@ package au.com.josephmark.dithertracker.settings
 import au.com.josephmark.dithertracker.dither.IRect
 import au.com.josephmark.dithertracker.dither.Icon
 import au.com.josephmark.dithertracker.dither.Role
-import au.com.josephmark.dithertracker.layout.Arrangements
 import au.com.josephmark.dithertracker.type.TextLayout
 import au.com.josephmark.dithertracker.widgets.WidgetCanvas
 import au.com.josephmark.dithertracker.widgets.WidgetFrame
@@ -80,10 +79,6 @@ class SettingsPainter(val canvas: WidgetCanvas) {
         }
         scratch.setXywh(0, 0, w, m.rowH)
         widgets.text(warmFrame, m, m.ui, DIGITS, 0, DIGITS.length, scratch, TextLayout.START, invert = false, opaque = false)
-        // The layout picker's labels, plain and selected (T53).
-        for (a in Arrangements.ALL) for (inv in BOOLS) {
-            widgets.text(warmFrame, m, m.ui, a.label, 0, a.label.length, scratch, TextLayout.START, invert = inv, opaque = false)
-        }
         widgets.text(warmFrame, m, m.ui, WARM_EXTRA, 0, WARM_EXTRA.length, scratch, TextLayout.START, invert = false, opaque = false)
         for (ic in PREWARM_ICONS) canvas.blit(widgets.scaledIcon(ic, m.k), 0, 0, 0, invert = false, opaque = false)
         // A paged list's footer chevron at the end of its pages is a disabled (hatched) button: its icon sits on its halo (T53: the counters page pages).
@@ -92,8 +87,7 @@ class SettingsPainter(val canvas: WidgetCanvas) {
 
     companion object {
         private const val DIGITS = "0123456789/"
-        private val BOOLS = booleanArrayOf(false, true)
-        private const val WARM_EXTRA = LayoutPickerRow.NEEDS_SCALE + LayoutPickerRow.TOO_SMALL + LayoutPickerRow.TITLE + LayoutPickerRow.TITLE_END
+        private const val WARM_EXTRA = LayoutPickerRow.NEEDS_SCALE + LayoutPickerRow.NEEDS_SCALE_END + LayoutPickerRow.TOO_SMALL + LayoutPickerRow.TITLE + LayoutPickerRow.TITLE_END + "0123456789/"
         private val PAGER_ICONS = arrayOf(Icon.CHEVRON_LEFT, Icon.CHEVRON_RIGHT)
         private val PREWARM_ICONS = arrayOf(Icon.CHECK, Icon.CHEVRON_LEFT, Icon.CHEVRON_RIGHT, Icon.ROTATE, Icon.CLOSE) +
             SettingsTable.COUNTER_ICONS + SettingsTable.TRACKER_ICONS

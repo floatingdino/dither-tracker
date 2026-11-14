@@ -16,6 +16,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import au.com.josephmark.dithertracker.type.TextLayout
 import org.junit.Test
 import java.io.File
 
@@ -90,10 +91,17 @@ class LayoutPickerTest {
                 assertSame(cs[i], r.grid.items[i])
                 val ok = PlayLayout.compute(DitherGrid(1872, 1404, 4), n, cs[i].id).comfortable
                 assertEquals("$n ${cs[i].id}", ok, r.grid.enabledAt[i])
-                assertEquals("$n ${cs[i].id} hit", ok, r.card.region.indexOf(r.grid.id + i) >= 0)
-                val label = r.grid.labels[i].toString()
-                assertTrue(label, label.startsWith(cs[i].label))
-                if (!ok) assertTrue(label, label.endsWith("(scale 3)") || label.endsWith("(scale 2)") || label.endsWith("(too small)"))
+                if (i >= LayoutGrid.PER_PAGE) continue
+                // Every one on the page is tappable (a hatched one explains itself on the hint line).
+                assertTrue("$n ${cs[i].id} hit", r.card.region.indexOf(r.grid.id + i) >= 0)
+                if (!ok) {
+                    val before = r.settings.current.layout
+                    r.tapId(r.grid.id + i)
+                    assertEquals("a hatched one is not chosen", before, r.settings.current.layout)
+                    val hint = r.grid.hint.toString()
+                    assertTrue(hint, hint.startsWith(LayoutPickerRow.NEEDS_SCALE) || hint == LayoutPickerRow.TOO_SMALL)
+                    assertEquals("the hint is whole", hint.length, r.grid.hintChars)
+                }
             }
         }
     }
@@ -152,12 +160,17 @@ class LayoutPickerTest {
                 val what = "S=$s ${w}x$h $n p rot $rot"
                 assertFalse("$what: no paging on the picker", r.card.list.hasFooter)
                 assertTrue(what, g.bounds.width > 0 && g.bounds.height > 0)
-                for (i in 0 until g.count) {
-                    val map = assertNotNull(g.maps[i])
-                    val box = g.boxes[i]
-                    assertTrue("$what $i box in cell", box.left >= g.cells[i].left && box.right <= g.cells[i].right && box.top >= g.cells[i].top && box.bottom <= g.cells[i].bottom)
-                    assertTrue("$what $i map in box", map.width <= box.width && map.height <= box.height)
-                    assertTrue("$what $i fingertip", g.cells[i].width >= r.card.m.target && g.cells[i].height >= r.card.m.target)
+                for (slot in 0 until LayoutGrid.PER_PAGE) {
+                    val i = g.itemAt(slot)
+                    if (i < 0) continue
+                    val box = g.boxes[slot]
+                    val cell = g.cells[slot]
+                    assertTrue("$what $i box in cell", box.left >= cell.left && box.right <= cell.right && box.top >= cell.top && box.bottom <= cell.bottom)
+                    val tw = if (TextLayout.isSideways(rot)) g.thumbH[i] else g.thumbW[i]
+                    val th = if (TextLayout.isSideways(rot)) g.thumbW[i] else g.thumbH[i]
+                    assertTrue("$what $i thumb in box", tw + 2 * (LayoutGrid.SEL + 1) <= box.width && th + 2 * (LayoutGrid.SEL + 1) <= box.height)
+                    assertTrue("$what $i fingertip", cell.width >= r.card.m.target && cell.height >= r.card.m.target)
+                    for (k in 0 until g.seatCount[i]) assertTrue("$what $i seat $k drawn", g.seatRects[i][k].width > 0 && g.seatRects[i][k].height > 0)
                 }
                 // Every live hit rect hit-tests to itself.
                 val reg = r.card.region
@@ -199,5 +212,33 @@ class LayoutPickerTest {
         errs += r.rig.check("t53-counters-2")
         r.rig.render().writePng(File(au.com.josephmark.dithertracker.purity.PurityChecks.outDir, "t53/counters-2.png"), 4)
         assertTrue(errs.joinToString("\n"), errs.isEmpty())
+    }
+
+    @Test fun aCountWithMoreThanAPagePagesWithTheFooter() {
+        val r = Rig()
+        r.overlay.open(0)
+        r.choosePlayers(3)
+        r.openPicker()
+        val g = r.grid
+        assertEquals(1, g.pages)
+        assertFalse(g.hasFooter)
+        // Pretend the count had 20 (the table has 12 at most today): two pages, ‹ disabled on the first.
+        val keep = g.count
+        g.count = 20
+        for (i in keep until 20) { g.items[i] = g.items[0]; g.layouts[i] = g.layouts[0]; g.enabledAt[i] = true }
+        g.setPage(0)
+        r.overlay.rotate(); r.overlay.rotate(); r.overlay.rotate(); r.overlay.rotate() // re-lay out
+        assertEquals(2, g.pages)
+        assertTrue(g.hasFooter)
+        assertEquals("1/2", g.indicator.toString())
+        assertTrue(r.card.region.indexOf(g.id + LayoutGrid.NEXT) >= 0)
+        assertFalse(r.card.region.indexOf(g.id + LayoutGrid.PREV) >= 0)
+        r.tapId(g.id + LayoutGrid.NEXT)
+        assertEquals(1, g.page)
+        assertEquals("2/2", g.indicator.toString())
+        assertEquals(LayoutGrid.PER_PAGE, g.itemAt(0))
+        assertEquals(-1, g.itemAt(20 - LayoutGrid.PER_PAGE))
+        r.tapId(g.id + LayoutGrid.PREV)
+        assertEquals(0, g.page)
     }
 }
