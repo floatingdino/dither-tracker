@@ -32,7 +32,9 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "au.com.josephmark.dithertracker"
+        // The application id (what devices and stores know the app by). The code's namespace and
+        // Kotlin packages are still au.com.josephmark.dithertracker; see docs/SPEC.md.
+        applicationId = "com.floatingdino.dithertracker"
         minSdk = 26
         targetSdk = 37
         // Bump versionCode for every APK handed to a device as an update; versionName is semver.

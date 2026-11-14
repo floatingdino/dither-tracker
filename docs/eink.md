@@ -283,9 +283,9 @@ activity in 12 taps. HOME while pending → no clean in the background; back →
 capture passes `tools/check_1bit.py --scale 4`. Not judged: anything about the panel.
 
 **What to look at on the Nomad** (`A=~/Library/Android/sdk/platform-tools/adb`, serial from
-`local/README.md`, `P=au.com.josephmark.dithertracker`):
+`local/README.md`, `P=com.floatingdino.dithertracker`):
 
-1. Cadence feel: `$A -s <nomad> shell am start -n $P/.MainActivity --ez trace true --ei cleanEvery 5`,
+1. Cadence feel: `$A -s <nomad> shell am start -n $P/au.com.josephmark.dithertracker.MainActivity --ez trace true --ei cleanEvery 5`,
    `$A -s <nomad> logcat -s PlayView:D | grep eink`. Tap one seat 5×, wait: does the seat flash come
    only after the table is quiet, and does it feel like a deliberate beat rather than a glitch? Is
    2 s the right quiet period (too eager / too late)?
@@ -461,6 +461,6 @@ Closing settings ran a full GC clean the same way.
 3. Whether FAST wants a lower Screen clean threshold than 20.
 4. Other modes for comparison: `--ei einkMode 4` (A2), `11` (DUX), `7` (AUTO), `0` (none).
 
-Try it on a debug build: `adb shell am start -S -n au.com.josephmark.dithertracker/.MainActivity
+Try it on a debug build: `adb shell am start -S -n com.floatingdino.dithertracker/au.com.josephmark.dithertracker.MainActivity
 --ez trace true [--ei einkMode N] [--ez gcClean true]`, then `adb logcat -s EinkViewMode:D
 View-HtFy:D PlayView:D`.

@@ -30,7 +30,7 @@ set -euo pipefail
 
 OUT=${1:?usage: capture_scenarios.sh <outdir>}
 A=${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}
-P=au.com.josephmark.dithertracker
+P=com.floatingdino.dithertracker
 APK=${APK:-app/build/outputs/apk/debug/app-debug.apk}
 mkdir -p "$OUT"
 
@@ -54,7 +54,7 @@ fresh() {
   sleep 1
   $A shell am force-stop $P
   $A shell pm clear $P >/dev/null
-  $A shell am start -S -n $P/.MainActivity "$@" >/dev/null
+  $A shell am start -S -n $P/au.com.josephmark.dithertracker.MainActivity "$@" >/dev/null
 }
 
 if [ -z "${NO_INSTALL:-}" ]; then $A install -r "$APK" >/dev/null; fi
@@ -247,7 +247,7 @@ if [ -z "${NO_FX:-}" ]; then
     [ -f "$d/meta.txt" ] || continue
     holds=$(awk '/^hold_ms/ { $1 = ""; print }' "$d/meta.txt")
     $A shell am force-stop $P
-    $A shell am start -n $P/.MainActivity --es fx "$name" --ef fxHold "$FXH" >/dev/null
+    $A shell am start -n $P/au.com.josephmark.dithertracker.MainActivity --es fx "$name" --ef fxHold "$FXH" >/dev/null
     sleep 3.5                         # launch + the gallery's 1.5 s start delay
     i=0
     for ms in $holds; do

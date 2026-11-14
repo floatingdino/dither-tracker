@@ -16,7 +16,7 @@ set -euo pipefail
 
 OUT=${1:?usage: capture_t55.sh <outdir>}
 A=${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}
-P=au.com.josephmark.dithertracker
+P=com.floatingdino.dithertracker
 APK=${APK:-app/build/outputs/apk/debug/app-debug.apk}
 H=${FX_HOLD:-8}
 mkdir -p "$OUT"
@@ -26,7 +26,7 @@ tap() { $A shell input tap "$1" "$2"; sleep 0.6; }
 launch() { # extras…
   $A shell am force-stop $P
   sleep 1
-  $A shell am start -n $P/.MainActivity --el seed 7 "$@" >/dev/null
+  $A shell am start -n $P/au.com.josephmark.dithertracker.MainActivity --el seed 7 "$@" >/dev/null
 }
 
 # Waits for the gallery's first effect to start (its trace line), then a beat for the frame to land.

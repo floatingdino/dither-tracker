@@ -17,7 +17,7 @@ set -euo pipefail
 
 OUT=${1:?usage: capture_t52.sh <outdir>}
 A=${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}
-P=au.com.josephmark.dithertracker
+P=com.floatingdino.dithertracker
 APK=${APK:-app/build/outputs/apk/debug/app-debug.apk}
 HOLD=16
 mkdir -p "$OUT"
@@ -38,7 +38,7 @@ launch() { # extras…
   sleep 1
   $A shell am force-stop $P
   $A shell pm clear $P >/dev/null
-  $A shell am start -S -n $P/.MainActivity --el seed 7 --ef diceHold $HOLD "$@" >/dev/null
+  $A shell am start -S -n $P/au.com.josephmark.dithertracker.MainActivity --el seed 7 --ef diceHold $HOLD "$@" >/dev/null
   sleep 7
 }
 # A presentation started by the tap at (x, y): one screencap in the middle of each of its four

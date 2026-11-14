@@ -15,7 +15,7 @@ set -euo pipefail
 
 OUT=${1:?usage: capture_t11.sh <outdir>}
 A=${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}
-P=au.com.josephmark.dithertracker
+P=com.floatingdino.dithertracker
 APK=${APK:-app/build/outputs/apk/debug/app-debug.apk}
 mkdir -p "$OUT"
 
@@ -24,7 +24,7 @@ cap() { $A exec-out screencap -p > "$OUT/$1.png"; echo "captured $1"; }
 launch() { # extras…
   $A shell am force-stop $P
   $A shell pm clear $P >/dev/null
-  $A shell am start -n $P/.MainActivity --el seed 7 "$@" >/dev/null
+  $A shell am start -n $P/au.com.josephmark.dithertracker.MainActivity --el seed 7 "$@" >/dev/null
   sleep 4
 }
 

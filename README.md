@@ -47,7 +47,7 @@ To install a debug build on a connected device or emulator:
 
 ```sh
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n au.com.josephmark.dithertracker/.MainActivity
+adb shell am start -n com.floatingdino.dithertracker/au.com.josephmark.dithertracker.MainActivity
 ```
 
 If more than one device is attached, add `-s <serial>` to every `adb` command. `adb devices` lists
@@ -178,15 +178,15 @@ people will have to uninstall (and lose their save) to update.
 
 ### Debug and release on the same device
 
-Both builds use the same application id, `au.com.josephmark.dithertracker`, so only one can be
+Both builds use the same application id, `com.floatingdino.dithertracker`, so only one can be
 installed at a time. A debug build installs over a `-PdebugSignRelease` build and the reverse,
 because both use the debug key, and the save is kept. Switching between a debug build and a build
-signed with your release key needs `adb uninstall au.com.josephmark.dithertracker` first, which
+signed with your release key needs `adb uninstall com.floatingdino.dithertracker` first, which
 deletes the save.
 
 To try a build without touching the installed one, add `-PappIdSuffix=.test` (any suffix): the APK
-becomes `au.com.josephmark.dithertracker.test`, installs beside the real app with its own save, and
-`adb uninstall au.com.josephmark.dithertracker.test` removes only it.
+becomes `com.floatingdino.dithertracker.test`, installs beside the real app with its own save, and
+`adb uninstall com.floatingdino.dithertracker.test` removes only it.
 
 ## Sideloading onto a Supernote Nomad
 
@@ -226,7 +226,7 @@ This is how the app has been installed during development.
 5. Start the app from the device, or from the computer:
 
    ```sh
-   adb shell am start -n au.com.josephmark.dithertracker/.MainActivity
+   adb shell am start -n com.floatingdino.dithertracker/au.com.josephmark.dithertracker.MainActivity
    ```
 
 ### 2b. Install by copying the APK to the device **(unverified)**
@@ -244,7 +244,7 @@ If this doesn't work on your firmware, use adb (2a).
 After install, Dither appears with its heart icon and "Dither" label in the Nomad's
 **Settings > Apps > My Apps** list. That list has been checked on a Nomad (the capture below
 predates the rename and still shows the old "Dither Tracker" label). The package id stays
-`au.com.josephmark.dithertracker`, so an update over an older install keeps its save.
+`com.floatingdino.dithertracker`, so an update over an older install keeps its save.
 
 ![Dither in the Nomad's app list](design/captures/t21-nomad-app-list-heart.png)
 
@@ -263,7 +263,7 @@ the installed copy. Uninstall the old copy first; this deletes the save.
 From the computer:
 
 ```sh
-adb uninstall au.com.josephmark.dithertracker
+adb uninstall com.floatingdino.dithertracker
 ```
 
 Or on the device: **Settings > Apps > My Apps**, pick Dither and uninstall it **(the

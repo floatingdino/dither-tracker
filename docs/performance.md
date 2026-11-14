@@ -332,8 +332,8 @@ python3 tools/bench_summary.py <outdir>                               # the tabl
 # Release beside the debug install: build with `applicationIdSuffix = ".t20"` on the release type
 # (scratch worktree only), -PdebugSignRelease, then
 adb install app-release.apk
-PKG=au.com.josephmark.dithertracker.t20 KEEP_SAVE=0 NO_INSTALL=1 PARTS="start play mem" tools/bench.sh <outdir>
-adb uninstall au.com.josephmark.dithertracker.t20
+PKG=com.floatingdino.dithertracker.t20 KEEP_SAVE=0 NO_INSTALL=1 PARTS="start play mem" tools/bench.sh <outdir>
+adb uninstall com.floatingdino.dithertracker.t20
 
 # Pixel equivalence of a renderer change: capture both builds with the same script and compare
 APK=<before.apk> ANDROID_SERIAL=emulator-<port> tools/check_purity.sh <before>

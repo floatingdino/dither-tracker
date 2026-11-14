@@ -47,8 +47,11 @@ A 1-bit life tracker for MTG Commander, built for E-ink. Primary target: **Super
   - `:core` — pure Kotlin/JVM, no Android imports: game state, rules, reducers, serialisation. JUnit tests.
   - `:app` — Android: dither engine, renderer, views, input, persistence, settings.
 - App name **Dither** (Sam, 2026-11-14: the launcher label and docs; it was "Dither Tracker").
-- Package: `au.com.josephmark.dithertracker` (namespace only; nothing is published). It is also the
-  `applicationId` and stays unchanged with the rename, so `adb install -r` keeps an installed copy's save.
+- Application id: `com.floatingdino.dithertracker` (Sam, 2026-11-14) — what devices and GitHub
+  releases know the app by. The code's namespace and Kotlin packages are still
+  `au.com.josephmark.dithertracker` (renaming them is a separate, mechanical ticket), so the launch
+  component is `com.floatingdino.dithertracker/au.com.josephmark.dithertracker.MainActivity`. An
+  install under the old id is a different app to Android: it does not update in place.
 - Local toolchain: JDK 21, Android SDK at `~/Library/Android/sdk` (platform `android-37.0`,
   build-tools `36.0.0`, emulator + a `google_apis_playstore` image). `gradle`/`adb` not on PATH.
 

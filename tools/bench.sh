@@ -21,7 +21,7 @@ set -euo pipefail
 
 OUT=${1:?usage: bench.sh <outdir>}
 A=${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}
-P=${PKG:-au.com.josephmark.dithertracker} # PKG: another applicationId (e.g. a release build installed beside the debug one)
+P=${PKG:-com.floatingdino.dithertracker} # PKG: another applicationId (e.g. a release build installed beside the debug one)
 ACT=$P/au.com.josephmark.dithertracker.MainActivity
 APK=${APK:-app/build/outputs/apk/debug/app-debug.apk}
 PARTS=${PARTS:-start play clean fx mem idle bg}
