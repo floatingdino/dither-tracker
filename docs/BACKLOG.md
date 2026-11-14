@@ -858,3 +858,6 @@ Read `docs/SPEC.md` first; its hard rules apply to every task.
   (backup in `local/nomad-save-backup/migrate-*`), new app launched (device was asleep). The old
   `au.com.josephmark.dithertracker` install is still there until Sam says to remove it. Both running
   agents told. Running: T61, T62.
+- 2026-11-14 — Tick 88: on Sam's yes, the old `au.com.josephmark.dithertracker` install was removed
+  from the Nomad; only `com.floatingdino.dithertracker` remains, with the migrated save (file modes
+  reset to owner-only after the copy).
