@@ -133,9 +133,48 @@ $ANDROID_HOME/build-tools/<version>/apksigner verify --print-certs app/build/out
 
 ### Versioning
 
-`versionCode` and `versionName` are in `app/build.gradle.kts`. `versionName` is semver and shows in
+`versionCode` and `versionName` default to the values in `app/build.gradle.kts` and can be set per
+build with `-Pdither.versionCode=N -Pdither.versionName=X.Y.Z`. `versionName` is semver and shows in
 the device's app list. Raise `versionCode` by one for every APK you hand to a device as an update.
-Android refuses to install a lower `versionCode` over a higher one.
+Android refuses to install a lower `versionCode` over a higher one. The release workflow sets both
+itself: the name from the tag, the code from the workflow run number.
+
+### Releases on GitHub
+
+`.github/workflows/release.yml` builds the signed release APK and attaches it to a GitHub Release.
+
+To cut a release, push a tag that starts with `v`:
+
+```bash
+git tag v0.2.0
+```
+
+```bash
+git push origin v0.2.0
+```
+
+The workflow runs the unit tests, builds the release APK, and creates the Release `v0.2.0` with
+`dither-0.2.0.apk` and its SHA-256 attached, with notes generated from the commits since the last
+tag. It can also be run by hand from the Actions tab (Release APK → Run workflow): that builds the
+APK as a downloadable workflow artifact without publishing, unless "publish" is ticked.
+
+**One-time setup.** Publishing needs the release key as four repository secrets (GitHub → the
+repository → Settings → Secrets and variables → Actions → New repository secret). Create the key as
+in "One-time setup: create a release key" above, then:
+
+| Secret | Value |
+|---|---|
+| `DITHER_KEYSTORE_BASE64` | the keystore file, base64-encoded: `base64 -i ~/keys/dither-tracker-release.jks` |
+| `DITHER_STORE_PASSWORD` | the keystore password |
+| `DITHER_KEY_ALIAS` | the key alias (`dither-tracker` in the example) |
+| `DITHER_KEY_PASSWORD` | the key password (the same as the store password for a PKCS12 keystore) |
+
+Without the secrets, a tag push fails at the signing step on purpose: an APK signed with a throwaway
+key could never be updated in place. A manual run without "publish" still works and signs with the
+runner's debug key, which is only good for checking that the build passes.
+
+Keep the keystore and its password backed up. Every release must be signed with the same key, or
+people will have to uninstall (and lose their save) to update.
 
 ### Debug and release on the same device
 

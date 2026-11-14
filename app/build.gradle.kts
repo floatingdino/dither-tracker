@@ -36,8 +36,10 @@ android {
         minSdk = 26
         targetSdk = 37
         // Bump versionCode for every APK handed to a device as an update; versionName is semver.
-        versionCode = 1
-        versionName = "0.1.0"
+        // The release workflow passes both (-Pdither.versionCode / -Pdither.versionName): the code is
+        // the workflow run number, the name comes from the tag.
+        versionCode = providers.gradleProperty("dither.versionCode").orNull?.toIntOrNull() ?: 1
+        versionName = providers.gradleProperty("dither.versionName").orNull ?: "0.1.0"
         appIdSuffix?.let { applicationIdSuffix = it }
     }
 
