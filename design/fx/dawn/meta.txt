@@ -5,7 +5,7 @@ frames 4
 role day
 anchor centre 0 0
 tile 1 D4 ink
-hold_ms 300 400 250 0
+hold_ms 250 450 250 0
 ink_px 945 252 252 0
 knockout_px 264 216 216 0
 tile_px 0 806 0 0

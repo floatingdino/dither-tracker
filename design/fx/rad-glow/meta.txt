@@ -7,7 +7,7 @@ anchor centre 0 0
 tile 1 D4 ink
 tile 2 D2 ink
 tile 3 HLINES paper
-hold_ms 300 300 250 0
+hold_ms 250 350 250 0
 ink_px 284 284 16 0
 knockout_px 140 137 0 0
 tile_px 3308 8645 0 0

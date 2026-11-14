@@ -4,7 +4,7 @@ size 149 165
 frames 4
 role monarch
 anchor centre 0 0
-hold_ms 250 400 250 0
+hold_ms 250 450 250 0
 ink_px 568 656 62 0
 knockout_px 258 368 72 0
 flips 568 520 718 62   # total 1868, over sticker "37" on the quad tile

@@ -5,7 +5,7 @@ frames 4
 role storm
 anchor centre 0 0
 tile 1 D8 fill
-hold_ms 300 350 250 0
+hold_ms 250 400 250 0
 ink_px 315 455 60 0
 knockout_px 148 248 0 0
 cut_px 218 520 0 0

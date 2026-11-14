@@ -4,7 +4,7 @@ size 149 165
 frames 4
 role poison
 anchor centre 0 0
-hold_ms 300 350 250 0
+hold_ms 250 400 250 0
 ink_px 384 818 224 0
 knockout_px 164 338 0 0
 cut_px 848 1331 0 0

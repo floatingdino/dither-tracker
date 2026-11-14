@@ -4,7 +4,7 @@ size 149 165
 frames 3
 role turn
 anchor centre 0 0
-hold_ms 300 350 0
+hold_ms 250 400 0
 ink_px 528 420 0
 knockout_px 0 0 0
 flips 528 948 420   # total 1896, over sticker "37" on the quad tile

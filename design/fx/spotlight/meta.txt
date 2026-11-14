@@ -5,7 +5,7 @@ frames 3
 role turn
 anchor centre 0 0
 tile 1 D4 ink
-hold_ms 350 350 0
+hold_ms 300 400 0
 ink_px 0 72 0
 knockout_px 0 80 0
 tile_px 6623 1420 0

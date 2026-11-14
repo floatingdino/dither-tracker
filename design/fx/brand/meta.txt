@@ -4,7 +4,7 @@ size 149 165
 frames 4
 role poison
 anchor centre 0 0
-hold_ms 350 300 250 0
+hold_ms 400 250 250 0
 ink_px 1536 468 48 0
 knockout_px 656 332 0 0
 flips 1094 1562 506 48   # total 3210, over sticker "37" on the quad tile

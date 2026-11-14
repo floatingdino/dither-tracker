@@ -5,7 +5,7 @@ frames 4
 role ring
 anchor centre 0 0
 tile 1 D12 paper
-hold_ms 300 450 250 0
+hold_ms 250 500 250 0
 ink_px 274 709 56 0
 knockout_px 228 474 52 0
 tile_px 0 4390 0 0

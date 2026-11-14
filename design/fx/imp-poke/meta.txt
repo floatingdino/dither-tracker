@@ -4,7 +4,7 @@ size 149 165
 frames 4
 role commander
 anchor centre 0 0
-hold_ms 300 350 300 0
+hold_ms 250 450 250 0
 ink_px 910 1044 48 0
 knockout_px 400 544 261 0
 cut_px 0 120 0 0

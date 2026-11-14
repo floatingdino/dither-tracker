@@ -6,7 +6,7 @@ role initiative
 anchor centre -12 0
 tile 1 D4 ink
 tile 2 D1 ink
-hold_ms 300 350 250 0
+hold_ms 250 400 250 0
 ink_px 284 651 12 0
 knockout_px 0 12 0 0
 tile_px 980 6021 0 0
