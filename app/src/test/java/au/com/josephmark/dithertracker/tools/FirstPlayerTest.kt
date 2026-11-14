@@ -59,7 +59,7 @@ class FirstPlayerTest {
         val s = GemLayout.slotOf(MenuItem.FIRST)
         val before = r.turn
         r.tap(g.facetX[s], g.facetY[s])
-        assertEquals(MenuState.CLOSED, r.menu.state.phase)
+        assertEquals(MenuState.OPEN, r.menu.state.phase) // T51: the gem stays open
         // First the "ME?" beat on every live seat: nothing picked on screen, nothing in the game yet.
         assertTrue(r.first.isAsking)
         assertEquals(0b1111, r.first.asking)
@@ -105,13 +105,16 @@ class FirstPlayerTest {
         val r = Rig()
         r.pickFromMenu()
         assertTrue(r.first.seat >= 0)
+        r.menu.state.close() // T51: the gem stays open until dismissed; with it open a tile tap only dismisses it
         val z = PlayRig.mid(r.rig.l.zones[PlayLayout.zone(1, PlayLayout.PLUS)])
         r.tap(z[0], z[1])
         assertEquals(-1, r.first.seat)
         assertEquals(41, r.rig.session.state.players[1].life)
-        // The centre diamond too.
+        // The centre diamond too (once the gem's X has closed it, T51).
         r.pickFromMenu()
         assertTrue(r.first.seat >= 0)
+        r.tap(r.rig.l.diamondCx, r.rig.l.diamondCy)
+        assertEquals(MenuState.CLOSED, r.menu.state.phase)
         r.tap(r.rig.l.diamondCx, r.rig.l.diamondCy)
         assertEquals(-1, r.first.seat)
         assertEquals(MenuState.OPEN, r.menu.state.phase)

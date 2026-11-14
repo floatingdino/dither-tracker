@@ -21,7 +21,9 @@ enum class MenuItem(val icon: Icon, val label: String, val routed: Boolean) {
 
 /**
  * Where a routed [MenuItem] goes: another overlay (its own component, registered after the menu in
- * `PlayScreen`'s OVERLAY slot) implements this. The menu closes, then calls [open].
+ * `PlayScreen`'s OVERLAY slot) implements this. The menu calls [open] and **stays open** underneath
+ * (T51): the destination draws over the gem and its zones win; it must not close the menu, and when
+ * it closes, redrawing its own rect repaints the gem below.
  *
  * [facing] is the rotation of the facet that was tapped — 0 (it faces the S edge), 180 (N), or
  * [GemLayout.FOLD] for a two-faced tip on the horizontal divider (it faces both long edges; a

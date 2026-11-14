@@ -159,6 +159,10 @@ and hold the KO tile off with `Events.KO_HOLD` / `KO_RELEASE` while a KO flouris
 4. `draw(f, SCREEN)` only while open. `bounds` = your panel.
 5. The diamond: replace `MenuDiamond`'s block with a zone (or a new `MenuButton` component) whose
    `onTap` opens the overlay. Register the overlay in `PlayScreen`'s OVERLAY slot.
+   A menu destination (`menu.MenuDestination`) opens **over** the open gem (T51: the gem stays open
+   until dismissed): register it after the menu, so it draws above the gem and its zones win; declare
+   a full-screen dismiss/block while up; never close the menu; on close, invalidating your own rect
+   repaints the gem beneath.
 6. A region-only overlay (a per-seat confirm) covers `1 shl seat` and draws in that seat's panel.
 
 ## Verification harness

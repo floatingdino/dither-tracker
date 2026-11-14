@@ -123,13 +123,17 @@ class ScreenRig(val w: Int, val h: Int, val s: Int, seed: Long = 7, val players:
 
     fun tap(c: Component, seat: Int, local: Int) = need(c, seat, local).let { tapAt(it[0], it[1]) }
 
-    /** Puts a finger down on the zone and leaves it there (render, then [release] or [cancel]). */
+    /**
+     * Puts a finger down on the zone and leaves it there past the press delay (T57), so the zone
+     * shows its inversion (render, then [release] or [cancel]).
+     */
     fun press(c: Component, seat: Int, local: Int) = need(c, seat, local).let { pressAt(it[0], it[1]) }
 
     fun pressAt(gx: Int, gy: Int) {
         val p = nextPointer()
         held = held or (1 shl p)
         stage.down(p, gx, gy, now)
+        advance(stage.pressDelayMillis) // held, not tapped: the inversion shows (T57)
     }
 
     fun cancel() {
@@ -137,7 +141,15 @@ class ScreenRig(val w: Int, val h: Int, val s: Int, seed: Long = 7, val players:
         stage.cancel()
     }
 
-    fun openMenu() = tapAt(l.diamondCx, l.diamondCy)
+    /** Opens the gem (the centre diamond) unless it is open already (T51: it stays open until dismissed). */
+    fun openMenu() {
+        if (!menu.state.isOpen) tapAt(l.diamondCx, l.diamondCy)
+    }
+
+    /** Closes the gem with its centre X (no-op when closed). */
+    fun closeMenu() {
+        if (menu.state.isOpen) tapAt(l.diamondCx, l.diamondCy)
+    }
 
     fun gemPoint(item: MenuItem): IntArray {
         val g = menu.gem!!

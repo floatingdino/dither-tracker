@@ -18,6 +18,10 @@ class PlayerCountTest {
         rig.tapAt(g.facetX[slot], g.facetY[slot])
         assertEquals("${rig.l} after NEW", MenuState.CONFIRM, rig.menu.state.phase)
         rig.tapAt(g.confirmBtn.right - 3, g.cy + 5)
+        // T51: the gem is still open over the new game; its centre X closes it.
+        assertEquals(MenuState.OPEN, rig.menu.state.phase)
+        rig.tapAt(rig.l.diamondCx, rig.l.diamondCy)
+        assertEquals(MenuState.CLOSED, rig.menu.state.phase)
     }
 
     @Test fun newGameAppliesTheChosenCountAndRelaysOut() {

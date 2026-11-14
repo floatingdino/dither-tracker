@@ -8,20 +8,20 @@ import au.com.josephmark.dithertracker.play.Scheduler
  * ```
  * CLOSED ──open()──▶ [BLOOM ──KEY_MS──▶] OPEN ──confirm()──▶ CONFIRM
  *    ▲                                    │  ◀──back()──────────┘
- *    └──────── close() / IDLE_MS without a touch ─────────────────┘
+ *    └──────────────────── close() ──────────────────────────────┘
  * ```
  *
  * [BLOOM] is the optional keyframe (`concept-1-gem-key1.png`, an empty doubled diamond) shown for
  * [KEY_MS] before the full gem; it is off ([bloom] false) unless it clearly reads better on e-ink.
- * Every phase change and every [touched] re-arms the idle timeout. [listener] hears every change
- * (the component invalidates). Allocation-free.
+ * **Only [close] closes it** (T51, Sam: "menu should stay open until dismissed"): no idle timeout,
+ * and no tool closes it — the owner calls [close] for the centre X or a tap outside. [listener]
+ * hears every change (the component invalidates). Allocation-free.
  */
 class MenuState(
     private val timers: Scheduler,
     private val listener: Listener,
     /** Show the key1 beat before the gem. */
     var bloom: Boolean = BLOOM_DEFAULT,
-    val idleMillis: Long = IDLE_MS,
 ) {
     fun interface Listener {
         fun onPhaseChanged(old: Int, new: Int)
@@ -44,7 +44,6 @@ class MenuState(
 
     fun close() {
         timers.cancel(TIMER_BLOOM)
-        timers.cancel(TIMER_IDLE)
         set(CLOSED)
     }
 
@@ -61,21 +60,12 @@ class MenuState(
         if (phase == CONFIRM) set(OPEN)
     }
 
-    /** Any touch on the menu: the idle timeout starts again. */
-    fun touched() {
-        if (phase != CLOSED) timers.schedule(TIMER_IDLE, idleMillis)
-    }
-
     fun onTimer(id: Int) {
-        when (id) {
-            TIMER_IDLE -> if (phase != CLOSED) close()
-            TIMER_BLOOM -> if (phase == BLOOM) set(OPEN)
-        }
+        if (id == TIMER_BLOOM && phase == BLOOM) set(OPEN)
     }
 
     private fun set(p: Int) {
         val old = phase
-        if (p != CLOSED) timers.schedule(TIMER_IDLE, idleMillis)
         if (old == p) return
         phase = p
         listener.onPhaseChanged(old, p)
@@ -87,17 +77,9 @@ class MenuState(
         const val OPEN = 2
         const val CONFIRM = 3
 
-        /** Local timer ids (the owner's `timers` bank). */
-        const val TIMER_IDLE = 0
-        const val TIMER_BLOOM = 1
-        const val TIMERS = 2
-
-        /**
-         * Idle timeout: the open menu blocks the tiles' input (a tap outside only closes it), so it
-         * should not linger when the table walks away — but long enough to read a facet, undo a few
-         * steps or think about a restart.
-         */
-        const val IDLE_MS = 20_000L
+        /** Local timer ids (the owner's `timers` bank): only the optional bloom beat (T51 dropped the idle timeout). */
+        const val TIMER_BLOOM = 0
+        const val TIMERS = 1
 
         /** How long the optional bloom keyframe is held (SPEC rule 4: ≥ ~250 ms). */
         const val KEY_MS = 250L
